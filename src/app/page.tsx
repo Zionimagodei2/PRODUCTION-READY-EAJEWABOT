@@ -1,31 +1,50 @@
 'use client'
 
+import { useAppStore } from '@/store/app-store'
+import { Header } from '@/components/app/header'
+import { BottomNav } from '@/components/app/bottom-nav'
+import { DashboardPage } from '@/components/app/dashboard-page'
+import { CampaignsPage } from '@/components/app/campaigns-page'
+import { ContactsPage } from '@/components/app/contacts-page'
+import { ToolsPage } from '@/components/app/tools-page'
+import { SettingsPage } from '@/components/app/settings-page'
+import { FeatureRouter } from '@/components/app/features/feature-router'
+import { AnimatePresence, motion } from 'framer-motion'
+
+const tabComponents: Record<string, React.ComponentType> = {
+  dashboard: DashboardPage,
+  campaigns: CampaignsPage,
+  contacts: ContactsPage,
+  tools: ToolsPage,
+  settings: SettingsPage,
+}
+
 export default function Home() {
+  const { activeTab, activeFeature } = useAppStore()
+
+  const TabComponent = tabComponents[activeTab]
+
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      gap: '2rem',
-      padding: '1rem'
-    }}>
-      <div style={{
-        position: 'relative',
-        width: '6rem',
-        height: '6rem'
-      }}>
-        <img
-          src="/logo.svg"
-          alt="Z.ai Logo"
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain'
-          }}
-        />
-      </div>
+    <div className="min-h-screen flex flex-col bg-background">
+      <Header />
+      <main className="flex-1 overflow-y-auto">
+        {activeFeature ? (
+          <FeatureRouter />
+        ) : (
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15 }}
+            >
+              <TabComponent />
+            </motion.div>
+          </AnimatePresence>
+        )}
+      </main>
+      <BottomNav />
     </div>
   )
 }

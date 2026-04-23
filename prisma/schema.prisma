@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,20 +7,67 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
+model Contact {
+  id          String   @id @default(cuid())
+  name        String
+  phone       String
+  tags        String   @default("")
+  lastMessage String   @default("")
+  status      String   @default("active")
+  dateAdded   DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Campaign {
   id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
+  name      String
+  status    String   @default("scheduled")
+  total     Int      @default(0)
+  sent      Int      @default(0)
+  delivered Int      @default(0)
+  replies   Int      @default(0)
+  message   String   @default("")
+  date      DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-model Post {
+model AutoReplyRule {
   id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
+  trigger   String
+  response  String
+  matchType String   @default("contains")
+  active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model ChatbotFlow {
+  id          String   @id @default(cuid())
+  name        String
+  description String   @default("")
+  nodes       String   @default("[]")
+  active      Boolean  @default(false)
+  triggers    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ScheduledMessage {
+  id         String   @id @default(cuid())
+  message    String
+  recipients String   @default("")
+  date       String
+  time       String
+  recurring  String   @default("none")
+  status     String   @default("pending")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Setting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String @default("")
 }
