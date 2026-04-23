@@ -11,6 +11,7 @@ export type FeaturePage =
   | 'link-generator'
   | 'analytics' 
   | 'campaign-reports'
+  | 'message-templates'
   | null
 
 interface AppState {

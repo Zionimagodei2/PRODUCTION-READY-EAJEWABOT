@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { Users, Search, Link2, Play, Pause, Download, Copy, CheckCircle2, AlertCircle, ExternalLink } from 'lucide-react'
 
 // Group Extractor Sub-component
-function GroupExtractor() {
+export function GroupExtractor() {
   const [extracting, setExtracting] = useState(false)
   const [progress, setProgress] = useState(0)
   const [extracted, setExtracted] = useState<{name: string; phone: string; group: string}[]>([])
@@ -129,7 +129,7 @@ function GroupExtractor() {
 }
 
 // Lead Scraper Sub-component
-function LeadScraper() {
+export function LeadScraper() {
   const [scraping, setScraping] = useState(false)
   const [keyword, setKeyword] = useState('')
   const [results, setResults] = useState<{business: string; phone: string; category: string}[]>([])
@@ -217,7 +217,7 @@ function LeadScraper() {
 }
 
 // Link Generator Sub-component
-function LinkGenerator() {
+export function LinkGenerator() {
   const [phone, setPhone] = useState('')
   const [message, setMessage] = useState('')
   const [generatedLink, setGeneratedLink] = useState('')

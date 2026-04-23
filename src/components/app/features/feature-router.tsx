@@ -10,6 +10,7 @@ import { CampaignReportsPage } from './campaign-reports-page'
 import { GroupExtractorPage } from './group-extractor-page'
 import { LeadScraperPage } from './lead-scraper-page'
 import { LinkGeneratorPage } from './link-generator-page'
+import { MessageTemplatesPage } from './message-templates-page'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const featureComponents: Record<FeaturePage, React.ComponentType> = {
@@ -22,6 +23,7 @@ const featureComponents: Record<FeaturePage, React.ComponentType> = {
   'link-generator': LinkGeneratorPage,
   'analytics': AnalyticsPage,
   'campaign-reports': CampaignReportsPage,
+  'message-templates': MessageTemplatesPage,
 }
 
 export function FeatureRouter() {
