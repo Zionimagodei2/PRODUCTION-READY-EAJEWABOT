@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Settings as SettingsIcon, Shield, Bell, Palette, Database, Key, Globe, HelpCircle, LogOut, ChevronRight, Moon, Zap, MessageSquare, CreditCard, Activity, HardDrive, Clock, Pencil, Info } from 'lucide-react'
+import { Settings as SettingsIcon, Shield, Bell, Palette, Database, Key, Globe, HelpCircle, LogOut, ChevronRight, Moon, Zap, MessageSquare, CreditCard, Activity, HardDrive, Clock, Pencil, Info, MessageCircle, BarChart3, Users, HardDriveDownload } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 
 interface SettingItem {
@@ -90,8 +90,9 @@ export function SettingsPage() {
   ]
 
   const supportSettings: SettingItem[] = [
+    { icon: <MessageCircle className="w-4 h-4" />, label: 'Live Chat', subtitle: 'Chat with support', action: 'navigate', iconColor: '#22c55e', iconBg: 'rgba(34,197,94,0.1)' },
     { icon: <HelpCircle className="w-4 h-4" />, label: 'Help & Support', subtitle: 'FAQs, documentation', action: 'navigate', iconColor: '#64748b', iconBg: 'rgba(100,116,139,0.1)' },
-    { icon: <Zap className="w-4 h-4" />, label: 'About EAJE WhatsBot', subtitle: 'Version 1.0.0', action: 'navigate', iconColor: '#3b82f6', iconBg: 'rgba(59,130,246,0.1)' },
+    { icon: <Zap className="w-4 h-4" />, label: 'About EAJE WhatsBot', subtitle: 'Version 2.4.0', action: 'navigate', iconColor: '#3b82f6', iconBg: 'rgba(59,130,246,0.1)' },
   ]
 
   return (
@@ -123,31 +124,85 @@ export function SettingsPage() {
         </div>
       </motion.div>
 
-      {/* Storage & Backup Info */}
-      <div className="glass-card rounded-xl p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-purple-500/10">
-              <HardDrive className="w-4 h-4 text-purple-400" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-white/80">Storage Used</p>
-              <p className="text-[10px] text-white/40">2.4 GB of 10 GB</p>
-            </div>
-          </div>
-          <span className="text-xs font-bold text-purple-400">24%</span>
+      {/* Usage Statistics Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="glass-card rounded-2xl p-4 space-y-4 stat-card-blue"
+      >
+        <div className="flex items-center gap-2">
+          <BarChart3 className="w-4 h-4 text-blue-400" />
+          <span className="text-xs font-bold text-white/70 uppercase tracking-wider">Usage Statistics</span>
         </div>
-        <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-          <div 
-            className="h-full rounded-full bg-gradient-to-r from-purple-500 to-blue-500 progress-shimmer"
-            style={{ width: '24%', backgroundSize: '200% 100%', background: 'linear-gradient(90deg, #8b5cf6, #3b82f6, #8b5cf6)' }}
-          />
+        {/* Messages Sent */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-blue-500/10">
+                <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold text-white/85">Messages Sent</p>
+                <p className="text-[9px] text-white/30">This month</p>
+              </div>
+            </div>
+            <span className="text-xs font-bold text-blue-400">847 <span className="text-white/30 font-normal">/ 1,000</span></span>
+          </div>
+          <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 progress-shimmer"
+              style={{ width: '84.7%', backgroundSize: '200% 100%' }}
+            />
+          </div>
+        </div>
+        {/* Active Contacts */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-green-500/10">
+                <Users className="w-3.5 h-3.5 text-green-400" />
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold text-white/85">Active Contacts</p>
+                <p className="text-[9px] text-white/30">Engaged users</p>
+              </div>
+            </div>
+            <span className="text-xs font-bold text-green-400">1,284 <span className="text-white/30 font-normal">/ 2,000</span></span>
+          </div>
+          <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-400 progress-shimmer"
+              style={{ width: '64.2%', backgroundSize: '200% 100%' }}
+            />
+          </div>
+        </div>
+        {/* Storage Used */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-purple-500/10">
+                <HardDrive className="w-3.5 h-3.5 text-purple-400" />
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold text-white/85">Storage Used</p>
+                <p className="text-[9px] text-white/30">Media & data</p>
+              </div>
+            </div>
+            <span className="text-xs font-bold text-purple-400">2.1 GB <span className="text-white/30 font-normal">/ 5 GB</span></span>
+          </div>
+          <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-purple-500 to-blue-400 progress-shimmer"
+              style={{ width: '42%', backgroundSize: '200% 100%' }}
+            />
+          </div>
         </div>
         <div className="flex items-center gap-1.5 text-[10px] text-white/30">
           <Clock className="w-2.5 h-2.5" />
-          <span>Last backup: Today, 2:30 AM</span>
+          <span>Usage resets on Feb 1, 2024</span>
         </div>
-      </div>
+      </motion.div>
 
       {/* Account */}
       <div>
@@ -193,7 +248,12 @@ export function SettingsPage() {
         </div>
         <div className="glass-card rounded-2xl overflow-hidden divide-y divide-white/[0.04]">
           {supportSettings.map((item, i) => (
-            <SettingRow key={i} item={item} />
+            <div key={i} className="relative">
+              <SettingRow item={item} />
+              {item.label === 'Live Chat' && (
+                <span className="absolute right-12 top-1/2 -translate-y-1/2 text-[8px] font-bold px-1.5 py-0.5 rounded-md bg-green-500/15 text-green-400 border border-green-500/20 animate-pulse-dot">Online</span>
+              )}
+            </div>
           ))}
         </div>
       </div>
@@ -209,9 +269,9 @@ export function SettingsPage() {
 
       {/* Version Info Footer */}
       <div className="flex flex-col items-center gap-1 pt-2 pb-4">
-        <div className="flex items-center gap-1 text-[9px] text-white/20">
+        <div className="flex items-center gap-1 text-[9px] text-white/15">
           <Info className="w-2.5 h-2.5" />
-          <span>EAJE WhatsBot v2.4.1</span>
+          <span>EAJE WhatsBot v2.4.0</span>
         </div>
         <p className="text-[8px] text-white/10">Build 2024.01.15 • Pro License</p>
       </div>

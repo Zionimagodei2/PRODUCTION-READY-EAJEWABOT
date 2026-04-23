@@ -22,6 +22,9 @@ import { CampaignWizardPage } from './campaign-wizard-page'
 import { ContactImportPage } from './contact-import-page'
 import { QrCodePage } from './qr-code-page'
 import { ResponseTimePage } from './response-time-page'
+import { InboxPage } from './inbox-page'
+import { ContactGroupsPage } from './contact-groups-page'
+import { FlowBuilderPage } from './flow-builder-page'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const featureComponents: Record<FeaturePage, React.ComponentType> = {
@@ -46,6 +49,9 @@ const featureComponents: Record<FeaturePage, React.ComponentType> = {
   'contact-import': ContactImportPage,
   'qr-code': QrCodePage,
   'response-time': ResponseTimePage,
+  'inbox': InboxPage,
+  'contact-groups': ContactGroupsPage,
+  'flow-builder': FlowBuilderPage,
 }
 
 export function FeatureRouter() {

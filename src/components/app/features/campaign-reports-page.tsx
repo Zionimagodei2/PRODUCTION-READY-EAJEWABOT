@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FileText, Download, Filter, Search, CheckCircle2, XCircle, Clock, Eye, ChevronDown, ArrowLeft, Hash } from 'lucide-react'
+import { FileText, Download, Filter, Search, CheckCircle2, XCircle, Clock, Eye, ChevronDown, ArrowLeft, Hash, TrendingUp, AlertTriangle, BarChart3 } from 'lucide-react'
 
 interface Report {
   id: string
@@ -38,10 +38,16 @@ export function CampaignReportsPage() {
   })
 
   const statusConfig = {
-    completed: { color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', label: 'Completed' },
-    partial: { color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', label: 'Partial' },
-    failed: { color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', label: 'Failed' },
+    completed: { color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', label: 'Completed', glow: '0 0 10px rgba(34,197,94,0.15)' },
+    partial: { color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', label: 'Partial', glow: '0 0 10px rgba(245,158,11,0.15)' },
+    failed: { color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', label: 'Failed', glow: '0 0 10px rgba(239,68,68,0.15)' },
   }
+
+  // Summary stats
+  const totalSent = mockReports.reduce((a, r) => a + r.totalSent, 0)
+  const totalDelivered = mockReports.reduce((a, r) => a + r.delivered, 0)
+  const totalFailed = mockReports.reduce((a, r) => a + r.failed, 0)
+  const avgDeliveryRate = ((totalDelivered / totalSent) * 100).toFixed(1)
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-5">
@@ -63,48 +69,86 @@ export function CampaignReportsPage() {
         </div>
       </div>
 
-      {/* Summary */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="glass-card rounded-xl p-3">
-          <p className="text-xs text-white/40">Avg Delivery Rate</p>
-          <p className="text-xl font-bold text-neon-green mt-0.5">89.3%</p>
-        </div>
-        <div className="glass-card rounded-xl p-3">
-          <p className="text-xs text-white/40">Avg Reply Rate</p>
-          <p className="text-xl font-bold text-neon-blue mt-0.5">30.5%</p>
-        </div>
+      {/* Summary Stats - Enhanced */}
+      <div className="grid grid-cols-3 gap-2.5">
+        {[
+          { label: 'Total Sent', value: totalSent.toLocaleString(), color: '#3b82f6', icon: <BarChart3 className="w-3.5 h-3.5" /> },
+          { label: 'Avg Delivery', value: `${avgDeliveryRate}%`, color: '#22c55e', icon: <TrendingUp className="w-3.5 h-3.5" /> },
+          { label: 'Total Failed', value: totalFailed.toLocaleString(), color: '#ef4444', icon: <AlertTriangle className="w-3.5 h-3.5" /> },
+        ].map((stat, i) => (
+          <motion.div
+            key={stat.label}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.08 }}
+            className="glass-card rounded-xl p-3 text-center card-hover-lift"
+            style={{ borderTop: `2px solid ${stat.color}` }}
+          >
+            <div
+              className="w-7 h-7 mx-auto rounded-lg flex items-center justify-center mb-1.5"
+              style={{ backgroundColor: `${stat.color}12`, border: `1px solid ${stat.color}20`, color: stat.color }}
+            >
+              {stat.icon}
+            </div>
+            <p className="text-lg font-extrabold" style={{ color: stat.color }}>{stat.value}</p>
+            <p className="text-[9px] text-white/40 font-semibold">{stat.label}</p>
+          </motion.div>
+        ))}
       </div>
 
-      {/* Search & Filter */}
-      <div className="space-y-2">
+      <div className="gradient-divider" />
+
+      {/* Search & Filter - Enhanced */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="space-y-2"
+      >
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search reports..."
-            className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-neon-red/40"
+            className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-red-500/30 focus:ring-1 focus:ring-red-500/20 transition-all"
           />
         </div>
         <div className="flex gap-2">
-          {['all', 'completed', 'partial', 'failed'].map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-lg text-[10px] font-medium border transition-all ${
-                filter === f
-                  ? 'bg-neon-red/15 text-neon-red border-neon-red/25'
-                  : 'bg-white/5 text-white/40 border-white/5'
-              }`}
-            >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
+          {['all', 'completed', 'partial', 'failed'].map((f) => {
+            const fColor = f === 'all' ? '#8b5cf6' : f === 'completed' ? '#22c55e' : f === 'partial' ? '#f59e0b' : '#ef4444'
+            return (
+              <motion.button
+                key={f}
+                onClick={() => setFilter(f)}
+                whileTap={{ scale: 0.95 }}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-semibold border transition-all duration-200 ${
+                  filter === f
+                    ? 'text-white/90 border-opacity-40'
+                    : 'bg-white/5 text-white/40 border-white/5 hover:bg-white/10'
+                }`}
+                style={filter === f ? {
+                  backgroundColor: `${fColor}15`,
+                  borderColor: `${fColor}30`,
+                  color: fColor,
+                  boxShadow: `0 0 10px ${fColor}15`,
+                } : undefined}
+              >
+                {f.charAt(0).toUpperCase() + f.slice(1)}
+              </motion.button>
+            )
+          })}
         </div>
-      </div>
+      </motion.div>
 
-      {/* Reports List */}
+      {/* Reports List - Enhanced */}
       <div className="space-y-2.5">
+        <div className="flex items-center gap-2 px-1">
+          <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Reports</span>
+          <div className="flex-1 gradient-divider" />
+          <span className="text-[9px] text-white/20">{filtered.length} results</span>
+        </div>
+
         {filtered.map((report, i) => {
           const config = statusConfig[report.status]
           const deliveryRate = ((report.delivered / report.totalSent) * 100).toFixed(1)
@@ -118,96 +162,148 @@ export function CampaignReportsPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="glass-card rounded-xl overflow-hidden"
+              className="glass-card rounded-2xl overflow-hidden card-hover-lift"
+              style={{ borderLeft: `2px solid ${report.status === 'completed' ? '#22c55e' : report.status === 'partial' ? '#f59e0b' : '#ef4444'}` }}
             >
-              <button
+              <motion.button
                 onClick={() => setExpandedId(isExpanded ? null : report.id)}
+                whileTap={{ scale: 0.99 }}
                 className="w-full p-4 text-left"
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-semibold text-white/90 truncate">{report.campaignName}</h3>
-                    <p className="text-[10px] text-white/30 mt-0.5">{report.date}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-[10px] text-white/30">{report.date}</p>
+                      <span className="text-white/10">·</span>
+                      <p className="text-[10px] text-white/30">{report.totalSent.toLocaleString()} sent</p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${config.bg} ${config.color} ${config.border} border`}>
+                    <span
+                      className={`text-[9px] font-bold px-2 py-0.5 rounded-md ${config.bg} ${config.color} ${config.border} border`}
+                      style={{ boxShadow: config.glow }}
+                    >
                       {config.label}
                     </span>
-                    <ChevronDown className={`w-4 h-4 text-white/20 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`w-4 h-4 text-white/20 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                   </div>
                 </div>
 
-                {/* Quick Stats */}
-                <div className="flex gap-4 text-[10px]">
-                  <span className="text-white/40">
-                    <CheckCircle2 className="w-3 h-3 inline mr-0.5 text-emerald-400" />
-                    {report.delivered}/{report.totalSent}
+                {/* Quick Stats - Enhanced with color-coded icons */}
+                <div className="flex gap-3 text-[10px]">
+                  <span className="flex items-center gap-1 text-white/40">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400/70" />
+                    {report.delivered}
                   </span>
-                  <span className="text-white/40">
-                    <Eye className="w-3 h-3 inline mr-0.5 text-blue-400" />
+                  <span className="flex items-center gap-1 text-white/40">
+                    <Eye className="w-3 h-3 text-blue-400/70" />
                     {report.read}
                   </span>
-                  <span className="text-white/40">
-                    <XCircle className="w-3 h-3 inline mr-0.5 text-red-400" />
+                  <span className="flex items-center gap-1 text-white/40">
+                    <XCircle className="w-3 h-3 text-red-400/70" />
                     {report.failed}
                   </span>
                 </div>
-              </button>
 
-              {isExpanded && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="border-t border-white/5 p-4 space-y-3"
-                >
-                  {/* Detailed Stats */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="bg-white/[0.03] rounded-lg p-2.5 text-center">
-                      <p className="text-sm font-bold text-emerald-400">{deliveryRate}%</p>
-                      <p className="text-[9px] text-white/30">Delivery</p>
-                    </div>
-                    <div className="bg-white/[0.03] rounded-lg p-2.5 text-center">
-                      <p className="text-sm font-bold text-blue-400">{readRate}%</p>
-                      <p className="text-[9px] text-white/30">Read</p>
-                    </div>
-                    <div className="bg-white/[0.03] rounded-lg p-2.5 text-center">
-                      <p className="text-sm font-bold text-amber-400">{replyRate}%</p>
-                      <p className="text-[9px] text-white/30">Reply</p>
-                    </div>
-                  </div>
+                {/* Mini delivery progress bar */}
+                <div className="mt-2 h-1 bg-white/[0.04] rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${(report.delivered / report.totalSent) * 100}%`,
+                      background: report.status === 'completed'
+                        ? 'linear-gradient(90deg, rgba(34,197,94,0.5), rgba(34,197,94,0.8))'
+                        : report.status === 'partial'
+                          ? 'linear-gradient(90deg, rgba(245,158,11,0.5), rgba(245,158,11,0.8))'
+                          : 'linear-gradient(90deg, rgba(239,68,68,0.5), rgba(239,68,68,0.8))',
+                      boxShadow: `0 0 4px ${report.status === 'completed' ? 'rgba(34,197,94,0.2)' : report.status === 'partial' ? 'rgba(245,158,11,0.2)' : 'rgba(239,68,68,0.2)'}`,
+                    }}
+                  />
+                </div>
+              </motion.button>
 
-                  {/* Progress bars */}
-                  <div className="space-y-2">
-                    {[
-                      { label: 'Delivered', value: report.delivered, total: report.totalSent, color: 'from-emerald-500 to-emerald-400' },
-                      { label: 'Read', value: report.read, total: report.totalSent, color: 'from-blue-500 to-blue-400' },
-                      { label: 'Replied', value: report.replied, total: report.totalSent, color: 'from-purple-500 to-purple-400' },
-                      { label: 'Failed', value: report.failed, total: report.totalSent, color: 'from-red-500 to-red-400' },
-                    ].map((stat) => (
-                      <div key={stat.label}>
-                        <div className="flex justify-between text-[10px] text-white/30 mb-0.5">
-                          <span>{stat.label}</span>
-                          <span>{stat.value} / {stat.total}</span>
-                        </div>
-                        <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full bg-gradient-to-r ${stat.color}`}
-                            style={{ width: `${(stat.value / stat.total) * 100}%` }}
-                          />
-                        </div>
+              <AnimatePresence>
+                {isExpanded && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="border-t border-white/[0.04]"
+                  >
+                    <div className="p-4 space-y-3">
+                      {/* Detailed Stats */}
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { label: 'Delivery', value: deliveryRate, color: '#22c55e' },
+                          { label: 'Read', value: readRate, color: '#3b82f6' },
+                          { label: 'Reply', value: replyRate, color: '#f59e0b' },
+                        ].map((stat) => (
+                          <div key={stat.label} className="bg-white/[0.03] rounded-xl p-2.5 text-center border border-white/[0.04]">
+                            <p className="text-sm font-bold" style={{ color: stat.color }}>{stat.value}%</p>
+                            <p className="text-[9px] text-white/30">{stat.label}</p>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
 
-                  <button className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-white/5 text-white/40 border border-white/10 text-xs hover:bg-white/10 transition-colors">
-                    <Download className="w-3.5 h-3.5" /> Export Full Report
-                  </button>
-                </motion.div>
-              )}
+                      {/* Funnel visualization */}
+                      <div className="space-y-2">
+                        {[
+                          { label: 'Delivered', value: report.delivered, total: report.totalSent, color: '#22c55e' },
+                          { label: 'Read', value: report.read, total: report.totalSent, color: '#3b82f6' },
+                          { label: 'Replied', value: report.replied, total: report.totalSent, color: '#8b5cf6' },
+                          { label: 'Failed', value: report.failed, total: report.totalSent, color: '#ef4444' },
+                        ].map((stat) => (
+                          <div key={stat.label}>
+                            <div className="flex justify-between text-[10px] text-white/30 mb-0.5">
+                              <span>{stat.label}</span>
+                              <span>{stat.value} / {stat.total}</span>
+                            </div>
+                            <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                              <motion.div
+                                className="h-full rounded-full"
+                                style={{
+                                  width: `${(stat.value / stat.total) * 100}%`,
+                                  background: `linear-gradient(90deg, ${stat.color}50, ${stat.color})`,
+                                  boxShadow: `0 0 4px ${stat.color}30`,
+                                }}
+                                initial={{ width: 0 }}
+                                animate={{ width: `${(stat.value / stat.total) * 100}%` }}
+                                transition={{ duration: 0.4 }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <motion.button
+                        whileTap={{ scale: 0.97 }}
+                        className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/[0.04] text-white/50 border border-white/[0.06] text-xs font-semibold hover:bg-white/[0.08] hover:text-white/70 transition-all"
+                      >
+                        <Download className="w-3.5 h-3.5" /> Export Full Report
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )
         })}
       </div>
+
+      {/* Empty State */}
+      {filtered.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="glass-card rounded-2xl p-8 text-center"
+        >
+          <FileText className="w-10 h-10 mx-auto text-white/10 mb-3" />
+          <p className="text-sm text-white/40 font-medium">No reports found</p>
+          <p className="text-xs text-white/20 mt-1">Try adjusting your search or filters</p>
+        </motion.div>
+      )}
     </div>
   )
 }

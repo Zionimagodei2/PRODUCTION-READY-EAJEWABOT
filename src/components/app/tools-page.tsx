@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Users, Search, Link2, Play, Pause, Download, Copy, CheckCircle2, AlertCircle, ExternalLink, Clock, Sparkles, Zap } from 'lucide-react'
+import { Users, Search, Link2, Play, Pause, Download, Copy, CheckCircle2, AlertCircle, ExternalLink, Clock, Sparkles, Zap, ShieldCheck, QrCode, ChevronRight } from 'lucide-react'
+import { useAppStore } from '@/store/app-store'
 
 // Group Extractor Sub-component
 export function GroupExtractor() {
@@ -46,6 +47,7 @@ export function GroupExtractor() {
           <div>
             <h3 className="text-sm font-semibold text-white/90">Group Extractor</h3>
             <p className="text-[10px] text-white/40">Extract contacts from WhatsApp groups</p>
+            <p className="text-[9px] text-white/20 mt-0.5 leading-tight">Pull all members from any group you belong to and export them as CSV or JSON for your CRM.</p>
           </div>
         </div>
 
@@ -158,6 +160,7 @@ export function LeadScraper() {
           <div>
             <h3 className="text-sm font-semibold text-white/90">Lead Scraper</h3>
             <p className="text-[10px] text-white/40">Find new prospects by keyword</p>
+            <p className="text-[9px] text-white/20 mt-0.5 leading-tight">Search for businesses by category and location to discover fresh leads with verified phone numbers.</p>
           </div>
           <span className="pro-badge">PRO</span>
         </div>
@@ -246,6 +249,7 @@ export function LinkGenerator() {
           <div>
             <h3 className="text-sm font-semibold text-white/90">WhatsApp Link Generator</h3>
             <p className="text-[10px] text-white/40">Create click-to-chat links</p>
+            <p className="text-[9px] text-white/20 mt-0.5 leading-tight">Generate wa.me links with pre-filled messages to streamline customer conversations.</p>
           </div>
         </div>
 
@@ -313,6 +317,13 @@ export function LinkGenerator() {
 
 export function ToolsPage() {
   const [activeTool, setActiveTool] = useState<'extractor' | 'scraper' | 'generator'>('extractor')
+  const { setActiveFeature } = useAppStore()
+
+  const quickAccessItems = [
+    { title: 'WhatsApp Link', icon: <Link2 className="w-4 h-4" />, accentColor: '#06b6d4', accentBg: 'bg-cyan-500/10', accentText: 'text-cyan-400', feature: 'link-generator' as const },
+    { title: 'Validate Numbers', icon: <ShieldCheck className="w-4 h-4" />, accentColor: '#22c55e', accentBg: 'bg-green-500/10', accentText: 'text-green-400', feature: 'number-validator' as const },
+    { title: 'QR Code', icon: <QrCode className="w-4 h-4" />, accentColor: '#06b6d4', accentBg: 'bg-cyan-500/10', accentText: 'text-cyan-400', feature: 'qr-code' as const },
+  ]
 
   const recentlyUsed = [
     { id: 'extractor' as const, label: 'Group Extractor', icon: <Users className="w-3 h-3" />, time: '2h ago', color: '#22c55e' },
@@ -329,6 +340,40 @@ export function ToolsPage() {
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-4">
+      {/* Quick Access Section */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <Zap className="w-3 h-3 text-cyan-400" />
+          <span className="text-[10px] font-bold text-white/30 uppercase tracking-wider">Quick Access</span>
+        </div>
+        <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
+          {quickAccessItems.map((item) => (
+            <motion.button
+              key={item.feature}
+              onClick={() => setActiveFeature(item.feature)}
+              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.03 }}
+              className="glass-card flex-shrink-0 flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl hover:bg-white/[0.06] transition-all border border-white/[0.06] min-w-[140px]"
+              style={{ boxShadow: `0 0 12px ${item.accentColor}08` }}
+            >
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.accentBg}`}>
+                <div className={item.accentText}>{item.icon}</div>
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-[11px] font-semibold text-white/80">{item.title}</p>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-white/15" />
+            </motion.button>
+          ))}
+        </div>
+      </motion.div>
+
+      <div className="gradient-divider" />
+
       {/* Recently Used Section */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}

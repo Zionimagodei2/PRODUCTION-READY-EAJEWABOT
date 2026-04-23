@@ -8,7 +8,7 @@ import {
   ArrowRight, Zap, TrendingUp, Activity, FileCode,
   Megaphone, UserPlus, Clock, Sparkles, Phone, 
   CheckCircle2, AlertCircle, ChevronRight, Flame, Radio, Database,
-  Sun, Moon, Target, Wifi, ShieldCheck, Wand2, Upload, QrCode, Timer
+  Sun, Moon, Target, Wifi, ShieldCheck, Wand2, Upload, QrCode, Timer, MessageCircle, GitBranch
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useToastStore } from '@/store/toast-store'
@@ -188,6 +188,7 @@ function FeatureCard({ id, icon, title, subtitle, color, glowClass, borderColor,
 }
 
 const coreAutomation: FeatureCardProps[] = [
+  { id: 'inbox', icon: <MessageCircle className="w-5 h-5" />, title: 'Inbox', subtitle: 'All conversations', color: '#22c55e', glowClass: 'neon-glow-green', borderColor: 'border-green-500/20', gradientFrom: 'from-green-500/[0.06]', gradientTo: 'to-transparent', isActive: true },
   { id: 'send-message', icon: <Send className="w-5 h-5" />, title: 'Send Message', subtitle: 'Bulk campaigns & schedules', color: '#3b82f6', glowClass: 'neon-glow-blue', borderColor: 'border-blue-500/20', gradientFrom: 'from-blue-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'auto-reply', icon: <MessageSquare className="w-5 h-5" />, title: 'Auto Reply', subtitle: 'Smart responses', color: '#3b82f6', glowClass: 'neon-glow-blue', borderColor: 'border-blue-500/20', gradientFrom: 'from-blue-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'chatbot', icon: <Bot className="w-5 h-5" />, title: 'Chatbot', subtitle: 'AI-powered conversations', color: '#8b5cf6', glowClass: 'neon-glow-purple', borderColor: 'border-purple-500/20', gradientFrom: 'from-purple-500/[0.06]', gradientTo: 'to-transparent' },
@@ -195,6 +196,7 @@ const coreAutomation: FeatureCardProps[] = [
   { id: 'message-templates', icon: <FileCode className="w-5 h-5" />, title: 'Templates', subtitle: 'Reusable message templates', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'ai-chat', icon: <Sparkles className="w-5 h-5" />, title: 'AI Assistant', subtitle: 'Smart automation helper', color: '#f59e0b', glowClass: 'neon-glow-orange', borderColor: 'border-orange-500/20', gradientFrom: 'from-orange-500/[0.06]', gradientTo: 'to-transparent', isActive: true, hasNewBadge: true },
   { id: 'campaign-wizard', icon: <Wand2 className="w-5 h-5" />, title: 'Campaign Wizard', subtitle: 'Step-by-step campaign builder', color: '#3b82f6', glowClass: 'neon-glow-blue', borderColor: 'border-blue-500/20', gradientFrom: 'from-blue-500/[0.06]', gradientTo: 'to-transparent', hasNewBadge: true },
+  { id: 'flow-builder', icon: <GitBranch className="w-5 h-5" />, title: 'Flow Builder', subtitle: 'Design conversation flows', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent', hasNewBadge: true },
 ]
 
 const growthTools: FeatureCardProps[] = [
@@ -215,6 +217,10 @@ const insights: FeatureCardProps[] = [
 const dataSection: FeatureCardProps[] = [
   { id: 'data-export', icon: <Database className="w-5 h-5" />, title: 'Data Export', subtitle: 'Export data in various formats', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'contact-import', icon: <Upload className="w-5 h-5" />, title: 'Contact Import', subtitle: 'Import contacts from CSV', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent', hasNewBadge: true },
+]
+
+const organizationSection: FeatureCardProps[] = [
+  { id: 'contact-groups', icon: <Users className="w-5 h-5" />, title: 'Contact Groups', subtitle: 'Organize & segment contacts', color: '#8b5cf6', glowClass: 'neon-glow-purple', borderColor: 'border-purple-500/20', gradientFrom: 'from-purple-500/[0.06]', gradientTo: 'to-transparent' },
 ]
 
 const recentActivity = [
@@ -437,6 +443,22 @@ export function DashboardPage() {
         </div>
         <div className="grid grid-cols-2 gap-3">
           {growthTools.map((card) => (
+            <FeatureCard key={card.id} {...card} />
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Organization */}
+      <motion.div variants={container} initial="hidden" animate="show">
+        <div className="flex items-center gap-2.5 mb-3">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/15">
+            <Users className="w-3 h-3 text-neon-purple" />
+            <span className="text-[11px] font-bold text-purple-400/90 uppercase tracking-wider">Organization</span>
+          </div>
+          <div className="flex-1 h-px bg-gradient-to-r from-purple-500/20 to-transparent" />
+        </div>
+        <div className="grid grid-cols-1 gap-3">
+          {organizationSection.map((card) => (
             <FeatureCard key={card.id} {...card} />
           ))}
         </div>

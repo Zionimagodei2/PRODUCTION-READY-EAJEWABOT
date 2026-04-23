@@ -329,6 +329,9 @@
 .stat-card-pink {
   border-left: 3px solid rgba(236, 72, 153, 0.5);
 }
+.stat-card-cyan {
+  border-left: 3px solid rgba(6, 182, 212, 0.5);
+}
 
 /* Animated gradient border */
 @keyframes borderGlow {

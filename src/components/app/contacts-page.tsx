@@ -16,17 +16,18 @@ interface Contact {
   dateAdded: string
   score: number
   lastActive: string
+  segments: string[]
 }
 
 const mockContacts: Contact[] = [
-  { id: '1', name: 'John Smith', phone: '+1 234 567 8901', tags: ['customer', 'vip'], lastMessage: 'Thanks for the update!', status: 'active', dateAdded: '2024-01-15', score: 85, lastActive: '5m ago' },
-  { id: '2', name: 'Sarah Johnson', phone: '+44 7911 123456', tags: ['lead'], lastMessage: 'Interested in your product', status: 'active', dateAdded: '2024-01-14', score: 72, lastActive: '1h ago' },
-  { id: '3', name: 'Mike Chen', phone: '+86 138 0013 8000', tags: ['customer'], lastMessage: 'Order confirmed', status: 'active', dateAdded: '2024-01-13', score: 90, lastActive: '30m ago' },
-  { id: '4', name: 'Emily Davis', phone: '+1 555 123 4567', tags: ['prospect'], lastMessage: '', status: 'inactive', dateAdded: '2024-01-12', score: 25, lastActive: '3d ago' },
-  { id: '5', name: 'Alex Rivera', phone: '+34 612 345 678', tags: ['customer', 'wholesale'], lastMessage: 'Bulk order inquiry', status: 'active', dateAdded: '2024-01-11', score: 68, lastActive: '2h ago' },
-  { id: '6', name: 'Lisa Wong', phone: '+852 9123 4567', tags: ['lead', 'hot'], lastMessage: 'Price list request', status: 'active', dateAdded: '2024-01-10', score: 95, lastActive: '15m ago' },
-  { id: '7', name: 'David Brown', phone: '+61 4 1234 5678', tags: ['customer'], lastMessage: 'Delivery confirmed', status: 'active', dateAdded: '2024-01-09', score: 55, lastActive: '6h ago' },
-  { id: '8', name: 'Anna Mueller', phone: '+49 151 1234 5678', tags: ['prospect'], lastMessage: '', status: 'inactive', dateAdded: '2024-01-08', score: 15, lastActive: '1w ago' },
+  { id: '1', name: 'John Smith', phone: '+1 234 567 8901', tags: ['customer', 'vip'], lastMessage: 'Thanks for the update!', status: 'active', dateAdded: '2024-01-15', score: 85, lastActive: '5m ago', segments: ['VIP', 'Customer'] },
+  { id: '2', name: 'Sarah Johnson', phone: '+44 7911 123456', tags: ['lead'], lastMessage: 'Interested in your product', status: 'active', dateAdded: '2024-01-14', score: 72, lastActive: '1h ago', segments: ['Lead', 'Hot'] },
+  { id: '3', name: 'Mike Chen', phone: '+86 138 0013 8000', tags: ['customer'], lastMessage: 'Order confirmed', status: 'active', dateAdded: '2024-01-13', score: 90, lastActive: '30m ago', segments: ['Customer', 'VIP'] },
+  { id: '4', name: 'Emily Davis', phone: '+1 555 123 4567', tags: ['prospect'], lastMessage: '', status: 'inactive', dateAdded: '2024-01-12', score: 25, lastActive: '3d ago', segments: ['Prospect'] },
+  { id: '5', name: 'Alex Rivera', phone: '+34 612 345 678', tags: ['customer', 'wholesale'], lastMessage: 'Bulk order inquiry', status: 'active', dateAdded: '2024-01-11', score: 68, lastActive: '2h ago', segments: ['Customer', 'Wholesale'] },
+  { id: '6', name: 'Lisa Wong', phone: '+852 9123 4567', tags: ['lead', 'hot'], lastMessage: 'Price list request', status: 'active', dateAdded: '2024-01-10', score: 95, lastActive: '15m ago', segments: ['VIP', 'Hot'] },
+  { id: '7', name: 'David Brown', phone: '+61 4 1234 5678', tags: ['customer'], lastMessage: 'Delivery confirmed', status: 'active', dateAdded: '2024-01-09', score: 55, lastActive: '6h ago', segments: ['Customer'] },
+  { id: '8', name: 'Anna Mueller', phone: '+49 151 1234 5678', tags: ['prospect'], lastMessage: '', status: 'inactive', dateAdded: '2024-01-08', score: 15, lastActive: '1w ago', segments: ['Prospect', 'Lead'] },
 ]
 
 const tagColors: Record<string, string> = {
@@ -36,6 +37,15 @@ const tagColors: Record<string, string> = {
   hot: 'bg-red-500/15 text-red-400 border-red-500/20',
   prospect: 'bg-purple-500/15 text-purple-400 border-purple-500/20',
   wholesale: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/20',
+}
+
+const segmentColors: Record<string, string> = {
+  VIP: 'bg-amber-500/12 text-amber-400/80 border-amber-500/15',
+  Customer: 'bg-blue-500/12 text-blue-400/80 border-blue-500/15',
+  Lead: 'bg-green-500/12 text-green-400/80 border-green-500/15',
+  Prospect: 'bg-purple-500/12 text-purple-400/80 border-purple-500/15',
+  Hot: 'bg-red-500/12 text-red-400/80 border-red-500/15',
+  Wholesale: 'bg-cyan-500/12 text-cyan-400/80 border-cyan-500/15',
 }
 
 export function ContactsPage() {
@@ -51,7 +61,7 @@ export function ContactsPage() {
   useEffect(() => {
     if (pendingNewContact) {
       queueMicrotask(() => {
-        setContacts(prev => [pendingNewContact!, ...prev])
+        setContacts(prev => [{ ...pendingNewContact!, score: 50, lastActive: 'Just now', segments: ['Customer'] }, ...prev])
         setPendingNewContact(null)
       })
     }
@@ -278,12 +288,22 @@ export function ContactsPage() {
                     <MessageSquare className="w-2.5 h-2.5" /> {contact.lastMessage}
                   </p>
                 )}
-                <p className="text-[9px] text-white/15 mt-0.5 flex items-center gap-1">
-                  <Clock className="w-2 h-2" /> {contact.lastActive}
-                </p>
+                {contact.status === 'active' && (
+                  <p className="text-[9px] text-white/20 mt-0.5 flex items-center gap-1">
+                    <Clock className="w-2 h-2" /> Last active: {contact.lastActive}
+                  </p>
+                )}
+                {/* Segment badges */}
+                <div className="flex gap-1 mt-1">
+                  {contact.segments.slice(0, 3).map((segment) => (
+                    <span key={segment} className={`text-[7px] px-1 py-px rounded border font-bold ${segmentColors[segment] || 'bg-white/10 text-white/50 border-white/10'}`}>
+                      {segment}
+                    </span>
+                  ))}
+                </div>
               </div>
 
-              {/* Tags */}
+              {/* Tags + More */}
               <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                 <div className="flex gap-1">
                   {contact.tags.slice(0, 2).map((tag) => (

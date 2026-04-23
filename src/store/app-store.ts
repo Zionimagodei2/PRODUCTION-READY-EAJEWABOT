@@ -23,6 +23,9 @@ export type FeaturePage =
   | 'contact-import'
   | 'qr-code'
   | 'response-time'
+  | 'inbox'
+  | 'contact-groups'
+  | 'flow-builder'
   | null
 
 interface AppState {
