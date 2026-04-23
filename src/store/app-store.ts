@@ -26,6 +26,7 @@ export type FeaturePage =
   | 'inbox'
   | 'contact-groups'
   | 'flow-builder'
+  | 'message-status'
   | null
 
 interface AppState {

@@ -25,6 +25,7 @@ import { ResponseTimePage } from './response-time-page'
 import { InboxPage } from './inbox-page'
 import { ContactGroupsPage } from './contact-groups-page'
 import { FlowBuilderPage } from './flow-builder-page'
+import { MessageStatusPage } from './message-status-page'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const featureComponents: Record<FeaturePage, React.ComponentType> = {
@@ -52,6 +53,7 @@ const featureComponents: Record<FeaturePage, React.ComponentType> = {
   'inbox': InboxPage,
   'contact-groups': ContactGroupsPage,
   'flow-builder': FlowBuilderPage,
+  'message-status': MessageStatusPage,
 }
 
 export function FeatureRouter() {

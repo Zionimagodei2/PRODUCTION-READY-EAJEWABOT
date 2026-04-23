@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAppStore, type FeaturePage } from '@/store/app-store'
 import { 
   Send, MessageSquare, Bot, Calendar, 
@@ -25,6 +25,7 @@ interface FeatureCardProps {
   gradientTo: string
   isActive?: boolean
   hasNewBadge?: boolean
+  isPopular?: boolean
 }
 
 const container = {
@@ -108,9 +109,9 @@ function MiniSparkline({ color, bars }: { color: string; bars: number[] }) {
   )
 }
 
-function StatCard({ value, label, icon, colorClass, statClass, breathColor, trend, trendValue, sparklineBars, sparklineColor }: { 
+function StatCard({ value, label, icon, colorClass, statClass, breathColor, trend, trendValue, sparklineBars, sparklineColor, vsLabel }: { 
   value: number; label: string; icon: React.ReactNode; colorClass: string; statClass: string; breathColor?: string;
-  trend?: 'up' | 'down'; trendValue?: string; sparklineBars?: number[]; sparklineColor?: string
+  trend?: 'up' | 'down'; trendValue?: string; sparklineBars?: number[]; sparklineColor?: string; vsLabel?: string
 }) {
   const animatedValue = useAnimatedCounter(value)
   return (
@@ -140,6 +141,12 @@ function StatCard({ value, label, icon, colorClass, statClass, breathColor, tren
           {trendValue}
         </p>
       )}
+      {/* vs last week comparison */}
+      {vsLabel && (
+        <p className={`text-[9px] mt-0.5 ${
+          vsLabel.startsWith('↑') ? 'text-emerald-400/60' : 'text-red-400/60'
+        }`}>{vsLabel}</p>
+      )}
       {/* Mini sparkline */}
       {sparklineBars && sparklineColor && (
         <div className="flex justify-center">
@@ -150,7 +157,7 @@ function StatCard({ value, label, icon, colorClass, statClass, breathColor, tren
   )
 }
 
-function FeatureCard({ id, icon, title, subtitle, color, glowClass, borderColor, gradientFrom, gradientTo, isActive, hasNewBadge }: FeatureCardProps) {
+function FeatureCard({ id, icon, title, subtitle, color, glowClass, borderColor, gradientFrom, gradientTo, isActive, hasNewBadge, isPopular }: FeatureCardProps) {
   const { setActiveFeature } = useAppStore()
 
   return (
@@ -180,6 +187,9 @@ function FeatureCard({ id, icon, title, subtitle, color, glowClass, borderColor,
             <span className="text-[7px] font-extrabold px-1.5 py-0.5 rounded-md bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white badge-pulse">NEW</span>
           )}
         </div>
+        {isPopular && (
+          <span className="text-[7px] font-bold text-amber-400/60 mt-0.5 flex items-center gap-0.5">⭐ Popular</span>
+        )}
         <p className="text-[11px] text-white/55 mt-0.5 leading-tight">{subtitle}</p>
       </div>
       <ArrowRight className="w-3.5 h-3.5 text-white/15 absolute top-4 right-4 group-hover:text-white/50 group-hover:translate-x-0.5 transition-all duration-200" />
@@ -188,13 +198,13 @@ function FeatureCard({ id, icon, title, subtitle, color, glowClass, borderColor,
 }
 
 const coreAutomation: FeatureCardProps[] = [
-  { id: 'inbox', icon: <MessageCircle className="w-5 h-5" />, title: 'Inbox', subtitle: 'All conversations', color: '#22c55e', glowClass: 'neon-glow-green', borderColor: 'border-green-500/20', gradientFrom: 'from-green-500/[0.06]', gradientTo: 'to-transparent', isActive: true },
-  { id: 'send-message', icon: <Send className="w-5 h-5" />, title: 'Send Message', subtitle: 'Bulk campaigns & schedules', color: '#3b82f6', glowClass: 'neon-glow-blue', borderColor: 'border-blue-500/20', gradientFrom: 'from-blue-500/[0.06]', gradientTo: 'to-transparent' },
+  { id: 'inbox', icon: <MessageCircle className="w-5 h-5" />, title: 'Inbox', subtitle: 'All conversations', color: '#22c55e', glowClass: 'neon-glow-green', borderColor: 'border-green-500/20', gradientFrom: 'from-green-500/[0.06]', gradientTo: 'to-transparent', isActive: true, isPopular: true },
+  { id: 'send-message', icon: <Send className="w-5 h-5" />, title: 'Send Message', subtitle: 'Bulk campaigns & schedules', color: '#3b82f6', glowClass: 'neon-glow-blue', borderColor: 'border-blue-500/20', gradientFrom: 'from-blue-500/[0.06]', gradientTo: 'to-transparent', isPopular: true },
   { id: 'auto-reply', icon: <MessageSquare className="w-5 h-5" />, title: 'Auto Reply', subtitle: 'Smart responses', color: '#3b82f6', glowClass: 'neon-glow-blue', borderColor: 'border-blue-500/20', gradientFrom: 'from-blue-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'chatbot', icon: <Bot className="w-5 h-5" />, title: 'Chatbot', subtitle: 'AI-powered conversations', color: '#8b5cf6', glowClass: 'neon-glow-purple', borderColor: 'border-purple-500/20', gradientFrom: 'from-purple-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'scheduler', icon: <Calendar className="w-5 h-5" />, title: 'Scheduler', subtitle: 'Plan messages ahead', color: '#8b5cf6', glowClass: 'neon-glow-purple', borderColor: 'border-purple-500/20', gradientFrom: 'from-purple-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'message-templates', icon: <FileCode className="w-5 h-5" />, title: 'Templates', subtitle: 'Reusable message templates', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent' },
-  { id: 'ai-chat', icon: <Sparkles className="w-5 h-5" />, title: 'AI Assistant', subtitle: 'Smart automation helper', color: '#f59e0b', glowClass: 'neon-glow-orange', borderColor: 'border-orange-500/20', gradientFrom: 'from-orange-500/[0.06]', gradientTo: 'to-transparent', isActive: true, hasNewBadge: true },
+  { id: 'ai-chat', icon: <Sparkles className="w-5 h-5" />, title: 'AI Assistant', subtitle: 'Smart automation helper', color: '#f59e0b', glowClass: 'neon-glow-orange', borderColor: 'border-orange-500/20', gradientFrom: 'from-orange-500/[0.06]', gradientTo: 'to-transparent', isActive: true, hasNewBadge: true, isPopular: true },
   { id: 'campaign-wizard', icon: <Wand2 className="w-5 h-5" />, title: 'Campaign Wizard', subtitle: 'Step-by-step campaign builder', color: '#3b82f6', glowClass: 'neon-glow-blue', borderColor: 'border-blue-500/20', gradientFrom: 'from-blue-500/[0.06]', gradientTo: 'to-transparent', hasNewBadge: true },
   { id: 'flow-builder', icon: <GitBranch className="w-5 h-5" />, title: 'Flow Builder', subtitle: 'Design conversation flows', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent', hasNewBadge: true },
 ]
@@ -212,6 +222,7 @@ const insights: FeatureCardProps[] = [
   { id: 'analytics', icon: <BarChart3 className="w-5 h-5" />, title: 'Analytics', subtitle: 'Track performance & metrics', color: '#ec4899', glowClass: 'neon-glow-pink', borderColor: 'border-pink-500/20', gradientFrom: 'from-pink-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'campaign-reports', icon: <FileText className="w-5 h-5" />, title: 'Campaign Reports', subtitle: 'Detailed delivery reports', color: '#ef4444', glowClass: 'neon-glow-red', borderColor: 'border-red-500/20', gradientFrom: 'from-red-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'response-time', icon: <Timer className="w-5 h-5" />, title: 'Response Time', subtitle: 'Track response performance', color: '#8b5cf6', glowClass: 'neon-glow-purple', borderColor: 'border-purple-500/20', gradientFrom: 'from-purple-500/[0.06]', gradientTo: 'to-transparent' },
+  { id: 'message-status', icon: <Activity className="w-5 h-5" />, title: 'Message Status', subtitle: 'Track delivery in real-time', color: '#f59e0b', glowClass: 'neon-glow-orange', borderColor: 'border-orange-500/20', gradientFrom: 'from-orange-500/[0.06]', gradientTo: 'to-transparent' },
 ]
 
 const dataSection: FeatureCardProps[] = [
@@ -235,6 +246,25 @@ export function DashboardPage() {
   const { waConnected, setActiveFeature, setAddContactOpen } = useAppStore()
   const { addToast } = useToastStore()
   const currentTime = useCurrentTime()
+
+  // Rotating tips state
+  const tips = [
+    '💡 Tip: Schedule messages during peak hours (9-11 AM) for 40% better open rates',
+    '💡 Tip: Personalized messages get 2x more replies',
+    '💡 Tip: Follow up within 5 minutes for best conversion',
+  ]
+  const [tipIndex, setTipIndex] = useState(0)
+  const [tipKey, setTipKey] = useState(0)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTipIndex((prev) => (prev + 1) % tips.length)
+      setTipKey((prev) => prev + 1)
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [tips.length])
+
+  // Mark all as read state for recent activity
+  const [activityDimmed, setActivityDimmed] = useState(false)
 
   const greeting = currentTime.getHours() < 12 ? 'Good Morning' : currentTime.getHours() < 18 ? 'Good Afternoon' : 'Good Evening'
   const formattedDate = currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
@@ -274,6 +304,8 @@ export function DashboardPage() {
               {waConnected ? 'Connected' : 'Offline'}
             </span>
           </p>
+          {/* Rotating Tip */}
+          <p key={tipKey} className="text-[10px] text-white/30 mt-1 animate-tip-fade">{tips[tipIndex]}</p>
         </div>
         <div className="flex items-center gap-2">
           {/* Weekly Goal Ring */}
@@ -296,6 +328,7 @@ export function DashboardPage() {
           statClass="stat-card-blue"
           trend="up"
           trendValue="↑12%"
+          vsLabel="↑12% vs last week"
           sparklineBars={[40, 70, 50, 85]}
           sparklineColor="#3b82f6"
         />
@@ -308,6 +341,7 @@ export function DashboardPage() {
           breathColor="#22c55e"
           trend="up"
           trendValue="↑8%"
+          vsLabel="↑8% vs last week"
           sparklineBars={[55, 65, 80, 70]}
           sparklineColor="#22c55e"
         />
@@ -319,6 +353,7 @@ export function DashboardPage() {
           statClass="stat-card-purple"
           trend="down"
           trendValue="↓3%"
+          vsLabel="↓3% vs last week"
           sparklineBars={[60, 45, 50, 35]}
           sparklineColor="#8b5cf6"
         />
@@ -496,7 +531,40 @@ export function DashboardPage() {
         </div>
       </motion.div>
 
-      {/* Recent Activity Feed - Enhanced with View All link */}
+      {/* System Health Mini-Widget */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="glass-card rounded-2xl p-3"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Activity className="w-3 h-3 text-white/30" />
+            <span className="text-[10px] font-semibold text-white/30 uppercase tracking-wider">System Health</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <div className="health-dot-green" />
+              <span className="text-[9px] text-white/30">API</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="health-dot-green" />
+              <span className="text-[9px] text-white/30">DB</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="health-dot-amber" />
+              <span className="text-[9px] text-white/30">Queue</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="health-dot-green" />
+              <span className="text-[9px] text-white/30">Storage</span>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Recent Activity Feed - Enhanced with View All link and Mark All as Read */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -508,8 +576,15 @@ export function DashboardPage() {
             <span className="text-[11px] font-bold text-amber-400/90 uppercase tracking-wider">Recent Activity</span>
           </div>
           <div className="flex-1 h-px bg-gradient-to-r from-amber-500/20 to-transparent" />
+          <motion.button
+            onClick={() => { setActivityDimmed(true); addToast({ message: 'All activity marked as read', type: 'success' }) }}
+            whileTap={{ scale: 0.95 }}
+            className="text-[9px] font-semibold text-white/25 hover:text-white/50 transition-colors px-2 py-1 rounded-lg hover:bg-white/[0.03]"
+          >
+            Mark all as read
+          </motion.button>
         </div>
-        <div className="glass-card rounded-2xl overflow-hidden divide-y divide-white/[0.04]">
+        <div className={`glass-card rounded-2xl overflow-hidden divide-y divide-white/[0.04] transition-opacity duration-300 ${activityDimmed ? 'activity-dimmed' : ''}`}>
           {recentActivity.map((activity, i) => (
             <motion.div
               key={activity.id}

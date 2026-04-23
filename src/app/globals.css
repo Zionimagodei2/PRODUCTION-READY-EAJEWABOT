@@ -793,3 +793,90 @@
   text-transform: uppercase;
   line-height: 1.4;
 }
+
+/* ============================================
+   Task 3: Premium Visual Details Enhancement
+   ============================================ */
+
+/* Bounce once animation - bounces then stops (for notification badge) */
+@keyframes bounceOnce {
+  0%, 100% { transform: scale(1); }
+  25% { transform: scale(1.3); }
+  50% { transform: scale(0.9); }
+  75% { transform: scale(1.1); }
+}
+
+.animate-bounce-once {
+  animation: bounceOnce 0.6s ease-out 1;
+  animation-fill-mode: forwards;
+}
+
+/* Pulse once animation - plays once on first render (for search button) */
+@keyframes pulseOnce {
+  0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
+  70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+}
+
+.animate-pulse-once {
+  animation: pulseOnce 1.5s ease-out 1;
+}
+
+/* Connection celebration - brief scale + glow on connection */
+@keyframes celebrateConnect {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  30% { transform: scale(1.1); box-shadow: 0 0 20px rgba(34, 197, 94, 0.5), 0 0 40px rgba(34, 197, 94, 0.2); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+
+.animate-celebrate {
+  animation: celebrateConnect 0.8s ease-out 1;
+}
+
+/* Health dot glow - subtle glow for system health indicator dots */
+.health-dot-green {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.6), 0 0 12px rgba(34, 197, 94, 0.3);
+}
+
+.health-dot-amber {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.6), 0 0 12px rgba(245, 158, 11, 0.3);
+}
+
+.health-dot-red {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.6), 0 0 12px rgba(239, 68, 68, 0.3);
+}
+
+/* Tip fade - crossfade for rotating tips */
+@keyframes tipFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-tip-fade {
+  animation: tipFadeIn 0.5s ease-out forwards;
+}
+
+/* Haptic line - brief horizontal line for bottom nav feedback */
+@keyframes hapticLineSlide {
+  0% { transform: scaleX(0); opacity: 1; }
+  50% { transform: scaleX(1); opacity: 0.8; }
+  100% { transform: scaleX(0); opacity: 0; }
+}
+
+/* Activity dimmed - when "mark all as read" is clicked */
+.activity-dimmed {
+  opacity: 0.4;
+  transition: opacity 0.3s ease;
+}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { User, Search } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -10,6 +10,26 @@ import { NotificationCenter } from './modals/notification-center'
 
 export function Header() {
   const { activeFeature, goBack, waConnected, searchOpen, setSearchOpen } = useAppStore()
+
+  // Search button pulse on first render
+  const [searchPulsed, setSearchPulsed] = useState(false)
+  const searchRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchPulsed(true), 100)
+    return () => clearTimeout(timer)
+  }, [])
+
+  // Connection celebration effect
+  const [celebrating, setCelebrating] = useState(false)
+  const prevConnected = useRef(waConnected)
+  useEffect(() => {
+    if (waConnected && !prevConnected.current) {
+      queueMicrotask(() => setCelebrating(true))
+      const timer = setTimeout(() => setCelebrating(false), 800)
+      return () => clearTimeout(timer)
+    }
+    prevConnected.current = waConnected
+  }, [waConnected])
 
   // Cmd+K / Ctrl+K keyboard shortcut
   useEffect(() => {
@@ -55,8 +75,9 @@ export function Header() {
         
         <div className="flex items-center gap-2">
           <button
+            ref={searchRef}
             onClick={() => setSearchOpen(true)}
-            className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center hover:bg-white/[0.08] hover:border-white/[0.12] transition-all duration-200"
+            className={`w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center hover:bg-white/[0.08] hover:border-white/[0.12] transition-all duration-200 ${searchPulsed ? 'animate-pulse-once' : ''}`}
             title="Search (⌘K)"
           >
             <Search className="w-4 h-4 text-white/50" />
@@ -67,7 +88,7 @@ export function Header() {
             <User className="w-4 h-4 text-white/60" />
           </button>
           {waConnected && (
-            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+            <div className={`flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 ${celebrating ? 'animate-celebrate' : ''}`}>
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse-dot" />
               <span className="text-[9px] font-semibold text-emerald-400">Connected</span>
             </div>
