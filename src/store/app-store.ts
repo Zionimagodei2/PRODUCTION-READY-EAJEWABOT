@@ -13,6 +13,9 @@ export type FeaturePage =
   | 'campaign-reports'
   | 'message-templates'
   | 'campaign-detail'
+  | 'contact-detail'
+  | 'broadcast-lists'
+  | 'ai-chat'
   | null
 
 interface AppState {
@@ -21,12 +24,14 @@ interface AppState {
   sidebarOpen: boolean
   waConnected: boolean
   selectedCampaignId: string | null
+  selectedContactId: string | null
   
   setActiveTab: (tab: TabId) => void
   setActiveFeature: (feature: FeaturePage) => void
   setSidebarOpen: (open: boolean) => void
   setWaConnected: (connected: boolean) => void
   setSelectedCampaignId: (id: string | null) => void
+  setSelectedContactId: (id: string | null) => void
   goBack: () => void
 }
 
@@ -36,11 +41,13 @@ export const useAppStore = create<AppState>((set) => ({
   sidebarOpen: false,
   waConnected: true,
   selectedCampaignId: null,
+  selectedContactId: null,
   
   setActiveTab: (tab) => set({ activeTab: tab, activeFeature: null }),
   setActiveFeature: (feature) => set({ activeFeature: feature }),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   setWaConnected: (connected) => set({ waConnected: connected }),
   setSelectedCampaignId: (id) => set({ selectedCampaignId: id }),
+  setSelectedContactId: (id) => set({ selectedContactId: id }),
   goBack: () => set({ activeFeature: null }),
 }))

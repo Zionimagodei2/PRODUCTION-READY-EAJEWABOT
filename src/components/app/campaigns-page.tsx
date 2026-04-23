@@ -84,15 +84,15 @@ export function CampaignsPage() {
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-4">
-      {/* Stats Row */}
+      {/* Stats Row - Enhanced with accent borders */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="glass-card rounded-xl p-3">
-          <p className="text-xs text-white/40">Active Campaigns</p>
-          <p className="text-2xl font-bold text-neon-blue mt-1">{campaigns.filter(c => c.status === 'active').length}</p>
+        <div className="glass-card rounded-xl p-3.5 stat-card-blue">
+          <p className="text-[11px] text-white/55 font-semibold">Active Campaigns</p>
+          <p className="text-2xl font-extrabold text-neon-blue mt-1">{campaigns.filter(c => c.status === 'active').length}</p>
         </div>
-        <div className="glass-card rounded-xl p-3">
-          <p className="text-xs text-white/40">Total Sent</p>
-          <p className="text-2xl font-bold text-neon-green mt-1">{campaigns.reduce((a, c) => a + c.sent, 0).toLocaleString()}</p>
+        <div className="glass-card rounded-xl p-3.5 stat-card-green">
+          <p className="text-[11px] text-white/55 font-semibold">Total Sent</p>
+          <p className="text-2xl font-extrabold text-neon-green mt-1">{campaigns.reduce((a, c) => a + c.sent, 0).toLocaleString()}</p>
         </div>
       </div>
 

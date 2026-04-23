@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Search, Plus, Import, Download, MoreHorizontal, Phone, MessageSquare, Tag, Trash2, UserPlus, Users } from 'lucide-react'
+import { useAppStore } from '@/store/app-store'
 
 interface Contact {
   id: string
@@ -37,7 +38,8 @@ const tagColors: Record<string, string> = {
 export function ContactsPage() {
   const [search, setSearch] = useState('')
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
-  const [contacts, setContacts] = useState(mockContacts)
+  const [contacts] = useState(mockContacts)
+  const { setSelectedContactId, setActiveFeature } = useAppStore()
 
   const allTags = Array.from(new Set(contacts.flatMap(c => c.tags)))
   
@@ -50,19 +52,19 @@ export function ContactsPage() {
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-4">
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-2.5">
-        <div className="glass-card rounded-xl p-3 text-center">
-          <p className="text-lg font-bold text-neon-blue">{contacts.length}</p>
-          <p className="text-[10px] text-white/40">Total</p>
+      {/* Stats - Enhanced with accent borders */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="glass-card rounded-xl p-3.5 text-center stat-card-blue">
+          <p className="text-xl font-extrabold text-neon-blue">{contacts.length}</p>
+          <p className="text-[11px] text-white/55 font-semibold">Total</p>
         </div>
-        <div className="glass-card rounded-xl p-3 text-center">
-          <p className="text-lg font-bold text-neon-green">{contacts.filter(c => c.status === 'active').length}</p>
-          <p className="text-[10px] text-white/40">Active</p>
+        <div className="glass-card rounded-xl p-3.5 text-center stat-card-green">
+          <p className="text-xl font-extrabold text-neon-green">{contacts.filter(c => c.status === 'active').length}</p>
+          <p className="text-[11px] text-white/55 font-semibold">Active</p>
         </div>
-        <div className="glass-card rounded-xl p-3 text-center">
-          <p className="text-lg font-bold text-neon-orange">{allTags.length}</p>
-          <p className="text-[10px] text-white/40">Tags</p>
+        <div className="glass-card rounded-xl p-3.5 text-center stat-card-orange">
+          <p className="text-xl font-extrabold text-neon-orange">{allTags.length}</p>
+          <p className="text-[11px] text-white/55 font-semibold">Tags</p>
         </div>
       </div>
 
@@ -125,7 +127,12 @@ export function ContactsPage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.03 }}
-            className="glass-card rounded-xl p-3.5 flex items-center gap-3"
+            whileHover={{ scale: 1.01 }}
+            onClick={() => {
+              setSelectedContactId(contact.id)
+              setActiveFeature('contact-detail')
+            }}
+            className="glass-card rounded-xl p-3.5 flex items-center gap-3 cursor-pointer hover:bg-white/[0.03] transition-colors"
           >
             {/* Avatar */}
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-neon-blue/30 to-neon-purple/30 border border-white/10 flex items-center justify-center flex-shrink-0">

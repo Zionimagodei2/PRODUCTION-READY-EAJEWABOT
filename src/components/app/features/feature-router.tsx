@@ -12,6 +12,9 @@ import { LeadScraperPage } from './lead-scraper-page'
 import { LinkGeneratorPage } from './link-generator-page'
 import { MessageTemplatesPage } from './message-templates-page'
 import { CampaignDetailPage } from './campaign-detail-page'
+import { ContactDetailPage } from './contact-detail-page'
+import { BroadcastListsPage } from './broadcast-lists-page'
+import { AiChatPage } from './ai-chat-page'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const featureComponents: Record<FeaturePage, React.ComponentType> = {
@@ -26,6 +29,9 @@ const featureComponents: Record<FeaturePage, React.ComponentType> = {
   'campaign-reports': CampaignReportsPage,
   'message-templates': MessageTemplatesPage,
   'campaign-detail': CampaignDetailPage,
+  'contact-detail': ContactDetailPage,
+  'broadcast-lists': BroadcastListsPage,
+  'ai-chat': AiChatPage,
 }
 
 export function FeatureRouter() {

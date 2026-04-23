@@ -1,13 +1,16 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useAppStore, type FeaturePage } from '@/store/app-store'
 import { 
   Send, MessageSquare, Bot, Calendar, 
   Users, Search, Link2, BarChart3, FileText,
   ArrowRight, Zap, TrendingUp, Activity, FileCode,
-  Megaphone, UserPlus, Clock
+  Megaphone, UserPlus, Clock, Sparkles, Phone, 
+  CheckCircle2, AlertCircle, ChevronRight, Flame, Radio
 } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { useToastStore } from '@/store/toast-store'
 
 interface FeatureCardProps {
   id: FeaturePage
@@ -32,6 +35,47 @@ const container = {
 const item = {
   hidden: { opacity: 0, y: 20, scale: 0.95 },
   show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+}
+
+// Animated counter hook
+function useAnimatedCounter(target: number, duration: number = 1200) {
+  const [count, setCount] = useState(0)
+  useEffect(() => {
+    let startTime: number
+    let animationFrame: number
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp
+      const progress = Math.min((timestamp - startTime) / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3) // ease-out cubic
+      setCount(Math.floor(eased * target))
+      if (progress < 1) {
+        animationFrame = requestAnimationFrame(animate)
+      }
+    }
+    animationFrame = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(animationFrame)
+  }, [target, duration])
+  return count
+}
+
+function StatCard({ value, label, icon, colorClass, statClass }: { 
+  value: number; label: string; icon: React.ReactNode; colorClass: string; statClass: string 
+}) {
+  const animatedValue = useAnimatedCounter(value)
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className={`glass-card rounded-2xl p-4 text-center ${statClass} hover:scale-[1.02] transition-transform duration-200`}
+    >
+      <div className={`w-8 h-8 mx-auto rounded-xl ${colorClass} flex items-center justify-center mb-2`}>
+        {icon}
+      </div>
+      <p className="text-2xl font-extrabold text-white/95 animate-count-up">{animatedValue.toLocaleString()}</p>
+      <p className="text-[11px] text-white/55 font-semibold mt-1">{label}</p>
+    </motion.div>
+  )
 }
 
 function FeatureCard({ id, icon, title, subtitle, color, glowClass, borderColor, gradientFrom, gradientTo }: FeatureCardProps) {
@@ -66,12 +110,14 @@ const coreAutomation: FeatureCardProps[] = [
   { id: 'chatbot', icon: <Bot className="w-5 h-5" />, title: 'Chatbot', subtitle: 'AI-powered conversations', color: '#8b5cf6', glowClass: 'neon-glow-purple', borderColor: 'border-purple-500/20', gradientFrom: 'from-purple-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'scheduler', icon: <Calendar className="w-5 h-5" />, title: 'Scheduler', subtitle: 'Plan messages ahead', color: '#8b5cf6', glowClass: 'neon-glow-purple', borderColor: 'border-purple-500/20', gradientFrom: 'from-purple-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'message-templates', icon: <FileCode className="w-5 h-5" />, title: 'Templates', subtitle: 'Reusable message templates', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent' },
+  { id: 'ai-chat', icon: <Sparkles className="w-5 h-5" />, title: 'AI Assistant', subtitle: 'Smart automation helper', color: '#f59e0b', glowClass: 'neon-glow-orange', borderColor: 'border-orange-500/20', gradientFrom: 'from-orange-500/[0.06]', gradientTo: 'to-transparent' },
 ]
 
 const growthTools: FeatureCardProps[] = [
   { id: 'group-extractor', icon: <Users className="w-5 h-5" />, title: 'Group Extractor', subtitle: 'Extract contacts from groups', color: '#22c55e', glowClass: 'neon-glow-green', borderColor: 'border-green-500/20', gradientFrom: 'from-green-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'lead-scraper', icon: <Search className="w-5 h-5" />, title: 'Lead Scraper', subtitle: 'Find new prospects', color: '#22c55e', glowClass: 'neon-glow-green', borderColor: 'border-green-500/20', gradientFrom: 'from-green-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'link-generator', icon: <Link2 className="w-5 h-5" />, title: 'Link Generator', subtitle: 'Create WhatsApp links', color: '#f97316', glowClass: 'neon-glow-orange', borderColor: 'border-orange-500/20', gradientFrom: 'from-orange-500/[0.06]', gradientTo: 'to-transparent' },
+  { id: 'broadcast-lists', icon: <Radio className="w-5 h-5" />, title: 'Broadcast Lists', subtitle: 'Targeted group messaging', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent' },
 ]
 
 const insights: FeatureCardProps[] = [
@@ -79,73 +125,85 @@ const insights: FeatureCardProps[] = [
   { id: 'campaign-reports', icon: <FileText className="w-5 h-5" />, title: 'Campaign Reports', subtitle: 'Detailed delivery reports', color: '#ef4444', glowClass: 'neon-glow-red', borderColor: 'border-red-500/20', gradientFrom: 'from-red-500/[0.06]', gradientTo: 'to-transparent' },
 ]
 
+const recentActivity = [
+  { id: '1', type: 'campaign' as const, text: 'Product Launch Promo sent 452 messages', time: '2m ago', icon: <Megaphone className="w-3.5 h-3.5" />, color: '#3b82f6' },
+  { id: '2', type: 'reply' as const, text: 'Auto-reply triggered for "hello" keyword', time: '15m ago', icon: <MessageSquare className="w-3.5 h-3.5" />, color: '#22c55e' },
+  { id: '3', type: 'chatbot' as const, text: 'Welcome Flow triggered 23 times', time: '1h ago', icon: <Bot className="w-3.5 h-3.5" />, color: '#8b5cf6' },
+  { id: '4', type: 'schedule' as const, text: 'Daily digest scheduled for 9:00 AM', time: '2h ago', icon: <Clock className="w-3.5 h-3.5" />, color: '#f59e0b' },
+  { id: '5', type: 'lead' as const, text: 'Lead Scraper found 12 new prospects', time: '3h ago', icon: <Search className="w-3.5 h-3.5" />, color: '#06b6d4' },
+]
+
 export function DashboardPage() {
   const { waConnected, setActiveFeature, setActiveTab } = useAppStore()
+  const { addToast } = useToastStore()
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-6">
-      {/* Quick Stats - Enhanced */}
-      <motion.div 
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="grid grid-cols-3 gap-3"
-      >
-        <div className="glass-card rounded-2xl p-3.5 text-center border-blue-500/10 hover:border-blue-500/20 transition-colors">
-          <div className="w-7 h-7 mx-auto rounded-lg bg-blue-500/10 flex items-center justify-center mb-1.5">
-            <Send className="w-3.5 h-3.5 text-neon-blue" />
-          </div>
-          <p className="text-xl font-extrabold text-white/95">1,284</p>
-          <p className="text-[10px] text-white/50 font-medium mt-0.5">Sent</p>
-        </div>
-        <div className="glass-card rounded-2xl p-3.5 text-center border-green-500/10 hover:border-green-500/20 transition-colors">
-          <div className="w-7 h-7 mx-auto rounded-lg bg-green-500/10 flex items-center justify-center mb-1.5">
-            <TrendingUp className="w-3.5 h-3.5 text-neon-green" />
-          </div>
-          <p className="text-xl font-extrabold text-white/95">847</p>
-          <p className="text-[10px] text-white/50 font-medium mt-0.5">Delivered</p>
-        </div>
-        <div className="glass-card rounded-2xl p-3.5 text-center border-purple-500/10 hover:border-purple-500/20 transition-colors">
-          <div className="w-7 h-7 mx-auto rounded-lg bg-purple-500/10 flex items-center justify-center mb-1.5">
-            <Activity className="w-3.5 h-3.5 text-neon-purple" />
-          </div>
-          <p className="text-xl font-extrabold text-white/95">342</p>
-          <p className="text-[10px] text-white/50 font-medium mt-0.5">Replies</p>
-        </div>
-      </motion.div>
+      {/* Quick Stats - Enhanced with accent borders */}
+      <div className="grid grid-cols-3 gap-3">
+        <StatCard 
+          value={1284} 
+          label="Sent" 
+          icon={<Send className="w-4 h-4 text-neon-blue" />}
+          colorClass="bg-blue-500/10"
+          statClass="stat-card-blue"
+        />
+        <StatCard 
+          value={847} 
+          label="Delivered" 
+          icon={<TrendingUp className="w-4 h-4 text-neon-green" />}
+          colorClass="bg-green-500/10"
+          statClass="stat-card-green"
+        />
+        <StatCard 
+          value={342} 
+          label="Replies" 
+          icon={<Activity className="w-4 h-4 text-neon-purple" />}
+          colorClass="bg-purple-500/10"
+          statClass="stat-card-purple"
+        />
+      </div>
 
-      {/* Activity Sparkline */}
+      {/* Activity Sparkline - Enhanced */}
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
         className="glass-card rounded-2xl p-4 border-white/5"
       >
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-4">
           <h3 className="text-xs font-bold text-white/70 uppercase tracking-wider">Activity This Week</h3>
           <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-0.5">
             <TrendingUp className="w-3 h-3" /> +12%
           </span>
         </div>
-        <div className="flex items-end gap-1 h-12">
+        <div className="flex items-end gap-1.5 h-16">
           {[40, 65, 50, 80, 70, 35, 55].map((height, i) => (
             <motion.div
               key={i}
-              className="flex-1 rounded-t-sm bg-gradient-to-t from-blue-500/40 to-blue-400/70"
+              className="flex-1 rounded-t-md relative group"
               initial={{ height: 0 }}
               animate={{ height: `${height}%` }}
-              transition={{ delay: 0.3 + i * 0.05, duration: 0.4, ease: 'easeOut' }}
-            />
+              transition={{ delay: 0.3 + i * 0.05, duration: 0.5, ease: 'easeOut' }}
+              style={{
+                background: `linear-gradient(to top, rgba(59,130,246,0.3), rgba(59,130,246,0.7))`,
+              }}
+            >
+              {/* Tooltip on hover */}
+              <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-white/10 text-[8px] text-white/70 font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                {[180, 220, 195, 240, 210, 120, 119][i]} msgs
+              </div>
+            </motion.div>
           ))}
         </div>
-        <div className="flex gap-1 mt-1">
-          {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
-            <span key={i} className="flex-1 text-center text-[8px] text-white/25 font-medium">{day}</span>
+        <div className="flex gap-1.5 mt-1.5">
+          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => (
+            <span key={i} className="flex-1 text-center text-[8px] text-white/30 font-medium">{day}</span>
           ))}
         </div>
       </motion.div>
 
-      {/* Quick Actions */}
+      {/* Quick Actions - Enhanced */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -251,6 +309,44 @@ export function DashboardPage() {
         <div className="grid grid-cols-2 gap-3">
           {insights.map((card) => (
             <FeatureCard key={card.id} {...card} />
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Recent Activity Feed - NEW */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+      >
+        <div className="flex items-center gap-2.5 mb-3">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/15">
+            <Flame className="w-3 h-3 text-amber-400" />
+            <span className="text-[11px] font-bold text-amber-400/90 uppercase tracking-wider">Recent Activity</span>
+          </div>
+          <div className="flex-1 h-px bg-gradient-to-r from-amber-500/20 to-transparent" />
+        </div>
+        <div className="glass-card rounded-2xl overflow-hidden divide-y divide-white/[0.04]">
+          {recentActivity.map((activity, i) => (
+            <motion.div
+              key={activity.id}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.5 + i * 0.06 }}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors cursor-pointer"
+            >
+              <div 
+                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: `${activity.color}12`, border: `1px solid ${activity.color}20` }}
+              >
+                <div style={{ color: activity.color }}>{activity.icon}</div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] text-white/75 font-medium truncate">{activity.text}</p>
+                <p className="text-[10px] text-white/30 mt-0.5">{activity.time}</p>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-white/10 flex-shrink-0" />
+            </motion.div>
           ))}
         </div>
       </motion.div>

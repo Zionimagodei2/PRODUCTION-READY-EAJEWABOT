@@ -125,7 +125,107 @@
   }
   body {
     @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Animated gradient background mesh */
+@keyframes meshMove {
+  0%, 100% { transform: translate(0%, 0%) scale(1); }
+  25% { transform: translate(5%, -5%) scale(1.05); }
+  50% { transform: translate(-3%, 5%) scale(0.95); }
+  75% { transform: translate(-5%, -3%) scale(1.02); }
+}
+
+.mesh-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+}
+
+.mesh-bg::before,
+.mesh-bg::after {
+  content: '';
+  position: absolute;
+  width: 150%;
+  height: 150%;
+  top: -25%;
+  left: -25%;
+  animation: meshMove 20s ease-in-out infinite;
+}
+
+.mesh-bg::before {
+  background: radial-gradient(ellipse at 30% 20%, rgba(59,130,246,0.06) 0%, transparent 60%),
+              radial-gradient(ellipse at 70% 60%, rgba(139,92,246,0.04) 0%, transparent 60%);
+}
+
+.mesh-bg::after {
+  background: radial-gradient(ellipse at 60% 80%, rgba(34,197,94,0.03) 0%, transparent 60%),
+              radial-gradient(ellipse at 20% 70%, rgba(236,72,153,0.03) 0%, transparent 60%);
+  animation-delay: -10s;
+  animation-direction: reverse;
+}
+
+/* Stat number counter animation */
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-count-up {
+  animation: countUp 0.5s ease-out forwards;
+}
+
+/* Shimmer loading effect */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Floating action button pulse */
+@keyframes fabPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(59,130,246,0); }
+}
+
+.animate-fab-pulse {
+  animation: fabPulse 2.5s ease-in-out infinite;
+}
+
+/* Toast slide-in */
+@keyframes toastSlideIn {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes toastSlideOut {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(-100%); opacity: 0; }
+}
+
+.animate-toast-in {
+  animation: toastSlideIn 0.3s ease-out forwards;
+}
+
+.animate-toast-out {
+  animation: toastSlideOut 0.3s ease-in forwards;
 }
 
 /* Custom scrollbar */
@@ -147,33 +247,33 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
-/* Neon glow utilities */
+/* Neon glow utilities - Enhanced */
 .neon-glow-blue {
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.15), 0 0 30px rgba(59, 130, 246, 0.05);
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.15), 0 0 30px rgba(59, 130, 246, 0.05), inset 0 1px 0 rgba(59, 130, 246, 0.1);
 }
 
 .neon-glow-purple {
-  box-shadow: 0 0 15px rgba(139, 92, 246, 0.15), 0 0 30px rgba(139, 92, 246, 0.05);
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.15), 0 0 30px rgba(139, 92, 246, 0.05), inset 0 1px 0 rgba(139, 92, 246, 0.1);
 }
 
 .neon-glow-green {
-  box-shadow: 0 0 15px rgba(34, 197, 94, 0.15), 0 0 30px rgba(34, 197, 94, 0.05);
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.15), 0 0 30px rgba(34, 197, 94, 0.05), inset 0 1px 0 rgba(34, 197, 94, 0.1);
 }
 
 .neon-glow-orange {
-  box-shadow: 0 0 15px rgba(249, 115, 22, 0.15), 0 0 30px rgba(249, 115, 22, 0.05);
+  box-shadow: 0 0 15px rgba(249, 115, 22, 0.15), 0 0 30px rgba(249, 115, 22, 0.05), inset 0 1px 0 rgba(249, 115, 22, 0.1);
 }
 
 .neon-glow-pink {
-  box-shadow: 0 0 15px rgba(236, 72, 153, 0.15), 0 0 30px rgba(236, 72, 153, 0.05);
+  box-shadow: 0 0 15px rgba(236, 72, 153, 0.15), 0 0 30px rgba(236, 72, 153, 0.05), inset 0 1px 0 rgba(236, 72, 153, 0.1);
 }
 
 .neon-glow-red {
-  box-shadow: 0 0 15px rgba(239, 68, 68, 0.15), 0 0 30px rgba(239, 68, 68, 0.05);
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.15), 0 0 30px rgba(239, 68, 68, 0.05), inset 0 1px 0 rgba(239, 68, 68, 0.1);
 }
 
 .neon-glow-cyan {
-  box-shadow: 0 0 15px rgba(6, 182, 212, 0.15), 0 0 30px rgba(6, 182, 212, 0.05);
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.15), 0 0 30px rgba(6, 182, 212, 0.05), inset 0 1px 0 rgba(6, 182, 212, 0.1);
 }
 
 /* Gradient text */
@@ -184,11 +284,34 @@
   background-clip: text;
 }
 
-/* Glass card */
+/* Glass card - Enhanced with inner glow */
 .glass-card {
-  background: rgba(255, 255, 255, 0.03);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.glass-card:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+}
+
+/* Stat card with accent border */
+.stat-card-blue {
+  border-left: 3px solid rgba(59, 130, 246, 0.5);
+}
+.stat-card-green {
+  border-left: 3px solid rgba(34, 197, 94, 0.5);
+}
+.stat-card-purple {
+  border-left: 3px solid rgba(139, 92, 246, 0.5);
+}
+.stat-card-orange {
+  border-left: 3px solid rgba(249, 115, 22, 0.5);
+}
+.stat-card-pink {
+  border-left: 3px solid rgba(236, 72, 153, 0.5);
 }
 
 /* Animated gradient border */

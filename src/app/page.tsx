@@ -10,6 +10,7 @@ import { ToolsPage } from '@/components/app/tools-page'
 import { SettingsPage } from '@/components/app/settings-page'
 import { FeatureRouter } from '@/components/app/features/feature-router'
 import { OnboardingModal } from '@/components/app/modals/onboarding-modal'
+import { ToastContainer } from '@/components/app/toast-container'
 import { AnimatePresence, motion } from 'framer-motion'
 
 const tabComponents: Record<string, React.ComponentType> = {
@@ -27,6 +28,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      {/* Animated mesh background */}
+      <div className="mesh-bg" />
+      
       <Header />
       <main className="flex-1 overflow-y-auto">
         {activeFeature ? (
@@ -47,6 +51,7 @@ export default function Home() {
       </main>
       <BottomNav />
       <OnboardingModal />
+      <ToastContainer />
     </div>
   )
 }
