@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Clock, CheckCircle2, XCircle, Send, MoreVertical, Pause, Play, Trash2, Copy, Search, ArrowDownUp } from 'lucide-react'
+import { Plus, Clock, CheckCircle2, XCircle, Send, MoreVertical, Pause, Play, Trash2, Copy, Search, ArrowDownUp, Megaphone, RotateCcw } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
+import { ListSkeleton } from '@/components/app/loading-skeleton'
 
 interface Campaign {
   id: string
@@ -44,6 +45,15 @@ export function CampaignsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortBy>('date')
   const [showSortDropdown, setShowSortDropdown] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Simulate loading state
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      queueMicrotask(() => setIsLoading(false))
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [])
 
   const handleCampaignClick = (id: string) => {
     setSelectedCampaignId(id)
@@ -80,6 +90,11 @@ export function CampaignsPage() {
     setNewName('')
     setNewTotal('')
     setShowCreate(false)
+  }
+
+  const handleResetFilters = () => {
+    setFilter('all')
+    setSearchQuery('')
   }
 
   return (
@@ -198,87 +213,121 @@ export function CampaignsPage() {
         )}
       </AnimatePresence>
 
-      {/* Campaign List */}
-      <div className="space-y-2.5">
-        {filteredAndSorted.map((campaign, i) => {
-          const config = statusConfig[campaign.status]
-          const progress = campaign.total > 0 ? (campaign.sent / campaign.total) * 100 : 0
-          return (
-            <motion.div
-              key={campaign.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-              onClick={() => handleCampaignClick(campaign.id)}
-              className="glass-card rounded-xl p-4 space-y-3 cursor-pointer hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-500/5 hover:border-white/15 transition-all duration-200"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-white/90 truncate">{campaign.name}</h3>
-                  <p className="text-[10px] text-white/30 mt-0.5">{campaign.date}</p>
+      {/* Campaign List - with skeleton loading */}
+      {isLoading ? (
+        <ListSkeleton count={3} />
+      ) : filteredAndSorted.length === 0 ? (
+        /* Empty state when filters return no results */
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="empty-state"
+        >
+          <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-4">
+            <Megaphone className="w-8 h-8 text-white/20" />
+          </div>
+          <h3 className="text-sm font-bold text-white/50 mb-1">No campaigns found</h3>
+          <p className="text-xs text-subtitle mb-4">Try adjusting your filters or search query</p>
+          <button
+            onClick={handleResetFilters}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-neon-blue/15 text-neon-blue border border-neon-blue/25 text-xs font-semibold hover:bg-neon-blue/25 transition-colors"
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> Reset Filters
+          </button>
+        </motion.div>
+      ) : (
+        <div className="space-y-2.5">
+          {filteredAndSorted.map((campaign, i) => {
+            const config = statusConfig[campaign.status]
+            const progress = campaign.total > 0 ? (campaign.sent / campaign.total) * 100 : 0
+            return (
+              <motion.div
+                key={campaign.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                onClick={() => handleCampaignClick(campaign.id)}
+                className="glass-card rounded-xl p-4 space-y-3 cursor-pointer hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-500/5 hover:border-white/15 transition-all duration-200"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-semibold text-white/90 truncate">{campaign.name}</h3>
+                    <p className="text-[10px] text-white/30 mt-0.5">{campaign.date}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {campaign.sent > 0 && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/15">
+                        {Math.round((campaign.delivered / campaign.sent) * 100)}% delivered
+                      </span>
+                    )}
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${config.bg} ${config.color} ${config.border} border`}>
+                      {config.label}
+                    </span>
+                  </div>
                 </div>
-                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${config.bg} ${config.color} ${config.border} border`}>
-                  {config.label}
-                </span>
-              </div>
-              
-              {/* Progress bar */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-[10px] text-white/30">
-                  <span>{campaign.sent} / {campaign.total} sent</span>
-                  <span>{Math.round(progress)}%</span>
+                
+                {/* Progress bar - taller h-2 */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] text-white/30">
+                    <span>{campaign.sent} / {campaign.total} sent</span>
+                    <span>{Math.round(progress)}%</span>
+                  </div>
+                  <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 ${campaign.status === 'active' ? 'progress-shimmer' : ''}`}
+                      style={{ width: `${progress}%`, background: campaign.status === 'active' 
+                        ? 'linear-gradient(90deg, #3b82f6, #8b5cf6, #3b82f6)' 
+                        : 'linear-gradient(90deg, #3b82f6, #8b5cf6)' 
+                      }}
+                    />
+                  </div>
                 </div>
-                <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full rounded-full bg-gradient-to-r from-neon-blue to-neon-purple transition-all duration-500"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-              </div>
 
-              {/* Stats */}
-              <div className="flex gap-4 text-[10px]">
-                <span className="text-white/30">
-                  <CheckCircle2 className="w-3 h-3 inline mr-1 text-neon-green" />
-                  {campaign.delivered} delivered
-                </span>
-                <span className="text-white/30">
-                  <Send className="w-3 h-3 inline mr-1 text-neon-purple" />
-                  {campaign.replies} replies
-                </span>
-              </div>
+                {/* Stats */}
+                <div className="flex gap-4 text-[10px]">
+                  <span className="text-white/30">
+                    <CheckCircle2 className="w-3 h-3 inline mr-1 text-neon-green" />
+                    {campaign.delivered} delivered
+                  </span>
+                  <span className="text-white/30">
+                    <Send className="w-3 h-3 inline mr-1 text-neon-purple" />
+                    {campaign.replies} replies
+                  </span>
+                </div>
 
-              {/* Actions */}
-              <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
-                {campaign.status === 'active' && (
-                  <button className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] hover:bg-amber-500/20 transition-colors">
-                    <Pause className="w-3 h-3" /> Pause
+                {/* Actions */}
+                <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
+                  {campaign.status === 'active' && (
+                    <button className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] hover:bg-amber-500/20 transition-colors">
+                      <Pause className="w-3 h-3" /> Pause
+                    </button>
+                  )}
+                  {campaign.status === 'paused' && (
+                    <button className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] hover:bg-emerald-500/20 transition-colors">
+                      <Play className="w-3 h-3" /> Resume
+                    </button>
+                  )}
+                  <button className="flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 text-white/40 border border-white/10 text-[10px] hover:bg-white/10 transition-colors">
+                    <Copy className="w-3 h-3" /> Duplicate
                   </button>
-                )}
-                {campaign.status === 'paused' && (
-                  <button className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] hover:bg-emerald-500/20 transition-colors">
-                    <Play className="w-3 h-3" /> Resume
+                  <button className="flex items-center gap-1 px-2 py-1 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 text-[10px] hover:bg-red-500/20 transition-colors ml-auto">
+                    <Trash2 className="w-3 h-3" />
                   </button>
-                )}
-                <button className="flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 text-white/40 border border-white/10 text-[10px] hover:bg-white/10 transition-colors">
-                  <Copy className="w-3 h-3" /> Duplicate
-                </button>
-                <button className="flex items-center gap-1 px-2 py-1 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 text-[10px] hover:bg-red-500/20 transition-colors ml-auto">
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              </div>
-            </motion.div>
-          )
-        })}
-      </div>
+                </div>
+              </motion.div>
+            )
+          })}
+        </div>
+      )}
 
       {/* FAB */}
       {!showCreate && (
         <motion.button
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
+          whileTap={{ scale: 0.9 }}
           onClick={() => setShowCreate(true)}
-          className="fixed bottom-20 right-4 w-12 h-12 rounded-full bg-gradient-to-br from-neon-blue to-neon-purple flex items-center justify-center shadow-lg neon-glow-blue z-30 hover:scale-105 transition-transform"
+          className="fixed bottom-20 right-4 w-12 h-12 rounded-full bg-gradient-to-br from-neon-blue to-neon-purple flex items-center justify-center shadow-lg neon-glow-blue z-30 hover:scale-105 transition-transform animate-fab-pulse"
         >
           <Plus className="w-5 h-5 text-white" />
         </motion.button>

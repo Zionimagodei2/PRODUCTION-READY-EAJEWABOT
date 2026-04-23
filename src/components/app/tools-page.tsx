@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Users, Search, Link2, Play, Pause, Download, Copy, CheckCircle2, AlertCircle, ExternalLink } from 'lucide-react'
 
 // Group Extractor Sub-component
@@ -324,10 +324,11 @@ export function ToolsPage() {
       {/* Tool Tabs */}
       <div className="flex gap-2">
         {tools.map((tool) => (
-          <button
+          <motion.button
             key={tool.id}
             onClick={() => setActiveTool(tool.id)}
-            className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all border ${
+            whileTap={{ scale: 0.95 }}
+            className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all duration-200 border ${
               activeTool === tool.id
                 ? `bg-${tool.color}/15 text-${tool.color} border-${tool.color}/25`
                 : 'bg-white/5 text-white/40 border-white/5 hover:bg-white/10'
@@ -336,17 +337,28 @@ export function ToolsPage() {
               backgroundColor: tool.color === 'neon-green' ? 'rgba(34,197,94,0.15)' : 'rgba(249,115,22,0.15)',
               color: tool.color === 'neon-green' ? '#22c55e' : '#f97316',
               borderColor: tool.color === 'neon-green' ? 'rgba(34,197,94,0.25)' : 'rgba(249,115,22,0.25)',
+              boxShadow: tool.color === 'neon-green' ? '0 0 12px rgba(34,197,94,0.1)' : '0 0 12px rgba(249,115,22,0.1)',
             } : {}}
           >
             {tool.label}
-          </button>
+          </motion.button>
         ))}
       </div>
 
-      {/* Active tool content */}
-      {activeTool === 'extractor' && <GroupExtractor />}
-      {activeTool === 'scraper' && <LeadScraper />}
-      {activeTool === 'generator' && <LinkGenerator />}
+      {/* Active tool content with animated transitions */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeTool}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.2 }}
+        >
+          {activeTool === 'extractor' && <GroupExtractor />}
+          {activeTool === 'scraper' && <LeadScraper />}
+          {activeTool === 'generator' && <LinkGenerator />}
+        </motion.div>
+      </AnimatePresence>
     </div>
   )
 }

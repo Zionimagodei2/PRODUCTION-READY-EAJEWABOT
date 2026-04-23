@@ -19,15 +19,19 @@ export function BottomNav() {
   if (activeFeature) return null
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/[0.06]" style={{ background: 'rgba(8, 8, 14, 0.97)', backdropFilter: 'blur(24px)' }}>
+    <nav className="fixed bottom-0 left-0 right-0 z-50" style={{ background: 'rgba(8, 8, 14, 0.97)', backdropFilter: 'blur(24px)' }}>
+      {/* Subtle gradient separator line at top */}
+      <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
       <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id
           return (
-            <button
+            <motion.button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
+              whileTap={{ scale: 0.9 }}
               className="relative flex flex-col items-center justify-center gap-0.5 w-16 h-full transition-colors"
+              style={isActive ? { backgroundColor: `${tab.activeColor}08` } : {}}
             >
               <div className="relative">
                 {isActive && (
@@ -41,7 +45,7 @@ export function BottomNav() {
                 <div className="relative transition-all duration-200" style={{ 
                   color: isActive ? tab.activeColor : 'rgba(255,255,255,0.25)',
                   filter: isActive ? `drop-shadow(0 0 8px ${tab.activeColor}60)` : 'none',
-                  transform: isActive ? 'translateY(-1px)' : 'none'
+                  transform: isActive ? 'translateY(-1px) scale(1.05)' : 'none'
                 }}>
                   {tab.icon}
                 </div>
@@ -59,7 +63,7 @@ export function BottomNav() {
                   transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                 />
               )}
-            </button>
+            </motion.button>
           )
         })}
       </div>

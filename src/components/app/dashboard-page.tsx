@@ -7,7 +7,7 @@ import {
   Users, Search, Link2, BarChart3, FileText,
   ArrowRight, Zap, TrendingUp, Activity, FileCode,
   Megaphone, UserPlus, Clock, Sparkles, Phone, 
-  CheckCircle2, AlertCircle, ChevronRight, Flame, Radio
+  CheckCircle2, AlertCircle, ChevronRight, Flame, Radio, Database
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useToastStore } from '@/store/toast-store'
@@ -58,8 +58,27 @@ function useAnimatedCounter(target: number, duration: number = 1200) {
   return count
 }
 
-function StatCard({ value, label, icon, colorClass, statClass }: { 
-  value: number; label: string; icon: React.ReactNode; colorClass: string; statClass: string 
+// Mini sparkline component for stat cards (3-4 tiny bars)
+function MiniSparkline({ color, bars }: { color: string; bars: number[] }) {
+  return (
+    <div className="flex items-end gap-[2px] h-5 mt-1">
+      {bars.map((h, i) => (
+        <div
+          key={i}
+          className="w-[3px] rounded-sm"
+          style={{
+            height: `${h}%`,
+            background: `linear-gradient(to top, ${color}40, ${color}80)`,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
+function StatCard({ value, label, icon, colorClass, statClass, breathColor, trend, trendValue, sparklineBars, sparklineColor }: { 
+  value: number; label: string; icon: React.ReactNode; colorClass: string; statClass: string; breathColor?: string;
+  trend?: 'up' | 'down'; trendValue?: string; sparklineBars?: number[]; sparklineColor?: string
 }) {
   const animatedValue = useAnimatedCounter(value)
   return (
@@ -67,13 +86,34 @@ function StatCard({ value, label, icon, colorClass, statClass }: {
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className={`glass-card rounded-2xl p-4 text-center ${statClass} hover:scale-[1.02] transition-transform duration-200`}
+      className={`glass-card rounded-2xl p-4 text-center ${statClass} card-hover-lift`}
     >
-      <div className={`w-8 h-8 mx-auto rounded-xl ${colorClass} flex items-center justify-center mb-2`}>
+      <div className={`w-8 h-8 mx-auto rounded-xl ${colorClass} flex items-center justify-center mb-2 relative`}>
         {icon}
+        {breathColor && (
+          <div 
+            className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full animate-breathe"
+            style={{ backgroundColor: breathColor, color: breathColor }}
+          />
+        )}
       </div>
       <p className="text-2xl font-extrabold text-white/95 animate-count-up">{animatedValue.toLocaleString()}</p>
       <p className="text-[11px] text-white/55 font-semibold mt-1">{label}</p>
+      {/* Trend indicator */}
+      {trend && trendValue && (
+        <p className={`text-[10px] font-bold mt-0.5 flex items-center justify-center gap-0.5 ${
+          trend === 'up' ? 'text-emerald-400' : 'text-red-400'
+        }`}>
+          {trend === 'up' ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingUp className="w-2.5 h-2.5 rotate-180" />}
+          {trendValue}
+        </p>
+      )}
+      {/* Mini sparkline */}
+      {sparklineBars && sparklineColor && (
+        <div className="flex justify-center">
+          <MiniSparkline color={sparklineColor} bars={sparklineBars} />
+        </div>
+      )}
     </motion.div>
   )
 }
@@ -85,7 +125,7 @@ function FeatureCard({ id, icon, title, subtitle, color, glowClass, borderColor,
     <motion.button
       variants={item}
       onClick={() => setActiveFeature(id)}
-      className={`group relative flex flex-col items-start gap-2.5 p-4 rounded-2xl bg-gradient-to-br ${gradientFrom} ${gradientTo} border ${borderColor} hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 ${glowClass} text-left w-full`}
+      className={`group relative flex flex-col items-start gap-2.5 p-4 rounded-2xl bg-gradient-to-br ${gradientFrom} ${gradientTo} border ${borderColor} hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 ${glowClass} text-left w-full min-h-[100px]`}
     >
       <div className="w-11 h-11 rounded-xl flex items-center justify-center shadow-lg"
         style={{ 
@@ -125,6 +165,10 @@ const insights: FeatureCardProps[] = [
   { id: 'campaign-reports', icon: <FileText className="w-5 h-5" />, title: 'Campaign Reports', subtitle: 'Detailed delivery reports', color: '#ef4444', glowClass: 'neon-glow-red', borderColor: 'border-red-500/20', gradientFrom: 'from-red-500/[0.06]', gradientTo: 'to-transparent' },
 ]
 
+const dataSection: FeatureCardProps[] = [
+  { id: 'data-export', icon: <Database className="w-5 h-5" />, title: 'Data Export', subtitle: 'Export data in various formats', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent' },
+]
+
 const recentActivity = [
   { id: '1', type: 'campaign' as const, text: 'Product Launch Promo sent 452 messages', time: '2m ago', icon: <Megaphone className="w-3.5 h-3.5" />, color: '#3b82f6' },
   { id: '2', type: 'reply' as const, text: 'Auto-reply triggered for "hello" keyword', time: '15m ago', icon: <MessageSquare className="w-3.5 h-3.5" />, color: '#22c55e' },
@@ -139,7 +183,7 @@ export function DashboardPage() {
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-6">
-      {/* Quick Stats - Enhanced with accent borders */}
+      {/* Quick Stats - Enhanced with accent borders, trend indicators, and mini sparklines */}
       <div className="grid grid-cols-3 gap-3">
         <StatCard 
           value={1284} 
@@ -147,6 +191,10 @@ export function DashboardPage() {
           icon={<Send className="w-4 h-4 text-neon-blue" />}
           colorClass="bg-blue-500/10"
           statClass="stat-card-blue"
+          trend="up"
+          trendValue="↑12%"
+          sparklineBars={[40, 70, 50, 85]}
+          sparklineColor="#3b82f6"
         />
         <StatCard 
           value={847} 
@@ -154,6 +202,11 @@ export function DashboardPage() {
           icon={<TrendingUp className="w-4 h-4 text-neon-green" />}
           colorClass="bg-green-500/10"
           statClass="stat-card-green"
+          breathColor="#22c55e"
+          trend="up"
+          trendValue="↑8%"
+          sparklineBars={[55, 65, 80, 70]}
+          sparklineColor="#22c55e"
         />
         <StatCard 
           value={342} 
@@ -161,10 +214,17 @@ export function DashboardPage() {
           icon={<Activity className="w-4 h-4 text-neon-purple" />}
           colorClass="bg-purple-500/10"
           statClass="stat-card-purple"
+          trend="down"
+          trendValue="↓3%"
+          sparklineBars={[60, 45, 50, 35]}
+          sparklineColor="#8b5cf6"
         />
       </div>
 
-      {/* Activity Sparkline - Enhanced */}
+      {/* Subtle divider below stats row */}
+      <div className="gradient-divider" />
+
+      {/* Activity Sparkline - Enhanced with thicker bars */}
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -177,17 +237,18 @@ export function DashboardPage() {
             <TrendingUp className="w-3 h-3" /> +12%
           </span>
         </div>
-        <div className="flex items-end gap-1.5 h-16">
+        <div className="flex items-end gap-2 h-16">
           {[40, 65, 50, 80, 70, 35, 55].map((height, i) => (
             <motion.div
               key={i}
-              className="flex-1 rounded-t-md relative group"
+              className="flex-1 rounded-t-md relative group cursor-pointer"
               initial={{ height: 0 }}
               animate={{ height: `${height}%` }}
               transition={{ delay: 0.3 + i * 0.05, duration: 0.5, ease: 'easeOut' }}
               style={{
                 background: `linear-gradient(to top, rgba(59,130,246,0.3), rgba(59,130,246,0.7))`,
               }}
+              whileHover={{ filter: 'brightness(1.3)', scaleY: 1.05 }}
             >
               {/* Tooltip on hover */}
               <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-white/10 text-[8px] text-white/70 font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
@@ -196,7 +257,7 @@ export function DashboardPage() {
             </motion.div>
           ))}
         </div>
-        <div className="flex gap-1.5 mt-1.5">
+        <div className="flex gap-2 mt-1.5">
           {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => (
             <span key={i} className="flex-1 text-center text-[8px] text-white/30 font-medium">{day}</span>
           ))}
@@ -217,50 +278,31 @@ export function DashboardPage() {
           <div className="flex-1 h-px bg-gradient-to-r from-cyan-500/20 to-transparent" />
         </div>
         <div className="flex gap-2.5 overflow-x-auto pb-2 no-scrollbar">
-          <motion.button
-            onClick={() => { setActiveFeature('send-message'); setActiveTab('campaigns'); }}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-blue-500/10 border border-blue-500/30 whitespace-nowrap flex-shrink-0 hover:bg-blue-500/15 transition-colors"
-            style={{ boxShadow: '0 0 12px rgba(59,130,246,0.15)' }}
-          >
-            <Megaphone className="w-3.5 h-3.5 text-blue-400" />
-            <span className="text-xs font-semibold text-blue-300">New Campaign</span>
-          </motion.button>
-          <motion.button
-            onClick={() => { setActiveTab('contacts'); }}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-green-500/10 border border-green-500/30 whitespace-nowrap flex-shrink-0 hover:bg-green-500/15 transition-colors"
-            style={{ boxShadow: '0 0 12px rgba(34,197,94,0.15)' }}
-          >
-            <UserPlus className="w-3.5 h-3.5 text-green-400" />
-            <span className="text-xs font-semibold text-green-300">Add Contact</span>
-          </motion.button>
-          <motion.button
-            onClick={() => { setActiveFeature('auto-reply'); }}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-purple-500/10 border border-purple-500/30 whitespace-nowrap flex-shrink-0 hover:bg-purple-500/15 transition-colors"
-            style={{ boxShadow: '0 0 12px rgba(139,92,246,0.15)' }}
-          >
-            <MessageSquare className="w-3.5 h-3.5 text-purple-400" />
-            <span className="text-xs font-semibold text-purple-300">Quick Reply</span>
-          </motion.button>
-          <motion.button
-            onClick={() => { setActiveFeature('scheduler'); }}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-amber-500/10 border border-amber-500/30 whitespace-nowrap flex-shrink-0 hover:bg-amber-500/15 transition-colors"
-            style={{ boxShadow: '0 0 12px rgba(245,158,11,0.15)' }}
-          >
-            <Clock className="w-3.5 h-3.5 text-amber-400" />
-            <span className="text-xs font-semibold text-amber-300">Schedule</span>
-          </motion.button>
+          {[
+            { onClick: () => { setActiveFeature('send-message'); setActiveTab('campaigns'); }, icon: <Megaphone className="w-3.5 h-3.5 text-blue-400" />, label: 'New Campaign', bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-300', hover: 'hover:bg-blue-500/15', shadow: '0 0 12px rgba(59,130,246,0.15)' },
+            { onClick: () => { setActiveTab('contacts'); }, icon: <UserPlus className="w-3.5 h-3.5 text-green-400" />, label: 'Add Contact', bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-300', hover: 'hover:bg-green-500/15', shadow: '0 0 12px rgba(34,197,94,0.15)' },
+            { onClick: () => { setActiveFeature('auto-reply'); }, icon: <MessageSquare className="w-3.5 h-3.5 text-purple-400" />, label: 'Quick Reply', bg: 'bg-purple-500/10', border: 'border-purple-500/30', text: 'text-purple-300', hover: 'hover:bg-purple-500/15', shadow: '0 0 12px rgba(139,92,246,0.15)' },
+            { onClick: () => { setActiveFeature('scheduler'); }, icon: <Clock className="w-3.5 h-3.5 text-amber-400" />, label: 'Schedule', bg: 'bg-amber-500/10', border: 'border-amber-500/30', text: 'text-amber-300', hover: 'hover:bg-amber-500/15', shadow: '0 0 12px rgba(245,158,11,0.15)' },
+          ].map((action, i) => (
+            <motion.button
+              key={action.label}
+              onClick={action.onClick}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 + i * 0.05, duration: 0.3 }}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-full ${action.bg} border ${action.border} whitespace-nowrap flex-shrink-0 ${action.hover} transition-colors`}
+              style={{ boxShadow: action.shadow }}
+            >
+              {action.icon}
+              <span className={`text-xs font-semibold ${action.text}`}>{action.label}</span>
+            </motion.button>
+          ))}
         </div>
       </motion.div>
 
-      {/* Core Automation */}
+      {/* Core Automation - compact grid with min-h */}
       <motion.div variants={container} initial="hidden" animate="show">
         <div className="flex items-center gap-2.5 mb-3">
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/15">
@@ -274,14 +316,14 @@ export function DashboardPage() {
             <FeatureCard key={card.id} {...card} />
           ))}
         </div>
-        <div className="grid grid-cols-1 gap-3 mt-3">
+        <div className="grid grid-cols-2 gap-3 mt-3">
           {coreAutomation.slice(4).map((card) => (
             <FeatureCard key={card.id} {...card} />
           ))}
         </div>
       </motion.div>
 
-      {/* Growth Tools */}
+      {/* Growth Tools - Changed to 2x2 grid */}
       <motion.div variants={container} initial="hidden" animate="show">
         <div className="flex items-center gap-2.5 mb-3">
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-green-500/10 border border-green-500/15">
@@ -290,7 +332,7 @@ export function DashboardPage() {
           </div>
           <div className="flex-1 h-px bg-gradient-to-r from-green-500/20 to-transparent" />
         </div>
-        <div className="grid grid-cols-3 gap-2.5">
+        <div className="grid grid-cols-2 gap-3">
           {growthTools.map((card) => (
             <FeatureCard key={card.id} {...card} />
           ))}
@@ -313,7 +355,23 @@ export function DashboardPage() {
         </div>
       </motion.div>
 
-      {/* Recent Activity Feed - NEW */}
+      {/* Data */}
+      <motion.div variants={container} initial="hidden" animate="show">
+        <div className="flex items-center gap-2.5 mb-3">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/15">
+            <Database className="w-3 h-3 text-neon-cyan" />
+            <span className="text-[11px] font-bold text-cyan-400/90 uppercase tracking-wider">Data</span>
+          </div>
+          <div className="flex-1 h-px bg-gradient-to-r from-cyan-500/20 to-transparent" />
+        </div>
+        <div className="grid grid-cols-1 gap-3">
+          {dataSection.map((card) => (
+            <FeatureCard key={card.id} {...card} />
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Recent Activity Feed - Enhanced with View All link */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -333,7 +391,8 @@ export function DashboardPage() {
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.5 + i * 0.06 }}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors cursor-pointer"
+              className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-all duration-200 cursor-pointer group"
+              whileHover={{ boxShadow: `0 0 20px ${activity.color}10` }}
             >
               <div 
                 className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -342,13 +401,22 @@ export function DashboardPage() {
                 <div style={{ color: activity.color }}>{activity.icon}</div>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[12px] text-white/75 font-medium truncate">{activity.text}</p>
-                <p className="text-[10px] text-white/30 mt-0.5">{activity.time}</p>
+                <p className="text-[12px] text-readable font-medium truncate">{activity.text}</p>
+                <p className="text-[10px] text-subtitle mt-0.5">{activity.time}</p>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-white/10 flex-shrink-0" />
             </motion.div>
           ))}
         </div>
+        {/* View All link */}
+        <motion.button
+          onClick={() => { setActiveFeature('analytics') }}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="w-full mt-2 py-2.5 rounded-xl text-center text-xs font-semibold text-amber-400/70 hover:text-amber-400 bg-amber-500/[0.04] border border-amber-500/10 hover:border-amber-500/20 transition-all"
+        >
+          View All Activity →
+        </motion.button>
       </motion.div>
     </div>
   )

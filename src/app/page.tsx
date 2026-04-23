@@ -10,6 +10,8 @@ import { ToolsPage } from '@/components/app/tools-page'
 import { SettingsPage } from '@/components/app/settings-page'
 import { FeatureRouter } from '@/components/app/features/feature-router'
 import { OnboardingModal } from '@/components/app/modals/onboarding-modal'
+import { QuickSearchModal } from '@/components/app/modals/quick-search-modal'
+import { AddContactModal } from '@/components/app/modals/add-contact-modal'
 import { ToastContainer } from '@/components/app/toast-container'
 import { AnimatePresence, motion } from 'framer-motion'
 
@@ -51,6 +53,8 @@ export default function Home() {
       </main>
       <BottomNav />
       <OnboardingModal />
+      <QuickSearchModal />
+      <AddContactModal />
       <ToastContainer />
     </div>
   )

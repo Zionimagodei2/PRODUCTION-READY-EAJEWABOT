@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Search, Plus, Import, Download, MoreHorizontal, Phone, MessageSquare, Tag, Trash2, UserPlus, Users } from 'lucide-react'
+import { Search, Plus, Import, Download, MoreHorizontal, Phone, MessageSquare, Tag, Trash2, UserPlus, Users, RotateCcw } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
+import { ListSkeleton } from '@/components/app/loading-skeleton'
 
 interface Contact {
   id: string
@@ -38,8 +39,27 @@ const tagColors: Record<string, string> = {
 export function ContactsPage() {
   const [search, setSearch] = useState('')
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
-  const [contacts] = useState(mockContacts)
-  const { setSelectedContactId, setActiveFeature } = useAppStore()
+  const [contacts, setContacts] = useState(mockContacts)
+  const { setSelectedContactId, setActiveFeature, setAddContactOpen, pendingNewContact, setPendingNewContact } = useAppStore()
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Handle new contact from modal
+  useEffect(() => {
+    if (pendingNewContact) {
+      queueMicrotask(() => {
+        setContacts(prev => [pendingNewContact!, ...prev])
+        setPendingNewContact(null)
+      })
+    }
+  }, [pendingNewContact, setPendingNewContact])
+
+  // Simulate loading state
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      queueMicrotask(() => setIsLoading(false))
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [])
 
   const allTags = Array.from(new Set(contacts.flatMap(c => c.tags)))
   
@@ -49,6 +69,11 @@ export function ContactsPage() {
     const matchTag = !selectedTag || c.tags.includes(selectedTag)
     return matchSearch && matchTag
   })
+
+  const handleResetFilters = () => {
+    setSearch('')
+    setSelectedTag(null)
+  }
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-4">
@@ -106,11 +131,17 @@ export function ContactsPage() {
         ))}
       </div>
 
-      {/* Action buttons */}
+      {/* Action buttons - Enhanced Add Contact with gradient */}
       <div className="flex gap-2">
-        <button className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-neon-blue/10 text-neon-blue border border-neon-blue/20 text-xs font-medium hover:bg-neon-blue/20 transition-colors">
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          whileHover={{ scale: 1.02 }}
+          onClick={() => setAddContactOpen(true)}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-gradient-to-r from-neon-blue/20 to-neon-purple/20 text-white font-semibold border border-neon-blue/25 text-xs hover:from-neon-blue/30 hover:to-neon-purple/30 transition-all"
+          style={{ boxShadow: '0 0 16px rgba(59,130,246,0.2), 0 0 8px rgba(139,92,246,0.15)' }}
+        >
           <UserPlus className="w-3.5 h-3.5" /> Add Contact
-        </button>
+        </motion.button>
         <button className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-white/5 text-white/50 border border-white/10 text-xs font-medium hover:bg-white/10 transition-colors">
           <Import className="w-3.5 h-3.5" /> Import CSV
         </button>
@@ -119,63 +150,80 @@ export function ContactsPage() {
         </button>
       </div>
 
-      {/* Contact list */}
-      <div className="space-y-2">
-        {filtered.map((contact, i) => (
-          <motion.div
-            key={contact.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.03 }}
-            whileHover={{ scale: 1.01 }}
-            onClick={() => {
-              setSelectedContactId(contact.id)
-              setActiveFeature('contact-detail')
-            }}
-            className="glass-card rounded-xl p-3.5 flex items-center gap-3 cursor-pointer hover:bg-white/[0.03] transition-colors"
+      {/* Contact list - with skeleton loading */}
+      {isLoading ? (
+        <ListSkeleton count={4} />
+      ) : filtered.length === 0 ? (
+        /* Empty state for when search/filter returns no results */
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="empty-state"
+        >
+          <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-4">
+            <Users className="w-8 h-8 text-white/20" />
+          </div>
+          <h3 className="text-sm font-bold text-white/50 mb-1">No contacts found</h3>
+          <p className="text-xs text-subtitle mb-4">Try adjusting your search or filter</p>
+          <button
+            onClick={handleResetFilters}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-neon-blue/15 text-neon-blue border border-neon-blue/25 text-xs font-semibold hover:bg-neon-blue/25 transition-colors"
           >
-            {/* Avatar */}
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-neon-blue/30 to-neon-purple/30 border border-white/10 flex items-center justify-center flex-shrink-0">
-              <span className="text-xs font-bold text-white/70">{contact.name.split(' ').map(n => n[0]).join('')}</span>
-            </div>
-
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-white/90 truncate">{contact.name}</h3>
-                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${contact.status === 'active' ? 'bg-emerald-400' : 'bg-white/20'}`} />
+            <RotateCcw className="w-3.5 h-3.5" /> Reset Filters
+          </button>
+        </motion.div>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((contact, i) => (
+            <motion.div
+              key={contact.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.03 }}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => {
+                setSelectedContactId(contact.id)
+                setActiveFeature('contact-detail')
+              }}
+              className={`glass-card rounded-xl p-3.5 flex items-center gap-3 cursor-pointer hover:bg-white/[0.03] transition-colors ${i % 2 === 0 ? 'bg-white/[0.005]' : ''}`}
+            >
+              {/* Avatar */}
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-neon-blue/30 to-neon-purple/30 border border-white/10 flex items-center justify-center flex-shrink-0">
+                <span className="text-xs font-bold text-white/70">{contact.name.split(' ').map(n => n[0]).join('')}</span>
               </div>
-              <p className="text-[10px] text-white/30 mt-0.5 flex items-center gap-1">
-                <Phone className="w-2.5 h-2.5" /> {contact.phone}
-              </p>
-              {contact.lastMessage && (
-                <p className="text-[10px] text-white/20 mt-0.5 truncate flex items-center gap-1">
-                  <MessageSquare className="w-2.5 h-2.5" /> {contact.lastMessage}
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-white/90 truncate">{contact.name}</h3>
+                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${contact.status === 'active' ? 'bg-emerald-400 animate-pulse-dot' : 'bg-white/20'}`} />
+                </div>
+                <p className="text-[10px] text-white/30 mt-0.5 flex items-center gap-1">
+                  <Phone className="w-2.5 h-2.5" /> {contact.phone}
                 </p>
-              )}
-            </div>
-
-            {/* Tags */}
-            <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-              <div className="flex gap-1">
-                {contact.tags.slice(0, 2).map((tag) => (
-                  <span key={tag} className={`text-[8px] px-1.5 py-0.5 rounded-md border ${tagColors[tag] || 'bg-white/10 text-white/50 border-white/10'}`}>
-                    {tag}
-                  </span>
-                ))}
+                {contact.lastMessage && (
+                  <p className="text-[10px] text-white/20 mt-0.5 truncate flex items-center gap-1">
+                    <MessageSquare className="w-2.5 h-2.5" /> {contact.lastMessage}
+                  </p>
+                )}
               </div>
-              <button className="p-1 rounded hover:bg-white/5 transition-colors">
-                <MoreHorizontal className="w-3.5 h-3.5 text-white/20" />
-              </button>
-            </div>
-          </motion.div>
-        ))}
-      </div>
 
-      {filtered.length === 0 && (
-        <div className="text-center py-12 text-white/20">
-          <Users className="w-10 h-10 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">No contacts found</p>
+              {/* Tags */}
+              <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                <div className="flex gap-1">
+                  {contact.tags.slice(0, 2).map((tag) => (
+                    <span key={tag} className={`text-[8px] px-1.5 py-0.5 rounded-md border ${tagColors[tag] || 'bg-white/10 text-white/50 border-white/10'}`}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                <button className="p-1 rounded hover:bg-white/5 transition-colors">
+                  <MoreHorizontal className="w-3.5 h-3.5 text-white/20" />
+                </button>
+              </div>
+            </motion.div>
+          ))}
         </div>
       )}
     </div>

@@ -16,6 +16,8 @@ export type FeaturePage =
   | 'contact-detail'
   | 'broadcast-lists'
   | 'ai-chat'
+  | 'data-export'
+  | 'api-health'
   | null
 
 interface AppState {
@@ -25,8 +27,22 @@ interface AppState {
   waConnected: boolean
   selectedCampaignId: string | null
   selectedContactId: string | null
+  searchOpen: boolean
+  addContactOpen: boolean
+  pendingNewContact: {
+    id: string
+    name: string
+    phone: string
+    tags: string[]
+    lastMessage: string
+    status: 'active' | 'inactive'
+    dateAdded: string
+  } | null
   
   setActiveTab: (tab: TabId) => void
+  setSearchOpen: (open: boolean) => void
+  setAddContactOpen: (open: boolean) => void
+  setPendingNewContact: (contact: AppState['pendingNewContact']) => void
   setActiveFeature: (feature: FeaturePage) => void
   setSidebarOpen: (open: boolean) => void
   setWaConnected: (connected: boolean) => void
@@ -42,8 +58,14 @@ export const useAppStore = create<AppState>((set) => ({
   waConnected: true,
   selectedCampaignId: null,
   selectedContactId: null,
+  searchOpen: false,
+  addContactOpen: false,
+  pendingNewContact: null,
   
   setActiveTab: (tab) => set({ activeTab: tab, activeFeature: null }),
+  setSearchOpen: (open) => set({ searchOpen: open }),
+  setAddContactOpen: (open) => set({ addContactOpen: open }),
+  setPendingNewContact: (contact) => set({ pendingNewContact: contact }),
   setActiveFeature: (feature) => set({ activeFeature: feature }),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   setWaConnected: (connected) => set({ waConnected: connected }),
