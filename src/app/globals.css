@@ -568,3 +568,225 @@
 .avatar-glow-pulse {
   animation: avatarGlowPulse 3s ease-in-out infinite;
 }
+
+/* ============================================
+   Task 9-a: Premium Styling Enhancement Classes
+   ============================================ */
+
+/* Ring Progress - SVG-based circular progress indicator */
+@keyframes ringProgressFill {
+  from { stroke-dashoffset: 100; }
+}
+
+.ring-progress {
+  transform: rotate(-90deg);
+  transform-origin: center;
+}
+
+.ring-progress circle {
+  fill: none;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s ease-out;
+}
+
+.ring-progress-bg {
+  stroke: rgba(255, 255, 255, 0.06);
+}
+
+.ring-progress-fill {
+  animation: ringProgressFill 1.2s ease-out forwards;
+}
+
+/* Typing dots animation - 3 bouncing dots for AI chat */
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-4px); }
+}
+
+.typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.typing-dots span {
+  display: block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  animation: typingBounce 1.4s ease-in-out infinite;
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+/* Ripple animation for button click feedback */
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+.ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ripple:active::after {
+  animation: ripple 0.6s ease-out;
+}
+
+/* Gradient border animated - rotating gradient border effect */
+@keyframes gradientBorderRotate {
+  0% { --gradient-angle: 0deg; }
+  100% { --gradient-angle: 360deg; }
+}
+
+@property --gradient-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.gradient-border-animated {
+  position: relative;
+  border: none !important;
+}
+
+.gradient-border-animated::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(from var(--gradient-angle, 0deg), #3b82f6, #8b5cf6, #ec4899, #f97316, #22c55e, #3b82f6);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: gradientBorderRotate 3s linear infinite;
+}
+
+/* Shimmer text - text with shimmer effect */
+@keyframes shimmerText {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.shimmer-text {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.6) 0%,
+    rgba(255, 255, 255, 1) 25%,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(139, 92, 246, 0.8) 75%,
+    rgba(255, 255, 255, 0.6) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmerText 3s linear infinite;
+}
+
+/* Badge pulse - badge notification pulse */
+@keyframes badgePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+
+.badge-pulse {
+  animation: badgePulse 2s ease-in-out infinite;
+}
+
+/* Micro bounce - very subtle bounce on hover */
+@keyframes microBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+.micro-bounce:hover {
+  animation: microBounce 0.4s ease-in-out;
+}
+
+/* Data viz gradient - gradient backgrounds for chart elements */
+.data-viz-gradient {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.2), rgba(236, 72, 153, 0.15));
+  border: 1px solid rgba(139, 92, 246, 0.15);
+}
+
+/* Animated number transition helper */
+@keyframes numberPop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+.animate-number-pop {
+  animation: numberPop 0.3s ease-out;
+}
+
+/* Connection health bar gradient animation */
+@keyframes healthBarFlow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+.connection-health-bar {
+  background: linear-gradient(90deg, #22c55e, #3b82f6, #8b5cf6, #22c55e);
+  background-size: 200% 100%;
+  animation: healthBarFlow 3s linear infinite;
+}
+
+/* Subtle glow orb for tool backgrounds */
+@keyframes orbFloat {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
+  25% { transform: translate(10px, -10px) scale(1.1); opacity: 0.5; }
+  50% { transform: translate(-5px, 5px) scale(0.9); opacity: 0.3; }
+  75% { transform: translate(-10px, -5px) scale(1.05); opacity: 0.4; }
+}
+
+.glow-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  pointer-events: none;
+  animation: orbFloat 8s ease-in-out infinite;
+}
+
+/* Pro badge styling */
+.pro-badge {
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  font-size: 8px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: #000;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  line-height: 1.4;
+}

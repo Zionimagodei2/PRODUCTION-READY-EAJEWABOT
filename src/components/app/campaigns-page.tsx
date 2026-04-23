@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Clock, CheckCircle2, XCircle, Send, MoreVertical, Pause, Play, Trash2, Copy, Search, ArrowDownUp, Megaphone, RotateCcw } from 'lucide-react'
+import { Plus, Clock, CheckCircle2, XCircle, Send, MoreVertical, Pause, Play, Trash2, Copy, Search, ArrowDownUp, Megaphone, RotateCcw, TrendingUp, Tag, Users, ShoppingBag, Gift } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 import { ListSkeleton } from '@/components/app/loading-skeleton'
 
@@ -34,6 +34,65 @@ const statusConfig = {
 }
 
 type SortBy = 'date' | 'name' | 'status'
+
+// Donut chart component for campaign status distribution
+function CampaignDonutChart({ campaigns }: { campaigns: Campaign[] }) {
+  const statusCounts = {
+    active: campaigns.filter(c => c.status === 'active').length,
+    scheduled: campaigns.filter(c => c.status === 'scheduled').length,
+    completed: campaigns.filter(c => c.status === 'completed').length,
+    paused: campaigns.filter(c => c.status === 'paused').length,
+    failed: campaigns.filter(c => c.status === 'failed').length,
+  }
+  const total = campaigns.length
+  const colors = { active: '#22c55e', scheduled: '#3b82f6', completed: '#8b5cf6', paused: '#f59e0b', failed: '#ef4444' }
+  
+  const size = 56
+  const strokeWidth = 8
+  const radius = (size - strokeWidth) / 2
+  const circumference = 2 * Math.PI * radius
+  let currentOffset = 0
+  
+  return (
+    <div className="relative flex items-center justify-center">
+      <svg width={size} height={size} className="ring-progress">
+        <circle cx={size/2} cy={size/2} r={radius} strokeWidth={strokeWidth} fill="none" stroke="rgba(255,255,255,0.06)" />
+        {Object.entries(statusCounts).map(([status, count]) => {
+          if (count === 0) return null
+          const percentage = count / total
+          const dashLength = percentage * circumference
+          const gap = circumference - dashLength
+          const element = (
+            <circle
+              key={status}
+              cx={size/2} cy={size/2} r={radius} strokeWidth={strokeWidth}
+              fill="none"
+              stroke={colors[status as keyof typeof colors]}
+              strokeDasharray={`${dashLength} ${gap}`}
+              strokeDashoffset={-currentOffset}
+              strokeLinecap="round"
+              className="transition-all duration-700"
+            />
+          )
+          currentOffset += dashLength
+          return element
+        })}
+      </svg>
+      <span className="absolute text-[9px] font-bold text-white/70">{total}</span>
+    </div>
+  )
+}
+
+// Campaign category icon
+function CampaignCategoryIcon({ name }: { name: string }) {
+  const lower = name.toLowerCase()
+  if (lower.includes('launch') || lower.includes('promo') || lower.includes('sale')) return <Megaphone className="w-3 h-3" />
+  if (lower.includes('newsletter') || lower.includes('digest')) return <Send className="w-3 h-3" />
+  if (lower.includes('greeting') || lower.includes('holiday')) return <Gift className="w-3 h-3" />
+  if (lower.includes('follow')) return <Users className="w-3 h-3" />
+  if (lower.includes('shop') || lower.includes('product')) return <ShoppingBag className="w-3 h-3" />
+  return <Tag className="w-3 h-3" />
+}
 
 export function CampaignsPage() {
   const { setActiveFeature, setSelectedCampaignId } = useAppStore()
@@ -99,15 +158,40 @@ export function CampaignsPage() {
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-4">
-      {/* Stats Row - Enhanced with accent borders */}
+      {/* Stats Row - Enhanced with donut chart and accent borders */}
       <div className="grid grid-cols-2 gap-3">
         <div className="glass-card rounded-xl p-3.5 stat-card-blue">
           <p className="text-[11px] text-white/55 font-semibold">Active Campaigns</p>
-          <p className="text-2xl font-extrabold text-neon-blue mt-1">{campaigns.filter(c => c.status === 'active').length}</p>
+          <p className="text-2xl font-extrabold text-neon-blue mt-1 animate-number-pop">{campaigns.filter(c => c.status === 'active').length}</p>
         </div>
-        <div className="glass-card rounded-xl p-3.5 stat-card-green">
-          <p className="text-[11px] text-white/55 font-semibold">Total Sent</p>
-          <p className="text-2xl font-extrabold text-neon-green mt-1">{campaigns.reduce((a, c) => a + c.sent, 0).toLocaleString()}</p>
+        <div className="glass-card rounded-xl p-3.5 stat-card-green flex items-center gap-3">
+          <div className="flex-1">
+            <p className="text-[11px] text-white/55 font-semibold">Total Sent</p>
+            <p className="text-2xl font-extrabold text-neon-green mt-1 animate-number-pop">{campaigns.reduce((a, c) => a + c.sent, 0).toLocaleString()}</p>
+          </div>
+          <CampaignDonutChart campaigns={campaigns} />
+        </div>
+      </div>
+
+      {/* Last 7 Days trend sparkline */}
+      <div className="glass-card rounded-xl p-3 flex items-center gap-3">
+        <div className="flex-1">
+          <p className="text-[10px] text-white/40 font-semibold">Last 7 Days Trend</p>
+          <p className="text-[11px] text-emerald-400 font-bold mt-0.5 flex items-center gap-0.5">
+            <TrendingUp className="w-3 h-3" /> +18% vs last week
+          </p>
+        </div>
+        <div className="flex items-end gap-[2px] h-7">
+          {[35, 50, 45, 70, 65, 55, 80].map((h, i) => (
+            <div
+              key={i}
+              className="w-[4px] rounded-sm"
+              style={{
+                height: `${h}%`,
+                background: `linear-gradient(to top, rgba(59,130,246,0.3), rgba(59,130,246,0.7))`,
+              }}
+            />
+          ))}
         </div>
       </div>
 
@@ -250,9 +334,16 @@ export function CampaignsPage() {
                 className="glass-card rounded-xl p-4 space-y-3 cursor-pointer hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-500/5 hover:border-white/15 transition-all duration-200"
               >
                 <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-white/90 truncate">{campaign.name}</h3>
-                    <p className="text-[10px] text-white/30 mt-0.5">{campaign.date}</p>
+                  <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                      style={{ backgroundColor: `${config.color === 'text-emerald-400' ? '#22c55e' : config.color === 'text-blue-400' ? '#3b82f6' : config.color === 'text-purple-400' ? '#8b5cf6' : config.color === 'text-amber-400' ? '#f59e0b' : '#ef4444'}15`, border: `1px solid ${config.color === 'text-emerald-400' ? '#22c55e' : config.color === 'text-blue-400' ? '#3b82f6' : config.color === 'text-purple-400' ? '#8b5cf6' : config.color === 'text-amber-400' ? '#f59e0b' : '#ef4444'}25` }}
+                    >
+                      <div className={config.color}><CampaignCategoryIcon name={campaign.name} /></div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-white/90 truncate">{campaign.name}</h3>
+                      <p className="text-[10px] text-white/30 mt-0.5">{campaign.date}</p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-1.5">
                     {campaign.sent > 0 && (

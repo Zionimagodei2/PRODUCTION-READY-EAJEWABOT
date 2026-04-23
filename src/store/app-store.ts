@@ -18,6 +18,9 @@ export type FeaturePage =
   | 'ai-chat'
   | 'data-export'
   | 'api-health'
+  | 'number-validator'
+  | 'campaign-wizard'
+  | 'contact-import'
   | null
 
 interface AppState {

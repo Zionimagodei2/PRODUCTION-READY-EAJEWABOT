@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Users, Search, Link2, Play, Pause, Download, Copy, CheckCircle2, AlertCircle, ExternalLink } from 'lucide-react'
+import { Users, Search, Link2, Play, Pause, Download, Copy, CheckCircle2, AlertCircle, ExternalLink, Clock, Sparkles, Zap } from 'lucide-react'
 
 // Group Extractor Sub-component
 export function GroupExtractor() {
@@ -159,6 +159,7 @@ export function LeadScraper() {
             <h3 className="text-sm font-semibold text-white/90">Lead Scraper</h3>
             <p className="text-[10px] text-white/40">Find new prospects by keyword</p>
           </div>
+          <span className="pro-badge">PRO</span>
         </div>
 
         <div className="space-y-3">
@@ -313,14 +314,51 @@ export function LinkGenerator() {
 export function ToolsPage() {
   const [activeTool, setActiveTool] = useState<'extractor' | 'scraper' | 'generator'>('extractor')
 
-  const tools = [
-    { id: 'extractor' as const, label: 'Group Extractor', color: 'neon-green' },
-    { id: 'scraper' as const, label: 'Lead Scraper', color: 'neon-green' },
-    { id: 'generator' as const, label: 'Link Generator', color: 'neon-orange' },
+  const recentlyUsed = [
+    { id: 'extractor' as const, label: 'Group Extractor', icon: <Users className="w-3 h-3" />, time: '2h ago', color: '#22c55e' },
+    { id: 'generator' as const, label: 'Link Generator', icon: <Link2 className="w-3 h-3" />, time: '5h ago', color: '#f97316' },
   ]
+
+  const tools = [
+    { id: 'extractor' as const, label: 'Group Extractor', color: 'neon-green', orbColor: 'rgba(34,197,94,0.15)' },
+    { id: 'scraper' as const, label: 'Lead Scraper', color: 'neon-green', orbColor: 'rgba(139,92,246,0.15)' },
+    { id: 'generator' as const, label: 'Link Generator', color: 'neon-orange', orbColor: 'rgba(249,115,22,0.15)' },
+  ]
+
+  const activeToolData = tools.find(t => t.id === activeTool)
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-4">
+      {/* Recently Used Section */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <Clock className="w-3 h-3 text-white/30" />
+          <span className="text-[10px] font-bold text-white/30 uppercase tracking-wider">Recently Used</span>
+        </div>
+        <div className="flex gap-2">
+          {recentlyUsed.map((tool) => (
+            <motion.button
+              key={tool.id}
+              onClick={() => setActiveTool(tool.id)}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-all"
+              style={{ boxShadow: `0 0 12px ${tool.color}08` }}
+            >
+              <div style={{ color: tool.color }}>{tool.icon}</div>
+              <div className="text-left">
+                <p className="text-[10px] font-semibold text-white/70">{tool.label}</p>
+                <p className="text-[8px] text-white/25">{tool.time}</p>
+              </div>
+            </motion.button>
+          ))}
+        </div>
+      </motion.div>
+
       {/* Tool Tabs */}
       <div className="flex gap-2">
         {tools.map((tool) => (
@@ -345,7 +383,7 @@ export function ToolsPage() {
         ))}
       </div>
 
-      {/* Active tool content with animated transitions */}
+      {/* Active tool content with animated transitions and gradient orbs */}
       <AnimatePresence mode="wait">
         <motion.div
           key={activeTool}
@@ -353,7 +391,15 @@ export function ToolsPage() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.2 }}
+          className="relative"
         >
+          {/* Animated gradient orb background */}
+          {activeToolData && (
+            <div 
+              className="glow-orb w-32 h-32 -top-8 -right-8"
+              style={{ background: activeToolData.orbColor }}
+            />
+          )}
           {activeTool === 'extractor' && <GroupExtractor />}
           {activeTool === 'scraper' && <LeadScraper />}
           {activeTool === 'generator' && <LinkGenerator />}

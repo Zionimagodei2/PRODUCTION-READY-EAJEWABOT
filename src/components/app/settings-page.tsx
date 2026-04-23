@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Settings as SettingsIcon, Shield, Bell, Palette, Database, Key, Globe, HelpCircle, LogOut, ChevronRight, Moon, Zap, MessageSquare, CreditCard, Activity } from 'lucide-react'
+import { Settings as SettingsIcon, Shield, Bell, Palette, Database, Key, Globe, HelpCircle, LogOut, ChevronRight, Moon, Zap, MessageSquare, CreditCard, Activity, HardDrive, Clock, Pencil, Info } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 
 interface SettingItem {
@@ -106,15 +106,48 @@ export function SettingsPage() {
           <span className="text-xl font-black text-white">EA</span>
         </div>
         <div className="flex-1">
-          <h3 className="text-[15px] font-bold text-white/95">Enterprise Admin</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-[15px] font-bold text-white/95">Enterprise Admin</h3>
+          </div>
           <p className="text-xs text-white/50 mt-0.5">admin@eje-whatsbot.com</p>
           <div className="flex items-center gap-1.5 mt-1.5">
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-500/15 text-blue-400 border border-blue-500/20">Pro Plan</span>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">Active</span>
           </div>
         </div>
-        <ChevronRight className="w-4 h-4 text-white/15" />
+        <div className="flex flex-col items-center gap-1">
+          <ChevronRight className="w-4 h-4 text-white/15" />
+          <button className="text-[9px] text-blue-400/70 hover:text-blue-400 font-semibold mt-1 flex items-center gap-0.5 transition-colors">
+            <Pencil className="w-2.5 h-2.5" /> Edit
+          </button>
+        </div>
       </motion.div>
+
+      {/* Storage & Backup Info */}
+      <div className="glass-card rounded-xl p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-purple-500/10">
+              <HardDrive className="w-4 h-4 text-purple-400" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-white/80">Storage Used</p>
+              <p className="text-[10px] text-white/40">2.4 GB of 10 GB</p>
+            </div>
+          </div>
+          <span className="text-xs font-bold text-purple-400">24%</span>
+        </div>
+        <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+          <div 
+            className="h-full rounded-full bg-gradient-to-r from-purple-500 to-blue-500 progress-shimmer"
+            style={{ width: '24%', backgroundSize: '200% 100%', background: 'linear-gradient(90deg, #8b5cf6, #3b82f6, #8b5cf6)' }}
+          />
+        </div>
+        <div className="flex items-center gap-1.5 text-[10px] text-white/30">
+          <Clock className="w-2.5 h-2.5" />
+          <span>Last backup: Today, 2:30 AM</span>
+        </div>
+      </div>
 
       {/* Account */}
       <div>
@@ -173,6 +206,15 @@ export function SettingsPage() {
       >
         <LogOut className="w-4 h-4" /> Sign Out
       </motion.button>
+
+      {/* Version Info Footer */}
+      <div className="flex flex-col items-center gap-1 pt-2 pb-4">
+        <div className="flex items-center gap-1 text-[9px] text-white/20">
+          <Info className="w-2.5 h-2.5" />
+          <span>EAJE WhatsBot v2.4.1</span>
+        </div>
+        <p className="text-[8px] text-white/10">Build 2024.01.15 • Pro License</p>
+      </div>
     </div>
   )
 }

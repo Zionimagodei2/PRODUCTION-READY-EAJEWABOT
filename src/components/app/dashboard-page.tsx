@@ -7,7 +7,8 @@ import {
   Users, Search, Link2, BarChart3, FileText,
   ArrowRight, Zap, TrendingUp, Activity, FileCode,
   Megaphone, UserPlus, Clock, Sparkles, Phone, 
-  CheckCircle2, AlertCircle, ChevronRight, Flame, Radio, Database
+  CheckCircle2, AlertCircle, ChevronRight, Flame, Radio, Database,
+  Sun, Moon, Target, Wifi, ShieldCheck, Wand2, Upload
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useToastStore } from '@/store/toast-store'
@@ -22,6 +23,8 @@ interface FeatureCardProps {
   borderColor: string
   gradientFrom: string
   gradientTo: string
+  isActive?: boolean
+  hasNewBadge?: boolean
 }
 
 const container = {
@@ -56,6 +59,35 @@ function useAnimatedCounter(target: number, duration: number = 1200) {
     return () => cancelAnimationFrame(animationFrame)
   }, [target, duration])
   return count
+}
+
+// Ring progress component for circular indicators
+function RingProgress({ size = 36, strokeWidth = 3, progress = 0, color = '#3b82f6', trackColor = 'rgba(255,255,255,0.06)' }: { 
+  size?: number; strokeWidth?: number; progress?: number; color?: string; trackColor?: string 
+}) {
+  const radius = (size - strokeWidth) / 2
+  const circumference = 2 * Math.PI * radius
+  const strokeDashoffset = circumference - (progress / 100) * circumference
+  return (
+    <svg width={size} height={size} className="ring-progress">
+      <circle cx={size/2} cy={size/2} r={radius} strokeWidth={strokeWidth} className="ring-progress-bg" style={{ stroke: trackColor }} />
+      <circle 
+        cx={size/2} cy={size/2} r={radius} strokeWidth={strokeWidth}
+        className="ring-progress-fill"
+        style={{ stroke: color, strokeDasharray: circumference, strokeDashoffset }}
+      />
+    </svg>
+  )
+}
+
+// Current time hook
+function useCurrentTime() {
+  const [time, setTime] = useState(new Date())
+  useEffect(() => {
+    const interval = setInterval(() => setTime(new Date()), 60000)
+    return () => clearInterval(interval)
+  }, [])
+  return time
 }
 
 // Mini sparkline component for stat cards (3-4 tiny bars)
@@ -118,25 +150,36 @@ function StatCard({ value, label, icon, colorClass, statClass, breathColor, tren
   )
 }
 
-function FeatureCard({ id, icon, title, subtitle, color, glowClass, borderColor, gradientFrom, gradientTo }: FeatureCardProps) {
+function FeatureCard({ id, icon, title, subtitle, color, glowClass, borderColor, gradientFrom, gradientTo, isActive, hasNewBadge }: FeatureCardProps) {
   const { setActiveFeature } = useAppStore()
 
   return (
     <motion.button
       variants={item}
       onClick={() => setActiveFeature(id)}
-      className={`group relative flex flex-col items-start gap-2.5 p-4 rounded-2xl bg-gradient-to-br ${gradientFrom} ${gradientTo} border ${borderColor} hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 ${glowClass} text-left w-full min-h-[100px]`}
+      className={`group relative flex flex-col items-start gap-2.5 p-4 rounded-2xl bg-gradient-to-br ${gradientFrom} ${gradientTo} border ${borderColor} hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 ${glowClass} text-left w-full min-h-[100px] micro-bounce`}
     >
-      <div className="w-11 h-11 rounded-xl flex items-center justify-center shadow-lg"
+      <div className="w-11 h-11 rounded-xl flex items-center justify-center shadow-lg relative"
         style={{ 
           background: `linear-gradient(135deg, ${color}20, ${color}08)`,
           boxShadow: `0 0 20px ${color}15`
         }}
       >
         <div style={{ color, filter: `drop-shadow(0 0 6px ${color}40)` }}>{icon}</div>
+        {isActive && (
+          <div 
+            className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full animate-breathe border border-black/30"
+            style={{ backgroundColor: color }}
+          />
+        )}
       </div>
       <div className="flex-1">
-        <h3 className="text-[13px] font-bold text-white/95 tracking-tight">{title}</h3>
+        <div className="flex items-center gap-1.5">
+          <h3 className="text-[13px] font-bold text-white/95 tracking-tight">{title}</h3>
+          {hasNewBadge && (
+            <span className="text-[7px] font-extrabold px-1.5 py-0.5 rounded-md bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white badge-pulse">NEW</span>
+          )}
+        </div>
         <p className="text-[11px] text-white/55 mt-0.5 leading-tight">{subtitle}</p>
       </div>
       <ArrowRight className="w-3.5 h-3.5 text-white/15 absolute top-4 right-4 group-hover:text-white/50 group-hover:translate-x-0.5 transition-all duration-200" />
@@ -150,12 +193,14 @@ const coreAutomation: FeatureCardProps[] = [
   { id: 'chatbot', icon: <Bot className="w-5 h-5" />, title: 'Chatbot', subtitle: 'AI-powered conversations', color: '#8b5cf6', glowClass: 'neon-glow-purple', borderColor: 'border-purple-500/20', gradientFrom: 'from-purple-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'scheduler', icon: <Calendar className="w-5 h-5" />, title: 'Scheduler', subtitle: 'Plan messages ahead', color: '#8b5cf6', glowClass: 'neon-glow-purple', borderColor: 'border-purple-500/20', gradientFrom: 'from-purple-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'message-templates', icon: <FileCode className="w-5 h-5" />, title: 'Templates', subtitle: 'Reusable message templates', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent' },
-  { id: 'ai-chat', icon: <Sparkles className="w-5 h-5" />, title: 'AI Assistant', subtitle: 'Smart automation helper', color: '#f59e0b', glowClass: 'neon-glow-orange', borderColor: 'border-orange-500/20', gradientFrom: 'from-orange-500/[0.06]', gradientTo: 'to-transparent' },
+  { id: 'ai-chat', icon: <Sparkles className="w-5 h-5" />, title: 'AI Assistant', subtitle: 'Smart automation helper', color: '#f59e0b', glowClass: 'neon-glow-orange', borderColor: 'border-orange-500/20', gradientFrom: 'from-orange-500/[0.06]', gradientTo: 'to-transparent', isActive: true, hasNewBadge: true },
+  { id: 'campaign-wizard', icon: <Wand2 className="w-5 h-5" />, title: 'Campaign Wizard', subtitle: 'Step-by-step campaign builder', color: '#3b82f6', glowClass: 'neon-glow-blue', borderColor: 'border-blue-500/20', gradientFrom: 'from-blue-500/[0.06]', gradientTo: 'to-transparent', hasNewBadge: true },
 ]
 
 const growthTools: FeatureCardProps[] = [
   { id: 'group-extractor', icon: <Users className="w-5 h-5" />, title: 'Group Extractor', subtitle: 'Extract contacts from groups', color: '#22c55e', glowClass: 'neon-glow-green', borderColor: 'border-green-500/20', gradientFrom: 'from-green-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'lead-scraper', icon: <Search className="w-5 h-5" />, title: 'Lead Scraper', subtitle: 'Find new prospects', color: '#22c55e', glowClass: 'neon-glow-green', borderColor: 'border-green-500/20', gradientFrom: 'from-green-500/[0.06]', gradientTo: 'to-transparent' },
+  { id: 'number-validator', icon: <ShieldCheck className="w-5 h-5" />, title: 'Number Validator', subtitle: 'Verify WhatsApp numbers', color: '#22c55e', glowClass: 'neon-glow-green', borderColor: 'border-green-500/20', gradientFrom: 'from-green-500/[0.06]', gradientTo: 'to-transparent', hasNewBadge: true },
   { id: 'link-generator', icon: <Link2 className="w-5 h-5" />, title: 'Link Generator', subtitle: 'Create WhatsApp links', color: '#f97316', glowClass: 'neon-glow-orange', borderColor: 'border-orange-500/20', gradientFrom: 'from-orange-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'broadcast-lists', icon: <Radio className="w-5 h-5" />, title: 'Broadcast Lists', subtitle: 'Targeted group messaging', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent' },
 ]
@@ -167,6 +212,7 @@ const insights: FeatureCardProps[] = [
 
 const dataSection: FeatureCardProps[] = [
   { id: 'data-export', icon: <Database className="w-5 h-5" />, title: 'Data Export', subtitle: 'Export data in various formats', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent' },
+  { id: 'contact-import', icon: <Upload className="w-5 h-5" />, title: 'Contact Import', subtitle: 'Import contacts from CSV', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent', hasNewBadge: true },
 ]
 
 const recentActivity = [
@@ -180,9 +226,58 @@ const recentActivity = [
 export function DashboardPage() {
   const { waConnected, setActiveFeature, setActiveTab } = useAppStore()
   const { addToast } = useToastStore()
+  const currentTime = useCurrentTime()
+
+  const greeting = currentTime.getHours() < 12 ? 'Good Morning' : currentTime.getHours() < 18 ? 'Good Afternoon' : 'Good Evening'
+  const formattedDate = currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+  const formattedTime = currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-6">
+      {/* Connection Health Bar */}
+      <motion.div 
+        initial={{ opacity: 0, scaleX: 0 }}
+        animate={{ opacity: 1, scaleX: 1 }}
+        transition={{ duration: 0.8 }}
+        className="h-1 rounded-full overflow-hidden bg-white/5"
+      >
+        <div 
+          className={`h-full rounded-full ${waConnected ? 'connection-health-bar' : ''}`}
+          style={{ width: waConnected ? '85%' : '30%', background: waConnected ? undefined : 'linear-gradient(90deg, rgba(239,68,68,0.5), rgba(245,158,11,0.5))' }}
+        />
+      </motion.div>
+
+      {/* Welcome Header */}
+      <motion.div 
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="flex items-center justify-between"
+      >
+        <div>
+          <h1 className="text-lg font-extrabold text-white/95">{greeting} 👋</h1>
+          <p className="text-[11px] text-white/40 mt-0.5 flex items-center gap-1.5">
+            <span>{formattedDate}</span>
+            <span className="text-white/15">•</span>
+            <span>{formattedTime}</span>
+            <span className="text-white/15">•</span>
+            <span className="flex items-center gap-1">
+              <Wifi className="w-2.5 h-2.5" style={{ color: waConnected ? '#22c55e' : '#ef4444' }} />
+              {waConnected ? 'Connected' : 'Offline'}
+            </span>
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Weekly Goal Ring */}
+          <div className="relative flex items-center justify-center">
+            <RingProgress size={36} strokeWidth={3} progress={72} color="#8b5cf6" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Target className="w-3 h-3 text-purple-400" />
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       {/* Quick Stats - Enhanced with accent borders, trend indicators, and mini sparklines */}
       <div className="grid grid-cols-3 gap-3">
         <StatCard 
@@ -224,18 +319,24 @@ export function DashboardPage() {
       {/* Subtle divider below stats row */}
       <div className="gradient-divider" />
 
-      {/* Activity Sparkline - Enhanced with thicker bars */}
+      {/* Activity Sparkline - Enhanced with weekly goal ring */}
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className="glass-card rounded-2xl p-4 border-white/5"
+        className="glass-card rounded-2xl p-4 border-white/5 data-viz-gradient relative overflow-hidden"
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xs font-bold text-white/70 uppercase tracking-wider">Activity This Week</h3>
-          <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-0.5">
-            <TrendingUp className="w-3 h-3" /> +12%
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-0.5">
+              <TrendingUp className="w-3 h-3" /> +12%
+            </span>
+            <div className="relative flex items-center justify-center">
+              <RingProgress size={28} strokeWidth={2.5} progress={72} color="#22c55e" />
+              <span className="absolute text-[7px] font-bold text-emerald-400">72%</span>
+            </div>
+          </div>
         </div>
         <div className="flex items-end gap-2 h-16">
           {[40, 65, 50, 80, 70, 35, 55].map((height, i) => (
