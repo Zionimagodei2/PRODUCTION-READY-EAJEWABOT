@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { useAppStore } from '@/store/app-store'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Users, Search, Plus, Radio, Edit, Send, Copy, Trash2, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { Users, Search, Plus, Radio, Edit, Send, Copy, Trash2, X, ChevronDown, ChevronUp, ArrowLeft } from 'lucide-react'
 
 interface BroadcastList {
   id: string
@@ -34,6 +35,7 @@ const tagColors: Record<string, string> = {
 const availableTags = ['customer', 'vip', 'lead', 'prospect', 'wholesale', 'hot']
 
 export function BroadcastListsPage() {
+  const { goBack } = useAppStore()
   const [lists, setLists] = useState(mockLists)
   const [search, setSearch] = useState('')
   const [showCreate, setShowCreate] = useState(false)
@@ -97,17 +99,22 @@ export function BroadcastListsPage() {
   }
 
   return (
-    <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-4">
-      {/* Header Card */}
-      <div className="glass-card rounded-2xl p-4 neon-glow-cyan border border-cyan-500/15">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center">
-            <Users className="w-5 h-5 text-neon-cyan" />
+    <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-5">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <motion.button
+          onClick={goBack}
+          whileTap={{ scale: 0.9 }}
+          className="p-2 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4 text-white/70" />
+        </motion.button>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <Radio className="w-5 h-5 text-cyan-400" style={{ filter: 'drop-shadow(0 0 8px rgba(6,182,212,0.4))' }} />
+            <h2 className="text-lg font-extrabold text-white/95 tracking-tight">Broadcast Lists</h2>
           </div>
-          <div>
-            <h2 className="text-base font-bold text-white/95">Broadcast Lists</h2>
-            <p className="text-[10px] text-white/45">Targeted group messaging</p>
-          </div>
+          <p className="text-[11px] text-white/40 mt-0.5">Targeted group messaging</p>
         </div>
       </div>
 

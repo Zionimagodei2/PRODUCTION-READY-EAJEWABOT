@@ -20,6 +20,8 @@ import { ApiHealthPage } from './api-health-page'
 import { NumberValidatorPage } from './number-validator-page'
 import { CampaignWizardPage } from './campaign-wizard-page'
 import { ContactImportPage } from './contact-import-page'
+import { QrCodePage } from './qr-code-page'
+import { ResponseTimePage } from './response-time-page'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const featureComponents: Record<FeaturePage, React.ComponentType> = {
@@ -42,6 +44,8 @@ const featureComponents: Record<FeaturePage, React.ComponentType> = {
   'number-validator': NumberValidatorPage,
   'campaign-wizard': CampaignWizardPage,
   'contact-import': ContactImportPage,
+  'qr-code': QrCodePage,
+  'response-time': ResponseTimePage,
 }
 
 export function FeatureRouter() {

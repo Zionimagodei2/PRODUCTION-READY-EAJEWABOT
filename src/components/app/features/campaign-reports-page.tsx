@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { FileText, Download, Filter, Search, CheckCircle2, XCircle, Clock, Eye, ChevronDown } from 'lucide-react'
+import { useAppStore } from '@/store/app-store'
+import { motion, AnimatePresence } from 'framer-motion'
+import { FileText, Download, Filter, Search, CheckCircle2, XCircle, Clock, Eye, ChevronDown, ArrowLeft, Hash } from 'lucide-react'
 
 interface Report {
   id: string
@@ -25,6 +26,7 @@ const mockReports: Report[] = [
 ]
 
 export function CampaignReportsPage() {
+  const { goBack } = useAppStore()
   const [search, setSearch] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [filter, setFilter] = useState<string>('all')
@@ -42,16 +44,22 @@ export function CampaignReportsPage() {
   }
 
   return (
-    <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-4">
-      <div className="glass-card rounded-xl p-4 neon-glow-red border border-red-500/15">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-red-500/10">
-            <FileText className="w-5 h-5 text-neon-red" />
+    <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-5">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <motion.button
+          onClick={goBack}
+          whileTap={{ scale: 0.9 }}
+          className="p-2 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4 text-white/70" />
+        </motion.button>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-red-400" style={{ filter: 'drop-shadow(0 0 8px rgba(239,68,68,0.4))' }} />
+            <h2 className="text-lg font-extrabold text-white/95 tracking-tight">Campaign Reports</h2>
           </div>
-          <div>
-            <h2 className="text-base font-semibold text-white/90">Campaign Reports</h2>
-            <p className="text-[10px] text-white/40">Detailed delivery reports</p>
-          </div>
+          <p className="text-[11px] text-white/40 mt-0.5">Detailed delivery reports</p>
         </div>
       </div>
 

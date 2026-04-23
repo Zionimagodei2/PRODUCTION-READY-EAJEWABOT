@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { useAppStore } from '@/store/app-store'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FileText, Plus, Trash2, Copy, Star, Edit, CheckCircle2, X } from 'lucide-react'
+import { FileText, Plus, Trash2, Copy, Star, Edit, CheckCircle2, X, ArrowLeft, Hash, Search } from 'lucide-react'
 
 interface Template {
   id: string
@@ -30,6 +31,7 @@ const categoryColors: Record<string, { bg: string; text: string; border: string 
 }
 
 export function MessageTemplatesPage() {
+  const { goBack } = useAppStore()
   const [templates, setTemplates] = useState(mockTemplates)
   const [showCreate, setShowCreate] = useState(false)
   const [search, setSearch] = useState('')
@@ -59,17 +61,22 @@ export function MessageTemplatesPage() {
   const categories = Array.from(new Set(templates.map(t => t.category)))
 
   return (
-    <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-4">
-      {/* Header Card */}
-      <div className="glass-card rounded-2xl p-4 neon-glow-blue border border-blue-500/15">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-            <FileText className="w-5 h-5 text-neon-blue" />
+    <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-5">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <motion.button
+          onClick={goBack}
+          whileTap={{ scale: 0.9 }}
+          className="p-2 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4 text-white/70" />
+        </motion.button>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-cyan-400" style={{ filter: 'drop-shadow(0 0 8px rgba(6,182,212,0.4))' }} />
+            <h2 className="text-lg font-extrabold text-white/95 tracking-tight">Message Templates</h2>
           </div>
-          <div>
-            <h2 className="text-base font-bold text-white/95">Message Templates</h2>
-            <p className="text-[10px] text-white/45">{templates.length} templates • {templates.filter(t => t.starred).length} starred</p>
-          </div>
+          <p className="text-[11px] text-white/40 mt-0.5">{templates.length} templates • {templates.filter(t => t.starred).length} starred</p>
         </div>
       </div>
 
@@ -212,13 +219,5 @@ export function MessageTemplatesPage() {
         </motion.button>
       )}
     </div>
-  )
-}
-
-function Search({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-    </svg>
   )
 }

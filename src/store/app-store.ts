@@ -21,6 +21,8 @@ export type FeaturePage =
   | 'number-validator'
   | 'campaign-wizard'
   | 'contact-import'
+  | 'qr-code'
+  | 'response-time'
   | null
 
 interface AppState {

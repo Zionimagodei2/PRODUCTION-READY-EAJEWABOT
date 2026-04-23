@@ -8,7 +8,7 @@ import {
   ArrowRight, Zap, TrendingUp, Activity, FileCode,
   Megaphone, UserPlus, Clock, Sparkles, Phone, 
   CheckCircle2, AlertCircle, ChevronRight, Flame, Radio, Database,
-  Sun, Moon, Target, Wifi, ShieldCheck, Wand2, Upload
+  Sun, Moon, Target, Wifi, ShieldCheck, Wand2, Upload, QrCode, Timer
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useToastStore } from '@/store/toast-store'
@@ -203,11 +203,13 @@ const growthTools: FeatureCardProps[] = [
   { id: 'number-validator', icon: <ShieldCheck className="w-5 h-5" />, title: 'Number Validator', subtitle: 'Verify WhatsApp numbers', color: '#22c55e', glowClass: 'neon-glow-green', borderColor: 'border-green-500/20', gradientFrom: 'from-green-500/[0.06]', gradientTo: 'to-transparent', hasNewBadge: true },
   { id: 'link-generator', icon: <Link2 className="w-5 h-5" />, title: 'Link Generator', subtitle: 'Create WhatsApp links', color: '#f97316', glowClass: 'neon-glow-orange', borderColor: 'border-orange-500/20', gradientFrom: 'from-orange-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'broadcast-lists', icon: <Radio className="w-5 h-5" />, title: 'Broadcast Lists', subtitle: 'Targeted group messaging', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent' },
+  { id: 'qr-code', icon: <QrCode className="w-5 h-5" />, title: 'QR Code', subtitle: 'Generate WhatsApp QR codes', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent' },
 ]
 
 const insights: FeatureCardProps[] = [
   { id: 'analytics', icon: <BarChart3 className="w-5 h-5" />, title: 'Analytics', subtitle: 'Track performance & metrics', color: '#ec4899', glowClass: 'neon-glow-pink', borderColor: 'border-pink-500/20', gradientFrom: 'from-pink-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'campaign-reports', icon: <FileText className="w-5 h-5" />, title: 'Campaign Reports', subtitle: 'Detailed delivery reports', color: '#ef4444', glowClass: 'neon-glow-red', borderColor: 'border-red-500/20', gradientFrom: 'from-red-500/[0.06]', gradientTo: 'to-transparent' },
+  { id: 'response-time', icon: <Timer className="w-5 h-5" />, title: 'Response Time', subtitle: 'Track response performance', color: '#8b5cf6', glowClass: 'neon-glow-purple', borderColor: 'border-purple-500/20', gradientFrom: 'from-purple-500/[0.06]', gradientTo: 'to-transparent' },
 ]
 
 const dataSection: FeatureCardProps[] = [
@@ -224,7 +226,7 @@ const recentActivity = [
 ]
 
 export function DashboardPage() {
-  const { waConnected, setActiveFeature, setActiveTab } = useAppStore()
+  const { waConnected, setActiveFeature, setAddContactOpen } = useAppStore()
   const { addToast } = useToastStore()
   const currentTime = useCurrentTime()
 
@@ -380,8 +382,8 @@ export function DashboardPage() {
         </div>
         <div className="flex gap-2.5 overflow-x-auto pb-2 no-scrollbar">
           {[
-            { onClick: () => { setActiveFeature('send-message'); setActiveTab('campaigns'); }, icon: <Megaphone className="w-3.5 h-3.5 text-blue-400" />, label: 'New Campaign', bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-300', hover: 'hover:bg-blue-500/15', shadow: '0 0 12px rgba(59,130,246,0.15)' },
-            { onClick: () => { setActiveTab('contacts'); }, icon: <UserPlus className="w-3.5 h-3.5 text-green-400" />, label: 'Add Contact', bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-300', hover: 'hover:bg-green-500/15', shadow: '0 0 12px rgba(34,197,94,0.15)' },
+            { onClick: () => { setActiveFeature('send-message'); }, icon: <Megaphone className="w-3.5 h-3.5 text-blue-400" />, label: 'New Campaign', bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-300', hover: 'hover:bg-blue-500/15', shadow: '0 0 12px rgba(59,130,246,0.15)' },
+            { onClick: () => { setAddContactOpen(true); }, icon: <UserPlus className="w-3.5 h-3.5 text-green-400" />, label: 'Add Contact', bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-300', hover: 'hover:bg-green-500/15', shadow: '0 0 12px rgba(34,197,94,0.15)' },
             { onClick: () => { setActiveFeature('auto-reply'); }, icon: <MessageSquare className="w-3.5 h-3.5 text-purple-400" />, label: 'Quick Reply', bg: 'bg-purple-500/10', border: 'border-purple-500/30', text: 'text-purple-300', hover: 'hover:bg-purple-500/15', shadow: '0 0 12px rgba(139,92,246,0.15)' },
             { onClick: () => { setActiveFeature('scheduler'); }, icon: <Clock className="w-3.5 h-3.5 text-amber-400" />, label: 'Schedule', bg: 'bg-amber-500/10', border: 'border-amber-500/30', text: 'text-amber-300', hover: 'hover:bg-amber-500/15', shadow: '0 0 12px rgba(245,158,11,0.15)' },
           ].map((action, i) => (
