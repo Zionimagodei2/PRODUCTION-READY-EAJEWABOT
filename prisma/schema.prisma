@@ -11,9 +11,14 @@ model Contact {
   id          String   @id @default(cuid())
   name        String
   phone       String
+  email       String   @default("")
+  company     String   @default("")
+  location    String   @default("")
   tags        String   @default("")
   lastMessage String   @default("")
   status      String   @default("active")
+  score       Int      @default(50)
+  segments    String   @default("")
   dateAdded   DateTime @default(now())
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -64,6 +69,52 @@ model ScheduledMessage {
   status     String   @default("pending")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+model MessageTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  content     String
+  category    String   @default("general")
+  starred     Boolean  @default(false)
+  variables   String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Conversation {
+  id          String   @id @default(cuid())
+  contactId   String   @default("")
+  contactName String   @default("")
+  direction   String   @default("incoming")
+  content     String
+  timestamp   DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
+
+model PersonalityProfile {
+  id              String   @id @default(cuid())
+  tone            String   @default("professional")
+  style           String   @default("concise")
+  language        String   @default("english")
+  greetingStyle   String   @default("hello")
+  closingStyle    String   @default("thanks")
+  emojiUsage      String   @default("minimal")
+  formalityLevel  Int      @default(5)
+  responsePatterns String  @default("")
+  samplePhrases   String   @default("")
+  lastTrainedAt   DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model LeadSearch {
+  id          String   @id @default(cuid())
+  keyword     String
+  location    String   @default("")
+  results     String   @default("[]")
+  resultCount Int      @default(0)
+  createdAt   DateTime @default(now())
 }
 
 model Setting {

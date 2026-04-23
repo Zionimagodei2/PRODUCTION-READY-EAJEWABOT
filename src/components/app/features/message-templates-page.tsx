@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FileText, Plus, Trash2, Copy, Star, Edit, CheckCircle2, X, ArrowLeft, Hash, Search } from 'lucide-react'
+import { useToastStore } from '@/store/toast-store'
 
 interface Template {
   id: string
@@ -11,32 +12,51 @@ interface Template {
   category: string
   content: string
   starred: boolean
-  usageCount: number
+  variables: string
+  createdAt: string
+  updatedAt: string
 }
-
-const mockTemplates: Template[] = [
-  { id: '1', name: 'Welcome Message', category: 'greeting', content: 'Hello {name}! 👋 Welcome to our business. How can we help you today?', starred: true, usageCount: 234 },
-  { id: '2', name: 'Order Confirmation', category: 'transaction', content: 'Hi {name}, your order #{order_id} has been confirmed! Estimated delivery: {date}.', starred: true, usageCount: 189 },
-  { id: '3', name: 'Flash Sale Alert', category: 'marketing', content: '🔥 FLASH SALE! {discount}% off on {product}! Use code {code} at checkout. Ends in {time}!', starred: false, usageCount: 156 },
-  { id: '4', name: 'Follow-up', category: 'follow-up', content: 'Hi {name}, just checking in! Did you get a chance to review our last proposal?', starred: false, usageCount: 98 },
-  { id: '5', name: 'Thank You', category: 'greeting', content: 'Thank you for your purchase, {name}! 🎉 We appreciate your business. Here\'s a {discount}% discount on your next order: {code}', starred: true, usageCount: 312 },
-  { id: '6', name: 'Appointment Reminder', category: 'transaction', content: 'Reminder: Your appointment is scheduled for {date} at {time}. Reply YES to confirm or NO to reschedule.', starred: false, usageCount: 67 },
-]
 
 const categoryColors: Record<string, { bg: string; text: string; border: string }> = {
   greeting: { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/15' },
   transaction: { bg: 'bg-green-500/10', text: 'text-green-400', border: 'border-green-500/15' },
   marketing: { bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'border-orange-500/15' },
   'follow-up': { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/15' },
+  general: { bg: 'bg-white/10', text: 'text-white/50', border: 'border-white/10' },
 }
 
 export function MessageTemplatesPage() {
   const { goBack } = useAppStore()
-  const [templates, setTemplates] = useState(mockTemplates)
+  const { addToast } = useToastStore()
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  // Create form state
+  const [newName, setNewName] = useState('')
+  const [newCategory, setNewCategory] = useState('general')
+  const [newContent, setNewContent] = useState('')
+
+  // Fetch templates from API
+  const fetchTemplates = async () => {
+    try {
+      const res = await fetch('/api/templates')
+      if (res.ok) {
+        const data = await res.json()
+        setTemplates(data)
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Failed to load templates' })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchTemplates()
+  }, [])
 
   const filtered = templates.filter(t => {
     const matchSearch = t.name.toLowerCase().includes(search.toLowerCase()) || t.content.toLowerCase().includes(search.toLowerCase())
@@ -44,21 +64,81 @@ export function MessageTemplatesPage() {
     return matchSearch && matchCat
   })
 
-  const toggleStar = (id: string) => {
-    setTemplates(templates.map(t => t.id === id ? { ...t, starred: !t.starred } : t))
+  const toggleStar = async (id: string) => {
+    const template = templates.find(t => t.id === id)
+    if (!template) return
+    try {
+      const res = await fetch('/api/templates', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, starred: !template.starred }),
+      })
+      if (res.ok) {
+        setTemplates(templates.map(t => t.id === id ? { ...t, starred: !t.starred } : t))
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Failed to update template' })
+    }
   }
 
-  const deleteTemplate = (id: string) => {
-    setTemplates(templates.filter(t => t.id !== id))
+  const deleteTemplate = async (id: string) => {
+    try {
+      const res = await fetch(`/api/templates?id=${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setTemplates(templates.filter(t => t.id !== id))
+        addToast({ type: 'success', title: 'Template deleted' })
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Failed to delete template' })
+    }
+  }
+
+  const createTemplate = async () => {
+    if (!newName.trim() || !newContent.trim()) return
+    try {
+      const res = await fetch('/api/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newName.trim(),
+          content: newContent.trim(),
+          category: newCategory,
+          starred: false,
+        }),
+      })
+      if (res.ok) {
+        const newTemplate = await res.json()
+        setTemplates([newTemplate, ...templates])
+        addToast({ type: 'success', title: 'Template created' })
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Failed to create template' })
+    }
+    setNewName('')
+    setNewCategory('general')
+    setNewContent('')
+    setShowCreate(false)
   }
 
   const copyTemplate = (id: string, content: string) => {
     navigator.clipboard.writeText(content)
     setCopiedId(id)
+    addToast({ type: 'success', title: 'Copied to clipboard' })
     setTimeout(() => setCopiedId(null), 2000)
   }
 
   const categories = Array.from(new Set(templates.map(t => t.category)))
+
+  if (isLoading) {
+    return (
+      <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-5">
+        <div className="glass-card rounded-2xl p-6 text-center">
+          <div className="skeleton-shimmer h-6 w-44 mx-auto rounded mb-3" />
+          <div className="skeleton-shimmer h-4 w-60 mx-auto rounded" />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-5">
@@ -102,7 +182,7 @@ export function MessageTemplatesPage() {
           All
         </button>
         {categories.map((cat) => {
-          const colors = categoryColors[cat] || { bg: 'bg-white/10', text: 'text-white/50', border: 'border-white/10' }
+          const colors = categoryColors[cat] ?? { bg: 'bg-white/10', text: 'text-white/50', border: 'border-white/10' }
           return (
             <button
               key={cat}
@@ -132,16 +212,35 @@ export function MessageTemplatesPage() {
                 <X className="w-4 h-4 text-white/30" />
               </button>
             </div>
-            <input placeholder="Template name" className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-blue-500/30" />
-            <select className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white/60 focus:outline-none focus:border-blue-500/30">
+            <input 
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Template name" 
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-blue-500/30" 
+            />
+            <select 
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white/60 focus:outline-none focus:border-blue-500/30"
+            >
               <option value="greeting">Greeting</option>
               <option value="transaction">Transaction</option>
               <option value="marketing">Marketing</option>
               <option value="follow-up">Follow-up</option>
+              <option value="general">General</option>
             </select>
-            <textarea placeholder="Template content... Use {name}, {date}, etc." rows={3} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-blue-500/30 resize-none" />
+            <textarea 
+              value={newContent}
+              onChange={(e) => setNewContent(e.target.value)}
+              placeholder="Template content... Use {name}, {date}, etc." 
+              rows={3} 
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-blue-500/30 resize-none" 
+            />
             <p className="text-[9px] text-white/20">Variables: {`{name}`}, {`{date}`}, {`{order_id}`}, {`{discount}`}, {`{product}`}, {`{code}`}, {`{time}`}</p>
-            <button className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-bold hover:opacity-90 transition-opacity">
+            <button 
+              onClick={createTemplate}
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-bold hover:opacity-90 transition-opacity"
+            >
               Save Template
             </button>
           </motion.div>
@@ -175,7 +274,7 @@ export function MessageTemplatesPage() {
               <p className="text-[11px] text-white/50 leading-relaxed line-clamp-2">{template.content}</p>
               
               <div className="flex items-center justify-between pt-1">
-                <span className="text-[9px] text-white/20">Used {template.usageCount} times</span>
+                <span className="text-[9px] text-white/20">{template.variables ? `Variables: ${template.variables}` : 'No variables'}</span>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => copyTemplate(template.id, template.content)}

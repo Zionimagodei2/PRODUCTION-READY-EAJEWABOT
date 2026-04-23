@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Bot, Send, Sparkles, ArrowLeft } from 'lucide-react'
+import { Bot, Send, Sparkles, ArrowLeft, AlertCircle } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 
 interface ChatMessage {
@@ -19,53 +19,6 @@ const quickPrompts = [
   'Improve reply rates',
   'Help with chatbot',
 ]
-
-const cannedResponses: Record<string, string> = {
-  'optimize my campaigns': 'Here are some tips to optimize your campaigns:\n\n1. **Segment your audience** — Group contacts by engagement level, interests, or demographics for targeted messaging.\n\n2. **A/B test your messages** — Try different subject lines, CTAs, and send times to find what works best.\n\n3. **Personalize content** — Use template variables like {name} and {last_purchase} to make messages feel personal.\n\n4. **Monitor delivery rates** — Keep an eye on delivery rates and adjust your contact lists to remove inactive numbers.\n\n5. **Schedule strategically** — Send during peak engagement hours (typically 10am-12pm and 7pm-9pm local time).',
-  'best send times': 'Based on WhatsApp messaging data, here are the optimal send times:\n\n📊 **Best Days**: Tuesday through Thursday\n⏰ **Peak Morning**: 10:00 AM - 12:00 PM\n🌆 **Peak Evening**: 7:00 PM - 9:00 PM\n\n**Avoid**: Monday mornings (inbox overload) and Friday evenings (weekend mode)\n\n💡 **Pro Tip**: Use the Scheduler feature to queue messages at optimal times for each timezone. Your audience in different regions may respond better at different hours.',
-  'improve reply rates': 'Here are proven strategies to boost your reply rates:\n\n1. **Ask questions** — End messages with a clear, simple question to encourage responses.\n\n2. **Keep it concise** — Messages under 160 characters get 2x more replies.\n\n3. **Use emojis strategically** — 1-2 relevant emojis increase engagement without looking unprofessional.\n\n4. **Create urgency** — Limited-time offers and deadlines drive faster responses.\n\n5. **Follow up** — Send a gentle reminder 24-48 hours after your first message.\n\n6. **Use Auto Reply** — Set up instant responses to keep conversations going even when you\'re away.',
-  'help with chatbot': 'I can help you build effective chatbot flows! Here\'s a quick guide:\n\n🤖 **Getting Started**:\n- Go to the Chatbot Builder to create a new flow\n- Start with a Welcome Message node\n- Add Condition nodes to branch based on user input\n- Use Action nodes to trigger automations\n\n📋 **Best Practices**:\n1. Always offer a menu of options (1-4 choices)\n2. Include a "Talk to human" escape hatch\n3. Keep each message focused on one action\n4. Test your flows before going live\n\n🔧 **Popular Flows**:\n- Customer FAQ Bot\n- Order Status Checker\n- Appointment Scheduler\n- Lead Qualification Bot',
-}
-
-function getSmartResponse(message: string): string {
-  const lower = message.toLowerCase()
-  
-  // Check for direct matches with quick prompts
-  for (const [key, value] of Object.entries(cannedResponses)) {
-    if (lower.includes(key) || key.includes(lower.substring(0, 10))) {
-      return value
-    }
-  }
-  
-  // Keyword-based responses
-  if (lower.includes('campaign') || lower.includes('broadcast') || lower.includes('blast')) {
-    return cannedResponses['optimize my campaigns']
-  }
-  if (lower.includes('time') || lower.includes('schedule') || lower.includes('when') || lower.includes('send')) {
-    return cannedResponses['best send times']
-  }
-  if (lower.includes('reply') || lower.includes('response') || lower.includes('rate') || lower.includes('engagement')) {
-    return cannedResponses['improve reply rates']
-  }
-  if (lower.includes('chatbot') || lower.includes('bot') || lower.includes('flow') || lower.includes('automat')) {
-    return cannedResponses['help with chatbot']
-  }
-  if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey')) {
-    return 'Hello! 👋 Great to see you here. I can help you with:\n\n• Campaign optimization strategies\n• Best send times for your audience\n• Tips to improve reply rates\n• Chatbot flow building\n• Contact management\n• Automation setup\n\nWhat would you like to explore?'
-  }
-  if (lower.includes('contact') || lower.includes('lead') || lower.includes('scraper')) {
-    return 'Here are some tips for contact management:\n\n📱 **Growing Your List**:\n- Use the Lead Scraper to find potential customers\n- Extract group members with Group Extractor\n- Create WhatsApp links for easy opt-ins\n\n✅ **List Hygiene**:\n- Remove inactive contacts regularly\n- Segment by engagement level\n- Tag contacts for targeted campaigns\n\n⚠️ **Compliance**:\n- Always get consent before messaging\n- Include opt-out instructions\n- Respect WhatsApp\'s anti-spam policies'
-  }
-  if (lower.includes('template') || lower.includes('message')) {
-    return 'Templates can save you a lot of time! Here\'s how to use them effectively:\n\n📝 **Creating Templates**:\n- Use variables like {name}, {date}, {product} for personalization\n- Keep templates under 160 characters when possible\n- Create category-specific templates (welcome, follow-up, promo)\n\n💡 **Pro Tips**:\n- A/B test different template versions\n- Star your most-used templates for quick access\n- Use the Templates feature in Core Automation to manage them\n\nCheck out the Templates page to create and manage your message templates!'
-  }
-  if (lower.includes('analytics') || lower.includes('report') || lower.includes('metric') || lower.includes('stat')) {
-    return 'Analytics are key to improving your WhatsApp strategy! Here\'s what to track:\n\n📊 **Key Metrics**:\n- **Delivery Rate**: Aim for 95%+\n- **Read Rate**: Typical is 70-80%\n- **Reply Rate**: Good benchmark is 15-25%\n- **Conversion Rate**: Track link clicks and actions\n\n📈 **Using Reports**:\n- Check Campaign Reports after each broadcast\n- Compare performance across campaigns\n- Identify your best-performing message types\n\nVisit the Analytics and Campaign Reports pages for detailed insights!'
-  }
-  
-  // Default response
-  return 'That\'s a great question! While I\'m most helpful with WhatsApp business automation topics, I\'ll do my best to assist you.\n\nHere are the areas where I can provide the most value:\n\n🚀 **Campaign Strategy** — Optimization, timing, targeting\n💬 **Auto Reply & Chatbot** — Setup, flows, best practices\n📊 **Analytics** — Metrics, reports, insights\n📱 **Contact Management** — Growth, segmentation, hygiene\n🔧 **Automation** — Templates, scheduling, workflows\n\nCould you rephrase your question or pick one of these topics? I\'d love to help!'
-}
 
 // Sound wave component for AI thinking
 function SoundWaveIndicator() {
@@ -91,6 +44,7 @@ export function AiChatPage() {
   const [typingMessageId, setTypingMessageId] = useState<string | null>(null)
   const [typingText, setTypingText] = useState('')
   const [showTransition, setShowTransition] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -145,6 +99,8 @@ export function AiChatPage() {
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || isThinking) return
     
+    setError(null)
+    
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -156,12 +112,17 @@ export function AiChatPage() {
     setInputValue('')
     setIsThinking(true)
 
-    // Simulate AI thinking delay then try API
     try {
+      // Build history from last 10 messages
+      const history = messages.slice(-10).map(m => ({
+        role: m.role,
+        content: m.content,
+      }))
+
       const res = await fetch('/api/ai-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text.trim() }),
+        body: JSON.stringify({ message: text.trim(), history }),
       })
       
       if (res.ok) {
@@ -169,7 +130,7 @@ export function AiChatPage() {
         const aiMessage: ChatMessage = {
           id: `ai-${Date.now()}`,
           role: 'assistant',
-          content: data.response,
+          content: data.response || "I'm sorry, I couldn't generate a response. Please try again.",
           timestamp: new Date(),
           isTyping: true,
         }
@@ -177,28 +138,15 @@ export function AiChatPage() {
         setMessages(prev => [...prev, aiMessage])
         setTypingMessageId(aiMessage.id)
         setTypingText('')
-        return
+      } else {
+        setIsThinking(false)
+        setError('Failed to get AI response. Please try again.')
       }
     } catch {
-      // API failed, fall through to canned response
-    }
-
-    // Fallback to smart canned response
-    setTimeout(() => {
-      const responseText = getSmartResponse(text)
-      const aiMessage: ChatMessage = {
-        id: `ai-${Date.now()}`,
-        role: 'assistant',
-        content: responseText,
-        timestamp: new Date(),
-        isTyping: true,
-      }
       setIsThinking(false)
-      setMessages(prev => [...prev, aiMessage])
-      setTypingMessageId(aiMessage.id)
-      setTypingText('')
-    }, 1000)
-  }, [isThinking])
+      setError('Network error. Please check your connection.')
+    }
+  }, [isThinking, messages])
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
@@ -312,6 +260,20 @@ export function AiChatPage() {
                 <SoundWaveIndicator />
                 <span className="text-[10px] text-white/30">Thinking...</span>
               </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex justify-center"
+          >
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 max-w-[85%]">
+              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+              <p className="text-[11px] text-red-400/80">{error}</p>
             </div>
           </motion.div>
         )}

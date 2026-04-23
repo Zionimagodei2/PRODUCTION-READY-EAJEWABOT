@@ -1,31 +1,10 @@
-import ZAI from 'z-ai-web-dev-sdk'
 import { NextResponse } from 'next/server'
-
-const zai = new ZAI({
-  baseUrl: process.env.ZAI_BASE_URL || 'https://api.zukijourney.com/v2',
-  apiKey: process.env.ZAI_API_KEY || '',
-})
-
-const SYSTEM_PROMPT = `You are an expert WhatsApp business automation assistant for the EAJE WhatsBot platform. You help users with:
-
-- Campaign optimization (targeting, messaging strategies, A/B testing)
-- Best send times and scheduling strategies
-- Improving reply rates and engagement
-- Chatbot flow design and best practices
-- Contact management and list hygiene
-- Message template creation
-- Auto-reply rule setup
-- Analytics interpretation
-- Lead generation and scraping strategies
-- WhatsApp link generation
-- General WhatsApp Business API guidance
-
-Keep your responses concise, actionable, and well-structured. Use bullet points and bold text for emphasis when appropriate. If asked about unrelated topics, gently redirect to WhatsApp automation topics. Always be helpful and professional.`
+import { smartAIChat } from '@/lib/gemini'
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { message } = body
+    const { message, history } = body
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json(
@@ -34,21 +13,37 @@ export async function POST(request: Request) {
       )
     }
 
-    const completion = await zai.chat.completions.create({
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: message },
-      ],
-    })
+    // Check if GEMINI_API_KEY is configured
+    if (!process.env.GEMINI_API_KEY) {
+      return NextResponse.json({
+        response: "🔑 **Gemini API Key Not Configured**\n\nTo use the AI Assistant, you need to set up a free Google Gemini API key:\n\n1. Visit [Google AI Studio](https://aistudio.google.com/app/apikey)\n2. Sign in with your Google account\n3. Click **\"Create API Key\"**\n4. Copy the key\n5. Set it as the `GEMINI_API_KEY` environment variable\n\nThe Gemini API is completely free and provides fast, intelligent responses for your WhatsApp automation needs.",
+        needsConfig: true,
+      })
+    }
 
-    const response = completion.choices?.[0]?.message?.content || 
-      "I'm sorry, I couldn't generate a response. Please try again."
+    // Use chat history if provided, otherwise empty array
+    const chatHistory = Array.isArray(history)
+      ? history.filter((m: { role: string; content: string }) => m.role && m.content).slice(-10)
+      : []
+
+    const response = await smartAIChat(message, chatHistory)
 
     return NextResponse.json({ response })
   } catch (error) {
     console.error('AI Chat API error:', error)
+
+    // Provide a helpful error message
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+    if (errorMessage.includes('GEMINI_API_KEY')) {
+      return NextResponse.json({
+        response: "🔑 **Gemini API Key Not Configured**\n\nTo use the AI Assistant, please set the `GEMINI_API_KEY` environment variable. You can get a free API key from [Google AI Studio](https://aistudio.google.com/app/apikey).",
+        needsConfig: true,
+      })
+    }
+
     return NextResponse.json(
-      { error: 'Failed to generate AI response' },
+      { error: 'Failed to generate AI response. Please try again.' },
       { status: 500 }
     )
   }

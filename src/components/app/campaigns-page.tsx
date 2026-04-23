@@ -5,27 +5,23 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Clock, CheckCircle2, XCircle, Send, MoreVertical, Pause, Play, Trash2, Copy, Search, ArrowDownUp, Megaphone, RotateCcw, TrendingUp, Tag, Users, ShoppingBag, Gift } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 import { ListSkeleton } from '@/components/app/loading-skeleton'
+import { useToastStore } from '@/store/toast-store'
 
 interface Campaign {
   id: string
   name: string
-  status: 'active' | 'scheduled' | 'completed' | 'paused' | 'failed'
+  status: string
   sent: number
   delivered: number
   replies: number
   total: number
+  message: string
   date: string
+  createdAt: string
+  updatedAt: string
 }
 
-const mockCampaigns: Campaign[] = [
-  { id: '1', name: 'Product Launch Promo', status: 'active', sent: 452, delivered: 410, replies: 38, total: 1000, date: '2024-01-15' },
-  { id: '2', name: 'Weekly Newsletter', status: 'scheduled', sent: 0, delivered: 0, replies: 0, total: 500, date: '2024-01-16' },
-  { id: '3', name: 'Holiday Greetings', status: 'completed', sent: 800, delivered: 756, replies: 92, total: 800, date: '2024-01-10' },
-  { id: '4', name: 'Flash Sale Alert', status: 'paused', sent: 230, delivered: 210, replies: 15, total: 600, date: '2024-01-14' },
-  { id: '5', name: 'Customer Follow-up', status: 'failed', sent: 50, delivered: 45, replies: 3, total: 200, date: '2024-01-13' },
-]
-
-const statusConfig = {
+const statusConfig: Record<string, { color: string; bg: string; border: string; label: string }> = {
   active: { color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', label: 'Active' },
   scheduled: { color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', label: 'Scheduled' },
   completed: { color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', label: 'Completed' },
@@ -94,9 +90,22 @@ function CampaignCategoryIcon({ name }: { name: string }) {
   return <Tag className="w-3 h-3" />
 }
 
+// Helper to get config color hex
+function getConfigHex(status: string): string {
+  const colorMap: Record<string, string> = {
+    active: '#22c55e',
+    scheduled: '#3b82f6',
+    completed: '#8b5cf6',
+    paused: '#f59e0b',
+    failed: '#ef4444',
+  }
+  return colorMap[status] || '#3b82f6'
+}
+
 export function CampaignsPage() {
   const { setActiveFeature, setSelectedCampaignId } = useAppStore()
-  const [campaigns, setCampaigns] = useState(mockCampaigns)
+  const { addToast } = useToastStore()
+  const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [showCreate, setShowCreate] = useState(false)
   const [newName, setNewName] = useState('')
   const [newTotal, setNewTotal] = useState('')
@@ -105,13 +114,25 @@ export function CampaignsPage() {
   const [sortBy, setSortBy] = useState<SortBy>('date')
   const [showSortDropdown, setShowSortDropdown] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  // Simulate loading state
+  // Fetch campaigns from API
+  const fetchCampaigns = async () => {
+    try {
+      const res = await fetch('/api/campaigns')
+      if (res.ok) {
+        const data = await res.json()
+        setCampaigns(data)
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Failed to load campaigns' })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   useEffect(() => {
-    const timer = setTimeout(() => {
-      queueMicrotask(() => setIsLoading(false))
-    }, 1000)
-    return () => clearTimeout(timer)
+    fetchCampaigns()
   }, [])
 
   const handleCampaignClick = (id: string) => {
@@ -129,31 +150,81 @@ export function CampaignsPage() {
       switch (sortBy) {
         case 'name': return a.name.localeCompare(b.name)
         case 'status': return a.status.localeCompare(b.status)
-        case 'date': default: return b.date.localeCompare(a.date)
+        case 'date': default: return new Date(b.date).getTime() - new Date(a.date).getTime()
       }
     })
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!newName.trim()) return
-    const newCampaign: Campaign = {
-      id: Date.now().toString(),
-      name: newName.trim(),
-      status: 'scheduled',
-      sent: 0,
-      delivered: 0,
-      replies: 0,
-      total: parseInt(newTotal) || 100,
-      date: new Date().toISOString().split('T')[0],
+    try {
+      const res = await fetch('/api/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newName.trim(),
+          total: parseInt(newTotal) || 100,
+          status: 'scheduled',
+        }),
+      })
+      if (res.ok) {
+        const newCampaign = await res.json()
+        setCampaigns([newCampaign, ...campaigns])
+        addToast({ type: 'success', title: 'Campaign created' })
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Failed to create campaign' })
     }
-    setCampaigns([newCampaign, ...campaigns])
     setNewName('')
     setNewTotal('')
     setShowCreate(false)
   }
 
+  // Pause/Resume campaign
+  const handleStatusChange = async (id: string, newStatus: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    try {
+      const res = await fetch('/api/campaigns', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: newStatus }),
+      })
+      if (res.ok) {
+        setCampaigns(prev => prev.map(c => c.id === id ? { ...c, status: newStatus } : c))
+        addToast({ type: 'success', title: `Campaign ${newStatus === 'paused' ? 'paused' : 'resumed'}` })
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Failed to update campaign' })
+    }
+  }
+
+  // Delete campaign
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setDeletingId(id)
+    try {
+      const res = await fetch(`/api/campaigns?id=${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setCampaigns(prev => prev.filter(c => c.id !== id))
+        addToast({ type: 'success', title: 'Campaign deleted' })
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Failed to delete campaign' })
+    }
+    setDeletingId(null)
+  }
+
   const handleResetFilters = () => {
     setFilter('all')
     setSearchQuery('')
+  }
+
+  // Format date
+  const formatDate = (dateStr: string) => {
+    try {
+      return new Date(dateStr).toISOString().split('T')[0]
+    } catch {
+      return dateStr
+    }
   }
 
   return (
@@ -322,8 +393,9 @@ export function CampaignsPage() {
       ) : (
         <div className="space-y-2.5">
           {filteredAndSorted.map((campaign, i) => {
-            const config = statusConfig[campaign.status]
+            const config = statusConfig[campaign.status] || statusConfig.scheduled
             const progress = campaign.total > 0 ? (campaign.sent / campaign.total) * 100 : 0
+            const configHex = getConfigHex(campaign.status)
             return (
               <motion.div
                 key={campaign.id}
@@ -336,13 +408,13 @@ export function CampaignsPage() {
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-2.5 flex-1 min-w-0">
                     <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                      style={{ backgroundColor: `${config.color === 'text-emerald-400' ? '#22c55e' : config.color === 'text-blue-400' ? '#3b82f6' : config.color === 'text-purple-400' ? '#8b5cf6' : config.color === 'text-amber-400' ? '#f59e0b' : '#ef4444'}15`, border: `1px solid ${config.color === 'text-emerald-400' ? '#22c55e' : config.color === 'text-blue-400' ? '#3b82f6' : config.color === 'text-purple-400' ? '#8b5cf6' : config.color === 'text-amber-400' ? '#f59e0b' : '#ef4444'}25` }}
+                      style={{ backgroundColor: `${configHex}15`, border: `1px solid ${configHex}25` }}
                     >
                       <div className={config.color}><CampaignCategoryIcon name={campaign.name} /></div>
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-semibold text-white/90 truncate">{campaign.name}</h3>
-                      <p className="text-[10px] text-white/30 mt-0.5">{campaign.date}</p>
+                      <p className="text-[10px] text-white/30 mt-0.5">{formatDate(campaign.date)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -389,19 +461,29 @@ export function CampaignsPage() {
                 {/* Actions */}
                 <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
                   {campaign.status === 'active' && (
-                    <button className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] hover:bg-amber-500/20 transition-colors">
+                    <button 
+                      onClick={(e) => handleStatusChange(campaign.id, 'paused', e)}
+                      className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] hover:bg-amber-500/20 transition-colors"
+                    >
                       <Pause className="w-3 h-3" /> Pause
                     </button>
                   )}
                   {campaign.status === 'paused' && (
-                    <button className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] hover:bg-emerald-500/20 transition-colors">
+                    <button 
+                      onClick={(e) => handleStatusChange(campaign.id, 'active', e)}
+                      className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] hover:bg-emerald-500/20 transition-colors"
+                    >
                       <Play className="w-3 h-3" /> Resume
                     </button>
                   )}
                   <button className="flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 text-white/40 border border-white/10 text-[10px] hover:bg-white/10 transition-colors">
                     <Copy className="w-3 h-3" /> Duplicate
                   </button>
-                  <button className="flex items-center gap-1 px-2 py-1 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 text-[10px] hover:bg-red-500/20 transition-colors ml-auto">
+                  <button 
+                    onClick={(e) => handleDelete(campaign.id, e)}
+                    disabled={deletingId === campaign.id}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 text-[10px] hover:bg-red-500/20 transition-colors ml-auto"
+                  >
                     <Trash2 className="w-3 h-3" />
                   </button>
                 </div>

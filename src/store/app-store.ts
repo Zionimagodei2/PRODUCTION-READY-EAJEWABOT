@@ -29,6 +29,7 @@ export type FeaturePage =
   | 'message-status'
   | 'webhook-manager'
   | 'team-management'
+  | 'personality-agent'
   | null
 
 interface AppState {

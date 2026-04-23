@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAppStore, type FeaturePage } from '@/store/app-store'
 import { 
   Send, MessageSquare, Bot, Calendar, 
@@ -8,10 +8,26 @@ import {
   ArrowRight, Zap, TrendingUp, Activity, FileCode,
   Megaphone, UserPlus, Clock, Sparkles, Phone, 
   CheckCircle2, AlertCircle, ChevronRight, Flame, Radio, Database,
-  Sun, Moon, Target, Wifi, ShieldCheck, Wand2, Upload, QrCode, Timer, MessageCircle, GitBranch, Webhook
+  Sun, Moon, Target, Wifi, ShieldCheck, Wand2, Upload, QrCode, Timer, MessageCircle, GitBranch, Webhook, Brain
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useToastStore } from '@/store/toast-store'
+import { DashboardSkeleton } from '@/components/app/loading-skeleton'
+
+interface Stats {
+  totalContacts: number
+  activeContacts: number
+  newThisWeek: number
+  totalCampaigns: number
+  activeCampaigns: number
+  totalSent: number
+  totalDelivered: number
+  totalReplies: number
+  deliveryRate: number
+  replyRate: number
+  weeklyActivity: { day: string; messages: number }[]
+  recentActivity: { id: string; type: string; text: string; time: string; color: string }[]
+}
 
 interface FeatureCardProps {
   id: FeaturePage
@@ -210,6 +226,7 @@ const coreAutomation: FeatureCardProps[] = [
   { id: 'scheduler', icon: <Calendar className="w-5 h-5" />, title: 'Scheduler', subtitle: 'Plan messages ahead', color: '#8b5cf6', glowClass: 'neon-glow-purple', borderColor: 'border-purple-500/20', gradientFrom: 'from-purple-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'message-templates', icon: <FileCode className="w-5 h-5" />, title: 'Templates', subtitle: 'Reusable message templates', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'ai-chat', icon: <Sparkles className="w-5 h-5" />, title: 'AI Assistant', subtitle: 'Smart automation helper', color: '#f59e0b', glowClass: 'neon-glow-orange', borderColor: 'border-orange-500/20', gradientFrom: 'from-orange-500/[0.06]', gradientTo: 'to-transparent', isActive: true, hasNewBadge: true, isPopular: true },
+  { id: 'personality-agent', icon: <Brain className="w-5 h-5" />, title: 'AI Twin', subtitle: 'Auto-reply in your style', color: '#f97316', glowClass: 'neon-glow-orange', borderColor: 'border-orange-500/20', gradientFrom: 'from-orange-500/[0.06]', gradientTo: 'to-transparent', hasNewBadge: true, isPopular: true },
   { id: 'campaign-wizard', icon: <Wand2 className="w-5 h-5" />, title: 'Campaign Wizard', subtitle: 'Step-by-step campaign builder', color: '#3b82f6', glowClass: 'neon-glow-blue', borderColor: 'border-blue-500/20', gradientFrom: 'from-blue-500/[0.06]', gradientTo: 'to-transparent', hasNewBadge: true },
   { id: 'flow-builder', icon: <GitBranch className="w-5 h-5" />, title: 'Flow Builder', subtitle: 'Design conversation flows', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent', hasNewBadge: true },
 ]
@@ -241,18 +258,30 @@ const organizationSection: FeatureCardProps[] = [
   { id: 'team-management', icon: <Users className="w-5 h-5" />, title: 'Team Management', subtitle: 'Manage members & roles', color: '#8b5cf6', glowClass: 'neon-glow-purple', borderColor: 'border-purple-500/20', gradientFrom: 'from-purple-500/[0.06]', gradientTo: 'to-transparent' },
 ]
 
-const recentActivity = [
-  { id: '1', type: 'campaign' as const, text: 'Product Launch Promo sent 452 messages', time: '2m ago', icon: <Megaphone className="w-3.5 h-3.5" />, color: '#3b82f6' },
-  { id: '2', type: 'reply' as const, text: 'Auto-reply triggered for "hello" keyword', time: '15m ago', icon: <MessageSquare className="w-3.5 h-3.5" />, color: '#22c55e' },
-  { id: '3', type: 'chatbot' as const, text: 'Welcome Flow triggered 23 times', time: '1h ago', icon: <Bot className="w-3.5 h-3.5" />, color: '#8b5cf6' },
-  { id: '4', type: 'schedule' as const, text: 'Daily digest scheduled for 9:00 AM', time: '2h ago', icon: <Clock className="w-3.5 h-3.5" />, color: '#f59e0b' },
-  { id: '5', type: 'lead' as const, text: 'Lead Scraper found 12 new prospects', time: '3h ago', icon: <Search className="w-3.5 h-3.5" />, color: '#06b6d4' },
-]
-
 export function DashboardPage() {
   const { waConnected, setActiveFeature, setAddContactOpen } = useAppStore()
   const { addToast } = useToastStore()
   const { time: currentTime, mounted } = useCurrentTime()
+  const [stats, setStats] = useState<Stats | null>(null)
+  const [isLoadingStats, setIsLoadingStats] = useState(true)
+
+  // Fetch stats from API
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await fetch('/api/stats')
+        if (res.ok) {
+          const data = await res.json()
+          setStats(data)
+        }
+      } catch {
+        // Silent fail for stats
+      } finally {
+        setIsLoadingStats(false)
+      }
+    }
+    fetchStats()
+  }, [])
 
   // Rotating tips state
   const tips = [
@@ -276,6 +305,20 @@ export function DashboardPage() {
   const greeting = mounted && currentTime ? (currentTime.getHours() < 12 ? 'Good Morning' : currentTime.getHours() < 18 ? 'Good Afternoon' : 'Good Evening') : 'Hello'
   const formattedDate = mounted && currentTime ? currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : ''
   const formattedTime = mounted && currentTime ? currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : ''
+
+  // Use real stats or fallback
+  const totalSent = stats?.totalSent ?? 0
+  const totalDelivered = stats?.totalDelivered ?? 0
+  const totalReplies = stats?.totalReplies ?? 0
+  const weeklyActivity = stats?.weeklyActivity ?? []
+  const recentActivity = stats?.recentActivity ?? []
+
+  // Compute weekly activity percentages for sparkline
+  const maxWeeklyMessages = Math.max(...weeklyActivity.map(d => d.messages), 1)
+
+  if (isLoadingStats) {
+    return <DashboardSkeleton />
+  }
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-6">
@@ -303,8 +346,7 @@ export function DashboardPage() {
           <h1 className="text-lg font-extrabold text-white/95">{greeting} 👋</h1>
           <p className="text-[11px] text-white/40 mt-0.5 flex items-center gap-1.5">
             <span>{formattedDate}</span>
-            <span className="text-white/15">•</span>
-            <span>{formattedTime}</span>
+            {mounted && <><span className="text-white/15">•</span><span>{formattedTime}</span></>}
             <span className="text-white/15">•</span>
             <span className="flex items-center gap-1">
               <Wifi className="w-2.5 h-2.5" style={{ color: waConnected ? '#22c55e' : '#ef4444' }} />
@@ -317,7 +359,7 @@ export function DashboardPage() {
         <div className="flex items-center gap-2">
           {/* Weekly Goal Ring */}
           <div className="relative flex items-center justify-center">
-            <RingProgress size={36} strokeWidth={3} progress={72} color="#8b5cf6" />
+            <RingProgress size={36} strokeWidth={3} progress={stats?.deliveryRate ?? 72} color="#8b5cf6" />
             <div className="absolute inset-0 flex items-center justify-center">
               <Target className="w-3 h-3 text-purple-400" />
             </div>
@@ -325,10 +367,10 @@ export function DashboardPage() {
         </div>
       </motion.div>
 
-      {/* Quick Stats - Enhanced with accent borders, trend indicators, and mini sparklines */}
+      {/* Quick Stats - Enhanced with real data from API */}
       <div className="grid grid-cols-3 gap-3">
         <StatCard 
-          value={1284} 
+          value={totalSent} 
           label="Sent" 
           icon={<Send className="w-4 h-4 text-neon-blue" />}
           colorClass="bg-blue-500/10"
@@ -340,7 +382,7 @@ export function DashboardPage() {
           sparklineColor="#3b82f6"
         />
         <StatCard 
-          value={847} 
+          value={totalDelivered} 
           label="Delivered" 
           icon={<TrendingUp className="w-4 h-4 text-neon-green" />}
           colorClass="bg-green-500/10"
@@ -353,7 +395,7 @@ export function DashboardPage() {
           sparklineColor="#22c55e"
         />
         <StatCard 
-          value={342} 
+          value={totalReplies} 
           label="Replies" 
           icon={<Activity className="w-4 h-4 text-neon-purple" />}
           colorClass="bg-purple-500/10"
@@ -383,36 +425,44 @@ export function DashboardPage() {
               <TrendingUp className="w-3 h-3" /> +12%
             </span>
             <div className="relative flex items-center justify-center">
-              <RingProgress size={28} strokeWidth={2.5} progress={72} color="#22c55e" />
-              <span className="absolute text-[7px] font-bold text-emerald-400">72%</span>
+              <RingProgress size={28} strokeWidth={2.5} progress={stats?.deliveryRate ?? 72} color="#22c55e" />
+              <span className="absolute text-[7px] font-bold text-emerald-400">{Math.round(stats?.deliveryRate ?? 72)}%</span>
             </div>
           </div>
         </div>
-        <div className="flex items-end gap-2 h-16">
-          {[40, 65, 50, 80, 70, 35, 55].map((height, i) => (
-            <motion.div
-              key={i}
-              className="flex-1 rounded-t-md relative group cursor-pointer"
-              initial={{ height: 0 }}
-              animate={{ height: `${height}%` }}
-              transition={{ delay: 0.3 + i * 0.05, duration: 0.5, ease: 'easeOut' }}
-              style={{
-                background: `linear-gradient(to top, rgba(59,130,246,0.3), rgba(59,130,246,0.7))`,
-              }}
-              whileHover={{ filter: 'brightness(1.3)', scaleY: 1.05 }}
-            >
-              {/* Tooltip on hover */}
-              <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-white/10 text-[8px] text-white/70 font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                {[180, 220, 195, 240, 210, 120, 119][i]} msgs
-              </div>
-            </motion.div>
-          ))}
-        </div>
-        <div className="flex gap-2 mt-1.5">
-          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => (
-            <span key={i} className="flex-1 text-center text-[8px] text-white/30 font-medium">{day}</span>
-          ))}
-        </div>
+        {weeklyActivity.length > 0 ? (
+          <>
+            <div className="flex items-end gap-2 h-16">
+              {weeklyActivity.map((day, i) => (
+                <motion.div
+                  key={day.day}
+                  className="flex-1 rounded-t-md relative group cursor-pointer"
+                  initial={{ height: 0 }}
+                  animate={{ height: `${(day.messages / maxWeeklyMessages) * 100}%` }}
+                  transition={{ delay: 0.3 + i * 0.05, duration: 0.5, ease: 'easeOut' }}
+                  style={{
+                    background: `linear-gradient(to top, rgba(59,130,246,0.3), rgba(59,130,246,0.7))`,
+                  }}
+                  whileHover={{ filter: 'brightness(1.3)', scaleY: 1.05 }}
+                >
+                  {/* Tooltip on hover */}
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-white/10 text-[8px] text-white/70 font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                    {day.messages} msgs
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+            <div className="flex gap-2 mt-1.5">
+              {weeklyActivity.map((day) => (
+                <span key={day.day} className="flex-1 text-center text-[8px] text-white/30 font-medium">{day.day}</span>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="h-16 flex items-center justify-center">
+            <p className="text-xs text-white/20">No activity data yet</p>
+          </div>
+        )}
       </motion.div>
 
       {/* Quick Actions - Enhanced */}
@@ -584,7 +634,7 @@ export function DashboardPage() {
           </div>
           <div className="flex-1 h-px bg-gradient-to-r from-amber-500/20 to-transparent" />
           <motion.button
-            onClick={() => { setActivityDimmed(true); addToast({ message: 'All activity marked as read', type: 'success' }) }}
+            onClick={() => { setActivityDimmed(true); addToast({ type: 'success', title: 'All activity marked as read' }) }}
             whileTap={{ scale: 0.95 }}
             className="text-[9px] font-semibold text-white/25 hover:text-white/50 transition-colors px-2 py-1 rounded-lg hover:bg-white/[0.03]"
           >
@@ -592,7 +642,7 @@ export function DashboardPage() {
           </motion.button>
         </div>
         <div className={`glass-card rounded-2xl overflow-hidden divide-y divide-white/[0.04] transition-opacity duration-300 ${activityDimmed ? 'activity-dimmed' : ''}`}>
-          {recentActivity.map((activity, i) => (
+          {recentActivity.length > 0 ? recentActivity.map((activity, i) => (
             <motion.div
               key={activity.id}
               initial={{ opacity: 0, x: -10 }}
@@ -605,7 +655,7 @@ export function DashboardPage() {
                 className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                 style={{ backgroundColor: `${activity.color}12`, border: `1px solid ${activity.color}20` }}
               >
-                <div style={{ color: activity.color }}>{activity.icon}</div>
+                <Activity className="w-3.5 h-3.5" style={{ color: activity.color }} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[12px] text-readable font-medium truncate">{activity.text}</p>
@@ -613,7 +663,11 @@ export function DashboardPage() {
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-white/10 flex-shrink-0" />
             </motion.div>
-          ))}
+          )) : (
+            <div className="px-4 py-6 text-center">
+              <p className="text-xs text-white/30">No recent activity</p>
+            </div>
+          )}
         </div>
         {/* View All link */}
         <motion.button

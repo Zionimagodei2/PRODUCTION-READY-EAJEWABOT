@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { motion } from 'framer-motion'
 import {
@@ -16,54 +17,21 @@ interface ContactDetail {
   company: string
   location: string
   dateAdded: string
-  status: 'active' | 'inactive'
-  tags: string[]
+  status: string
+  tags: string
   lastMessage: string
+  score: number
+  segments: string
 }
 
-interface ChatMessage {
+interface Conversation {
   id: string
-  text: string
-  time: string
-  sent: boolean
-  read: boolean
+  contactId: string
+  contactName: string
+  direction: string
+  content: string
+  timestamp: string
 }
-
-interface Activity {
-  id: string
-  text: string
-  time: string
-  icon: string
-  color: string
-}
-
-const contactDetails: Record<string, ContactDetail> = {
-  '1': { id: '1', name: 'John Smith', phone: '+1 234 567 8901', email: 'john.smith@email.com', company: 'Acme Corp', location: 'New York, US', dateAdded: '2024-01-15', status: 'active', tags: ['customer', 'vip'], lastMessage: 'Thanks for the update!' },
-  '2': { id: '2', name: 'Sarah Johnson', phone: '+44 7911 123456', email: 'sarah.j@company.co.uk', company: 'TechStart Ltd', location: 'London, UK', dateAdded: '2024-01-14', status: 'active', tags: ['lead'], lastMessage: 'Interested in your product' },
-  '3': { id: '3', name: 'Mike Chen', phone: '+86 138 0013 8000', email: 'mike.chen@shanghai.cn', company: 'Dragon Industries', location: 'Shanghai, CN', dateAdded: '2024-01-13', status: 'active', tags: ['customer'], lastMessage: 'Order confirmed' },
-  '4': { id: '4', name: 'Emily Davis', phone: '+1 555 123 4567', email: 'emily.davis@mail.com', company: 'Freelance', location: 'Austin, US', dateAdded: '2024-01-12', status: 'inactive', tags: ['prospect'], lastMessage: '' },
-  '5': { id: '5', name: 'Alex Rivera', phone: '+34 612 345 678', email: 'alex.r@negocio.es', company: 'Rivera Wholesale', location: 'Madrid, ES', dateAdded: '2024-01-11', status: 'active', tags: ['customer', 'wholesale'], lastMessage: 'Bulk order inquiry' },
-  '6': { id: '6', name: 'Lisa Wong', phone: '+852 9123 4567', email: 'lisa.w@hkbiz.hk', company: 'Pacific Trading', location: 'Hong Kong', dateAdded: '2024-01-10', status: 'active', tags: ['lead', 'hot'], lastMessage: 'Price list request' },
-  '7': { id: '7', name: 'David Brown', phone: '+61 4 1234 5678', email: 'david.b@ausretail.au', company: 'Outback Retail', location: 'Sydney, AU', dateAdded: '2024-01-09', status: 'active', tags: ['customer'], lastMessage: 'Delivery confirmed' },
-  '8': { id: '8', name: 'Anna Mueller', phone: '+49 151 1234 5678', email: 'anna.m@berlin-tech.de', company: 'BerlinTech GmbH', location: 'Berlin, DE', dateAdded: '2024-01-08', status: 'inactive', tags: ['prospect'], lastMessage: '' },
-}
-
-const mockMessages: ChatMessage[] = [
-  { id: 'm1', text: 'Hi! I wanted to ask about your latest product offerings.', time: '10:32 AM', sent: false, read: true },
-  { id: 'm2', text: 'Of course! We just launched our new line. Let me send you the catalog.', time: '10:34 AM', sent: true, read: true },
-  { id: 'm3', text: 'That would be great! Also, do you have any bulk pricing?', time: '10:36 AM', sent: false, read: true },
-  { id: 'm4', text: 'Yes, we offer tiered pricing for orders over 100 units. I\'ll include those details too.', time: '10:38 AM', sent: true, read: true },
-  { id: 'm5', text: 'Perfect, looking forward to it!', time: '10:40 AM', sent: false, read: true },
-  { id: 'm6', text: 'Thanks for the update!', time: '10:42 AM', sent: false, read: true },
-]
-
-const mockActivities: Activity[] = [
-  { id: 'a1', text: 'Replied to campaign "Product Launch Promo"', time: '2 min ago', icon: 'reply', color: '#3b82f6' },
-  { id: 'a2', text: 'Received auto-reply from Chatbot', time: '1 hour ago', icon: 'bot', color: '#8b5cf6' },
-  { id: 'a3', text: 'Opened message from "Weekly Newsletter"', time: '3 hours ago', icon: 'eye', color: '#22c55e' },
-  { id: 'a4', text: 'Clicked link in "Flash Sale Alert"', time: 'Yesterday', icon: 'link', color: '#f97316' },
-  { id: 'a5', text: 'Added to contact list via Lead Scraper', time: '2 days ago', icon: 'plus', color: '#06b6d4' },
-]
 
 const tagColors: Record<string, string> = {
   customer: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
@@ -74,18 +42,68 @@ const tagColors: Record<string, string> = {
   wholesale: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/20',
 }
 
-const activityIcons: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
-  reply: Send,
-  bot: MessageSquare,
-  eye: CheckCheck,
-  link: Check,
-  plus: StickyNote,
+function formatTime(timestamp: string): string {
+  try {
+    const date = new Date(timestamp)
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  } catch {
+    return ''
+  }
+}
+
+function formatDate(dateStr: string): string {
+  try {
+    return new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+  } catch {
+    return dateStr
+  }
 }
 
 export function ContactDetailPage() {
   const { selectedContactId, setActiveFeature } = useAppStore()
+  const [contact, setContact] = useState<ContactDetail | null>(null)
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  const contact = selectedContactId ? contactDetails[selectedContactId] : null
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!selectedContactId) {
+        setIsLoading(false)
+        return
+      }
+      try {
+        // Fetch contacts and find the one we need
+        const contactsRes = await fetch('/api/contacts')
+        if (contactsRes.ok) {
+          const contacts = await contactsRes.json()
+          const found = contacts.find((c: ContactDetail) => c.id === selectedContactId)
+          setContact(found || null)
+        }
+
+        // Fetch conversations for this contact
+        const convosRes = await fetch(`/api/conversations?contactId=${selectedContactId}`)
+        if (convosRes.ok) {
+          const convos = await convosRes.json()
+          setConversations(convos)
+        }
+      } catch {
+        // Silent fail
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchData()
+  }, [selectedContactId])
+
+  if (isLoading) {
+    return (
+      <div className="px-4 py-6 pb-24 max-w-lg mx-auto text-center">
+        <div className="skeleton-shimmer h-10 w-10 mx-auto rounded-full mb-3" />
+        <div className="skeleton-shimmer h-5 w-32 mx-auto rounded mb-2" />
+        <div className="skeleton-shimmer h-4 w-48 mx-auto rounded" />
+      </div>
+    )
+  }
 
   if (!contact) {
     return (
@@ -101,6 +119,7 @@ export function ContactDetailPage() {
     )
   }
 
+  const tags = contact.tags ? contact.tags.split(',').map(t => t.trim()).filter(Boolean) : []
   const initials = contact.name.split(' ').map(n => n[0]).join('')
 
   return (
@@ -170,67 +189,75 @@ export function ContactDetailPage() {
       >
         <h3 className="text-xs font-bold text-white/60 uppercase tracking-wider">Contact Info</h3>
         <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
-              <Mail className="w-4 h-4 text-blue-400" />
+          {contact.email && (
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                <Mail className="w-4 h-4 text-blue-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] text-white/30">Email</p>
+                <p className="text-sm text-white/55 truncate">{contact.email}</p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-[10px] text-white/30">Email</p>
-              <p className="text-sm text-white/55 truncate">{contact.email}</p>
+          )}
+          {contact.company && (
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+                <Building2 className="w-4 h-4 text-purple-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] text-white/30">Company</p>
+                <p className="text-sm text-white/55 truncate">{contact.company}</p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
-              <Building2 className="w-4 h-4 text-purple-400" />
+          )}
+          {contact.location && (
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+                <MapPin className="w-4 h-4 text-orange-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] text-white/30">Location</p>
+                <p className="text-sm text-white/55">{contact.location}</p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-[10px] text-white/30">Company</p>
-              <p className="text-sm text-white/55 truncate">{contact.company}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
-              <MapPin className="w-4 h-4 text-orange-400" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] text-white/30">Location</p>
-              <p className="text-sm text-white/55">{contact.location}</p>
-            </div>
-          </div>
+          )}
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
               <Calendar className="w-4 h-4 text-cyan-400" />
             </div>
             <div className="min-w-0">
               <p className="text-[10px] text-white/30">Date Added</p>
-              <p className="text-sm text-white/55">{contact.dateAdded}</p>
+              <p className="text-sm text-white/55">{formatDate(contact.dateAdded)}</p>
             </div>
           </div>
         </div>
       </motion.div>
 
       {/* Tags */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="glass-card rounded-2xl p-5 space-y-3"
-      >
-        <div className="flex items-center gap-2">
-          <Tag className="w-3.5 h-3.5 text-white/40" />
-          <h3 className="text-xs font-bold text-white/60 uppercase tracking-wider">Tags</h3>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {contact.tags.map((tag) => (
-            <span
-              key={tag}
-              className={`text-xs px-2.5 py-1 rounded-lg border font-medium ${tagColors[tag] || 'bg-white/10 text-white/50 border-white/10'}`}
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-      </motion.div>
+      {tags.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="glass-card rounded-2xl p-5 space-y-3"
+        >
+          <div className="flex items-center gap-2">
+            <Tag className="w-3.5 h-3.5 text-white/40" />
+            <h3 className="text-xs font-bold text-white/60 uppercase tracking-wider">Tags</h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className={`text-xs px-2.5 py-1 rounded-lg border font-medium ${tagColors[tag] || 'bg-white/10 text-white/50 border-white/10'}`}
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Conversation History */}
       <motion.div
@@ -244,30 +271,30 @@ export function ContactDetailPage() {
           <h3 className="text-xs font-bold text-white/60 uppercase tracking-wider">Recent Conversation</h3>
         </div>
         <div className="space-y-2 max-h-96 overflow-y-auto custom-scrollbar">
-          {mockMessages.map((msg) => (
+          {conversations.length > 0 ? conversations.map((msg) => (
             <div
               key={msg.id}
-              className={`flex ${msg.sent ? 'justify-end' : 'justify-start'}`}
+              className={`flex ${msg.direction === 'outgoing' ? 'justify-end' : 'justify-start'}`}
             >
               <div
                 className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 ${
-                  msg.sent
+                  msg.direction === 'outgoing'
                     ? 'bg-green-500/5 border border-green-500/10 rounded-br-md'
                     : 'bg-white/5 border border-white/10 rounded-bl-md'
                 }`}
               >
-                <p className="text-sm text-white/80 leading-relaxed">{msg.text}</p>
-                <div className={`flex items-center justify-end gap-1 mt-1 ${msg.sent ? 'text-green-400/50' : 'text-white/30'}`}>
-                  <span className="text-[9px]">{msg.time}</span>
-                  {msg.sent && (
-                    msg.read
-                      ? <CheckCheck className="w-3 h-3" />
-                      : <Check className="w-3 h-3" />
+                <p className="text-sm text-white/80 leading-relaxed">{msg.content}</p>
+                <div className={`flex items-center justify-end gap-1 mt-1 ${msg.direction === 'outgoing' ? 'text-green-400/50' : 'text-white/30'}`}>
+                  <span className="text-[9px]">{formatTime(msg.timestamp)}</span>
+                  {msg.direction === 'outgoing' && (
+                    <CheckCheck className="w-3 h-3" />
                   )}
                 </div>
               </div>
             </div>
-          ))}
+          )) : (
+            <p className="text-xs text-white/20 text-center py-4">No conversation history yet</p>
+          )}
         </div>
       </motion.div>
 
@@ -283,30 +310,31 @@ export function ContactDetailPage() {
           <h3 className="text-xs font-bold text-white/60 uppercase tracking-wider">Activity Timeline</h3>
         </div>
         <div className="space-y-0">
-          {mockActivities.map((activity, index) => {
-            const IconComponent = activityIcons[activity.icon] || MessageSquare
-            return (
-              <div key={activity.id} className="flex gap-3">
-                {/* Timeline line + dot */}
-                <div className="flex flex-col items-center">
-                  <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: `${activity.color}15` }}
-                  >
-                    <IconComponent className="w-3.5 h-3.5" style={{ color: activity.color }} />
-                  </div>
-                  {index < mockActivities.length - 1 && (
-                    <div className="w-px flex-1 bg-white/10 my-1" />
-                  )}
-                </div>
-                {/* Content */}
-                <div className={`flex-1 ${index < mockActivities.length - 1 ? 'pb-4' : ''}`}>
-                  <p className="text-sm text-white/55 leading-snug">{activity.text}</p>
-                  <p className="text-[10px] text-white/30 mt-0.5">{activity.time}</p>
+          <div className="flex gap-3">
+            <div className="flex flex-col items-center">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#3b82f615' }}>
+                <Send className="w-3.5 h-3.5" style={{ color: '#3b82f6' }} />
+              </div>
+              <div className="w-px flex-1 bg-white/10 my-1" />
+            </div>
+            <div className="flex-1 pb-4">
+              <p className="text-sm text-white/55 leading-snug">Contact added to database</p>
+              <p className="text-[10px] text-white/30 mt-0.5">{formatDate(contact.dateAdded)}</p>
+            </div>
+          </div>
+          {conversations.length > 0 && (
+            <div className="flex gap-3">
+              <div className="flex flex-col items-center">
+                <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#22c55e15' }}>
+                  <MessageSquare className="w-3.5 h-3.5" style={{ color: '#22c55e' }} />
                 </div>
               </div>
-            )
-          })}
+              <div className="flex-1">
+                <p className="text-sm text-white/55 leading-snug">Last message: {contact.lastMessage || conversations[conversations.length - 1]?.content || 'N/A'}</p>
+                <p className="text-[10px] text-white/30 mt-0.5">{formatTime(conversations[conversations.length - 1]?.timestamp || '')}</p>
+              </div>
+            </div>
+          )}
         </div>
       </motion.div>
     </div>

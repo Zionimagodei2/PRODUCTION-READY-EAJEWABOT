@@ -2,33 +2,60 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Search, ArrowLeft, MapPin, Building2, Phone, Star, Download, Plus, CheckCircle2 } from 'lucide-react'
+import { Search, ArrowLeft, MapPin, Building2, Phone, Star, Download, Plus, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
+import { useToastStore } from '@/store/toast-store'
+
+interface LeadResult {
+  business: string
+  phone: string
+  category: string
+  rating: number
+  address: string
+}
 
 export function LeadScraperPage() {
   const { goBack } = useAppStore()
+  const { addToast } = useToastStore()
   const [scraping, setScraping] = useState(false)
   const [keyword, setKeyword] = useState('')
   const [location, setLocation] = useState('')
-  const [results, setResults] = useState<{business: string; phone: string; category: string; rating: number; address: string}[]>([])
+  const [results, setResults] = useState<LeadResult[]>([])
   const [savedLeads, setSavedLeads] = useState<Set<string>>(new Set())
+  const [error, setError] = useState<string | null>(null)
 
-  const mockResults = [
-    { business: 'Tech Solutions Inc', phone: '+1 555 0201', category: 'Technology', rating: 4.8, address: '123 Innovation Drive' },
-    { business: 'Green Market Co', phone: '+44 7700 900002', category: 'Retail', rating: 4.2, address: '45 Market Street' },
-    { business: 'Digital Agency Pro', phone: '+1 555 0203', category: 'Marketing', rating: 4.6, address: '78 Creative Lane' },
-    { business: 'Fresh Bites Restaurant', phone: '+1 555 0204', category: 'Food & Dining', rating: 4.4, address: '90 Main Avenue' },
-    { business: 'FitZone Gym', phone: '+1 555 0205', category: 'Fitness', rating: 4.7, address: '200 Health Blvd' },
-    { business: 'StyleHub Salon', phone: '+1 555 0206', category: 'Beauty', rating: 4.5, address: '55 Fashion Way' },
-  ]
-
-  const startScrape = () => {
+  const startScrape = async () => {
+    if (!keyword.trim()) return
     setScraping(true)
     setResults([])
-    setTimeout(() => {
+    setError(null)
+    
+    try {
+      const res = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword: keyword.trim(), location: location.trim() }),
+      })
+      
+      if (res.ok) {
+        const data = await res.json()
+        setResults(data.results || [])
+        if (data.results?.length > 0) {
+          addToast({ type: 'success', title: `Found ${data.results.length} leads` })
+        } else {
+          setError('No leads found. Try a different keyword or location.')
+        }
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error || 'Failed to search leads. Please try again.')
+        addToast({ type: 'error', title: 'Lead search failed' })
+      }
+    } catch {
+      setError('Network error. Please check your connection and try again.')
+      addToast({ type: 'error', title: 'Network error' })
+    } finally {
       setScraping(false)
-      setResults(mockResults)
-    }, 2500)
+    }
   }
 
   const toggleSave = (business: string) => {
@@ -119,6 +146,23 @@ export function LeadScraperPage() {
           </button>
         </div>
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card rounded-xl p-4 border border-red-500/20"
+        >
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-red-400">Search Error</p>
+              <p className="text-xs text-white/40 mt-1">{error}</p>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Results */}
       {results.length > 0 && (

@@ -7,7 +7,7 @@ import {
   Search, Send, MessageSquare, Bot, Calendar, Users,
   BarChart3, FileText, FileCode, Sparkles, Radio,
   Link2, Settings, Database, Megaphone, ArrowRight,
-  UserPlus, Clock, TrendingUp, Activity, Phone
+  UserPlus, Clock, TrendingUp, Activity, Phone, Brain
 } from 'lucide-react'
 
 interface SearchItem {
@@ -90,6 +90,7 @@ const allSearchItems: SearchItem[] = [
   { id: 'feat-campaign-reports', icon: <FileText className="w-4 h-4" />, title: 'Campaign Reports', subtitle: 'Detailed delivery reports', category: 'Features', categoryColor: '#ef4444', action: () => {} },
   { id: 'feat-templates', icon: <FileCode className="w-4 h-4" />, title: 'Templates', subtitle: 'Reusable message templates', category: 'Features', categoryColor: '#06b6d4', action: () => {} },
   { id: 'feat-ai-chat', icon: <Sparkles className="w-4 h-4" />, title: 'AI Assistant', subtitle: 'Smart automation helper', category: 'Features', categoryColor: '#f59e0b', action: () => {} },
+  { id: 'feat-personality-agent', icon: <Brain className="w-4 h-4" />, title: 'AI Twin', subtitle: 'Auto-reply in your style', category: 'Features', categoryColor: '#f97316', action: () => {} },
   { id: 'feat-broadcast-lists', icon: <Radio className="w-4 h-4" />, title: 'Broadcast Lists', subtitle: 'Targeted group messaging', category: 'Features', categoryColor: '#06b6d4', action: () => {} },
   { id: 'feat-data-export', icon: <Database className="w-4 h-4" />, title: 'Data Export', subtitle: 'Export your data in various formats', category: 'Features', categoryColor: '#06b6d4', action: () => {} },
   // Campaigns
@@ -165,6 +166,7 @@ export function QuickSearchModal() {
       'feat-campaign-reports': 'campaign-reports',
       'feat-templates': 'message-templates',
       'feat-ai-chat': 'ai-chat',
+      'feat-personality-agent': 'personality-agent',
       'feat-broadcast-lists': 'broadcast-lists',
       'feat-data-export': 'data-export',
     }

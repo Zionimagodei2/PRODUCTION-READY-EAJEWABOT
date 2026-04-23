@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Calendar as CalendarIcon, Clock, Plus, Trash2, CheckCircle2, AlertCircle, Repeat, Edit, ArrowLeft, Zap, Hash } from 'lucide-react'
+import { useToastStore } from '@/store/toast-store'
 
 interface ScheduledMessage {
   id: string
@@ -11,37 +12,65 @@ interface ScheduledMessage {
   recipients: string
   date: string
   time: string
-  recurring: 'none' | 'daily' | 'weekly' | 'monthly'
-  status: 'pending' | 'sent' | 'failed'
+  recurring: string
+  status: string
+  createdAt: string
 }
 
 export function SchedulerPage() {
   const { goBack } = useAppStore()
-  const [messages, setMessages] = useState<ScheduledMessage[]>([
-    { id: '1', message: 'Good morning! Here are today\'s deals...', recipients: 'All Customers (847)', date: '2024-01-20', time: '09:00', recurring: 'daily', status: 'pending' },
-    { id: '2', message: 'Weekly newsletter with product updates', recipients: 'Newsletter Subs (342)', date: '2024-01-22', time: '10:00', recurring: 'weekly', status: 'pending' },
-    { id: '3', message: 'Happy hour starts now! 50% off all items', recipients: 'VIP Customers (124)', date: '2024-01-18', time: '17:00', recurring: 'none', status: 'sent' },
-    { id: '4', message: 'Flash sale ending in 2 hours!', recipients: 'All Customers (847)', date: '2024-01-17', time: '22:00', recurring: 'none', status: 'failed' },
-  ])
-
+  const { addToast } = useToastStore()
+  const [messages, setMessages] = useState<ScheduledMessage[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [newMsg, setNewMsg] = useState('')
   const [newRecipients, setNewRecipients] = useState('')
   const [newDate, setNewDate] = useState('')
   const [newTime, setNewTime] = useState('')
-  const [newRecurring, setNewRecurring] = useState<'none' | 'daily' | 'weekly' | 'monthly'>('none')
+  const [newRecurring, setNewRecurring] = useState<string>('none')
 
-  const createSchedule = () => {
+  // Fetch scheduled messages from API
+  const fetchMessages = async () => {
+    try {
+      const res = await fetch('/api/scheduler')
+      if (res.ok) {
+        const data = await res.json()
+        setMessages(data)
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Failed to load scheduled messages' })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchMessages()
+  }, [])
+
+  const createSchedule = async () => {
     if (!newMsg.trim() || !newDate || !newTime) return
-    setMessages([{
-      id: Date.now().toString(),
-      message: newMsg.trim(),
-      recipients: newRecipients || 'All Customers',
-      date: newDate,
-      time: newTime,
-      recurring: newRecurring,
-      status: 'pending',
-    }, ...messages])
+    try {
+      const res = await fetch('/api/scheduler', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: newMsg.trim(),
+          recipients: newRecipients || 'All Customers',
+          date: newDate,
+          time: newTime,
+          recurring: newRecurring,
+          status: 'pending',
+        }),
+      })
+      if (res.ok) {
+        const newMessage = await res.json()
+        setMessages([newMessage, ...messages])
+        addToast({ type: 'success', title: 'Message scheduled' })
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Failed to schedule message' })
+    }
     setNewMsg('')
     setNewRecipients('')
     setNewDate('')
@@ -50,17 +79,36 @@ export function SchedulerPage() {
     setShowCreate(false)
   }
 
-  const deleteMessage = (id: string) => {
-    setMessages(messages.filter(m => m.id !== id))
+  const deleteMessage = async (id: string) => {
+    try {
+      const res = await fetch(`/api/scheduler?id=${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setMessages(messages.filter(m => m.id !== id))
+        addToast({ type: 'success', title: 'Scheduled message deleted' })
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Failed to delete message' })
+    }
   }
 
-  const statusConfig = {
+  const statusConfig: Record<string, { color: string; bg: string; border: string; icon: React.ReactNode }> = {
     pending: { color: '#f59e0b', bg: 'bg-amber-500/10', border: 'border-amber-500/20', icon: <Clock className="w-3 h-3" /> },
     sent: { color: '#22c55e', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', icon: <CheckCircle2 className="w-3 h-3" /> },
     failed: { color: '#ef4444', bg: 'bg-red-500/10', border: 'border-red-500/20', icon: <AlertCircle className="w-3 h-3" /> },
   }
 
-  const recurringLabels = { none: 'One-time', daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' }
+  const recurringLabels: Record<string, string> = { none: 'One-time', daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' }
+
+  if (isLoading) {
+    return (
+      <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-5">
+        <div className="glass-card rounded-2xl p-6 text-center">
+          <div className="skeleton-shimmer h-6 w-40 mx-auto rounded mb-3" />
+          <div className="skeleton-shimmer h-4 w-56 mx-auto rounded" />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-5">
@@ -143,7 +191,7 @@ export function SchedulerPage() {
             <div>
               <label className="text-[11px] text-white/50 font-medium mb-1.5 block">Recurrence</label>
               <div className="grid grid-cols-4 gap-1.5">
-                {(Object.keys(recurringLabels) as Array<keyof typeof recurringLabels>).map((key) => (
+                {(Object.keys(recurringLabels) as string[]).map((key) => (
                   <motion.button
                     key={key}
                     onClick={() => setNewRecurring(key)}
@@ -187,7 +235,7 @@ export function SchedulerPage() {
         </div>
         <div className="space-y-2.5">
           {messages.map((msg, i) => {
-            const config = statusConfig[msg.status]
+            const config = statusConfig[msg.status] || statusConfig.pending
             return (
               <motion.div
                 key={msg.id}

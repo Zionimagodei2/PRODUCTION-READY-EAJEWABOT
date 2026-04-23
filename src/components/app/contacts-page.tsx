@@ -2,33 +2,27 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Import, MoreHorizontal, Phone, MessageSquare, UserPlus, Users, RotateCcw, ArrowDownUp, Clock, ShieldCheck, TrendingUp, UserCheck, Tags, Sparkles } from 'lucide-react'
+import { Search, Import, MoreHorizontal, Phone, MessageSquare, UserPlus, Users, RotateCcw, ArrowDownUp, Clock, ShieldCheck, TrendingUp, UserCheck, Tags, Sparkles, Trash2 } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 import { ListSkeleton } from '@/components/app/loading-skeleton'
+import { useToastStore } from '@/store/toast-store'
 
 interface Contact {
   id: string
   name: string
   phone: string
-  tags: string[]
+  email: string
+  company: string
+  location: string
+  tags: string
   lastMessage: string
-  status: 'active' | 'inactive'
-  dateAdded: string
+  status: string
   score: number
-  lastActive: string
-  segments: string[]
+  segments: string
+  dateAdded: string
+  createdAt: string
+  updatedAt: string
 }
-
-const mockContacts: Contact[] = [
-  { id: '1', name: 'John Smith', phone: '+1 234 567 8901', tags: ['customer', 'vip'], lastMessage: 'Thanks for the update!', status: 'active', dateAdded: '2024-01-15', score: 85, lastActive: '5m ago', segments: ['VIP', 'Customer'] },
-  { id: '2', name: 'Sarah Johnson', phone: '+44 7911 123456', tags: ['lead'], lastMessage: 'Interested in your product', status: 'active', dateAdded: '2024-01-14', score: 72, lastActive: '1h ago', segments: ['Lead', 'Hot'] },
-  { id: '3', name: 'Mike Chen', phone: '+86 138 0013 8000', tags: ['customer'], lastMessage: 'Order confirmed', status: 'active', dateAdded: '2024-01-13', score: 90, lastActive: '30m ago', segments: ['Customer', 'VIP'] },
-  { id: '4', name: 'Emily Davis', phone: '+1 555 123 4567', tags: ['prospect'], lastMessage: '', status: 'inactive', dateAdded: '2024-01-12', score: 25, lastActive: '3d ago', segments: ['Prospect'] },
-  { id: '5', name: 'Alex Rivera', phone: '+34 612 345 678', tags: ['customer', 'wholesale'], lastMessage: 'Bulk order inquiry', status: 'active', dateAdded: '2024-01-11', score: 68, lastActive: '2h ago', segments: ['Customer', 'Wholesale'] },
-  { id: '6', name: 'Lisa Wong', phone: '+852 9123 4567', tags: ['lead', 'hot'], lastMessage: 'Price list request', status: 'active', dateAdded: '2024-01-10', score: 95, lastActive: '15m ago', segments: ['VIP', 'Hot'] },
-  { id: '7', name: 'David Brown', phone: '+61 4 1234 5678', tags: ['customer'], lastMessage: 'Delivery confirmed', status: 'active', dateAdded: '2024-01-09', score: 55, lastActive: '6h ago', segments: ['Customer'] },
-  { id: '8', name: 'Anna Mueller', phone: '+49 151 1234 5678', tags: ['prospect'], lastMessage: '', status: 'inactive', dateAdded: '2024-01-08', score: 15, lastActive: '1w ago', segments: ['Prospect', 'Lead'] },
-]
 
 const tagColors: Record<string, string> = {
   customer: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
@@ -104,11 +98,32 @@ const quickStatItemVariants = {
 export function ContactsPage() {
   const [search, setSearch] = useState('')
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
-  const [contacts, setContacts] = useState(mockContacts)
+  const [contacts, setContacts] = useState<Contact[]>([])
   const { setSelectedContactId, setActiveFeature, setAddContactOpen, pendingNewContact, setPendingNewContact } = useAppStore()
   const [isLoading, setIsLoading] = useState(true)
   const [sortBy, setSortBy] = useState<'name' | 'score' | 'active'>('name')
   const [showSortDropdown, setShowSortDropdown] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const { addToast } = useToastStore()
+
+  // Fetch contacts from API
+  const fetchContacts = async () => {
+    try {
+      const res = await fetch('/api/contacts')
+      if (res.ok) {
+        const data = await res.json()
+        setContacts(data)
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Failed to load contacts' })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchContacts()
+  }, [])
 
   // Derived stats
   const totalContacts = contacts.length
@@ -119,37 +134,92 @@ export function ContactsPage() {
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
     return added >= weekAgo
   }).length
-  const taggedContacts = contacts.filter(c => c.tags.length > 0).length
+  const taggedContacts = contacts.filter(c => c.tags && c.tags.length > 0).length
 
   // Handle new contact from modal
   useEffect(() => {
     if (pendingNewContact) {
-      queueMicrotask(() => {
-        setContacts(prev => [{ ...pendingNewContact!, score: 50, lastActive: 'Just now', segments: ['Customer'] }, ...prev])
+      // POST to API
+      const createContact = async () => {
+        try {
+          const res = await fetch('/api/contacts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: pendingNewContact.name,
+              phone: pendingNewContact.phone,
+              tags: pendingNewContact.tags?.join(',') || '',
+              status: pendingNewContact.status || 'active',
+            }),
+          })
+          if (res.ok) {
+            const newContact = await res.json()
+            setContacts(prev => [newContact, ...prev])
+            addToast({ type: 'success', title: 'Contact added' })
+          }
+        } catch {
+          addToast({ type: 'error', title: 'Failed to add contact' })
+        }
         setPendingNewContact(null)
-      })
+      }
+      createContact()
     }
-  }, [pendingNewContact, setPendingNewContact])
+  }, [pendingNewContact, setPendingNewContact, addToast])
 
-  // Simulate loading state
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      queueMicrotask(() => setIsLoading(false))
-    }, 1000)
-    return () => clearTimeout(timer)
-  }, [])
+  // Parse tags from comma-separated string
+  const parseTags = (tagsStr: string): string[] => {
+    if (!tagsStr) return []
+    return tagsStr.split(',').map(t => t.trim()).filter(Boolean)
+  }
 
-  const allTags = Array.from(new Set(contacts.flatMap(c => c.tags)))
+  // Parse segments from comma-separated string
+  const parseSegments = (segmentsStr: string): string[] => {
+    if (!segmentsStr) return []
+    return segmentsStr.split(',').map(s => s.trim()).filter(Boolean)
+  }
+
+  // Format last active time
+  const formatLastActive = (dateStr: string): string => {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMins / 60)
+    const diffDays = Math.floor(diffHours / 24)
+    if (diffMins < 5) return '5m ago'
+    if (diffMins < 60) return `${diffMins}m ago`
+    if (diffHours < 24) return `${diffHours}h ago`
+    return `${diffDays}d ago`
+  }
+
+  // Delete contact
+  const handleDeleteContact = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setDeletingId(id)
+    try {
+      const res = await fetch(`/api/contacts?id=${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setContacts(prev => prev.filter(c => c.id !== id))
+        addToast({ type: 'success', title: 'Contact deleted' })
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Failed to delete contact' })
+    }
+    setDeletingId(null)
+  }
+
+  const allTags = Array.from(new Set(contacts.flatMap(c => parseTags(c.tags))))
   
   const filtered = contacts.filter(c => {
+    const tags = parseTags(c.tags)
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || 
                        c.phone.includes(search)
-    const matchTag = !selectedTag || c.tags.includes(selectedTag)
+    const matchTag = !selectedTag || tags.includes(selectedTag)
     return matchSearch && matchTag
   }).sort((a, b) => {
     switch (sortBy) {
       case 'score': return b.score - a.score
-      case 'active': return a.lastActive.localeCompare(b.lastActive)
+      case 'active': return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
       case 'name': default: return a.name.localeCompare(b.name)
     }
   })
@@ -204,7 +274,7 @@ export function ContactsPage() {
             variants={quickStatItemVariants}
             className="flex items-center gap-3 rounded-xl bg-white/[0.03] border border-white/[0.06] p-3"
           >
-            <RingProgress value={activeContacts} maxValue={totalContacts} color="#22c55e" />
+            <RingProgress value={activeContacts} maxValue={totalContacts || 1} color="#22c55e" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1">
                 <p className="text-lg font-extrabold text-neon-green">{activeContacts}</p>
@@ -219,7 +289,7 @@ export function ContactsPage() {
             variants={quickStatItemVariants}
             className="flex items-center gap-3 rounded-xl bg-white/[0.03] border border-white/[0.06] p-3"
           >
-            <RingProgress value={newThisWeek} maxValue={totalContacts} color="#3b82f6" />
+            <RingProgress value={newThisWeek} maxValue={totalContacts || 1} color="#3b82f6" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1">
                 <p className="text-lg font-extrabold text-blue-400">{newThisWeek}</p>
@@ -234,7 +304,7 @@ export function ContactsPage() {
             variants={quickStatItemVariants}
             className="flex items-center gap-3 rounded-xl bg-white/[0.03] border border-white/[0.06] p-3"
           >
-            <RingProgress value={taggedContacts} maxValue={totalContacts} color="#8b5cf6" />
+            <RingProgress value={taggedContacts} maxValue={totalContacts || 1} color="#8b5cf6" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1">
                 <p className="text-lg font-extrabold text-neon-purple">{taggedContacts}</p>
@@ -372,77 +442,87 @@ export function ContactsPage() {
         </motion.div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((contact, i) => (
-            <motion.div
-              key={contact.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.03 }}
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                setSelectedContactId(contact.id)
-                setActiveFeature('contact-detail')
-              }}
-              className={`glass-card rounded-xl p-3.5 flex items-center gap-3 cursor-pointer hover:bg-white/[0.03] transition-colors ${i % 2 === 0 ? 'bg-white/[0.005]' : ''}`}
-            >
-              {/* Avatar with contact score ring */}
-              <div className="relative flex-shrink-0">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-neon-blue/30 to-neon-purple/30 border border-white/10 flex items-center justify-center">
-                  <span className="text-xs font-bold text-white/70">{contact.name.split(' ').map(n => n[0]).join('')}</span>
+          {filtered.map((contact, i) => {
+            const tags = parseTags(contact.tags)
+            const segments = parseSegments(contact.segments)
+            return (
+              <motion.div
+                key={contact.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.03 }}
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => {
+                  setSelectedContactId(contact.id)
+                  setActiveFeature('contact-detail')
+                }}
+                className={`glass-card rounded-xl p-3.5 flex items-center gap-3 cursor-pointer hover:bg-white/[0.03] transition-colors ${i % 2 === 0 ? 'bg-white/[0.005]' : ''}`}
+              >
+                {/* Avatar with contact score ring */}
+                <div className="relative flex-shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-neon-blue/30 to-neon-purple/30 border border-white/10 flex items-center justify-center">
+                    <span className="text-xs font-bold text-white/70">{contact.name.split(' ').map(n => n[0]).join('')}</span>
+                  </div>
+                  {/* Contact Score ring */}
+                  <svg width={14} height={14} className="absolute -bottom-0.5 -right-0.5 ring-progress">
+                    <circle cx={7} cy={7} r={5} strokeWidth={1.5} fill="none" stroke="rgba(255,255,255,0.08)" />
+                    <circle cx={7} cy={7} r={5} strokeWidth={1.5} fill="none" stroke={scoreColor(contact.score)} 
+                      strokeDasharray={`${(contact.score / 100) * 31.4} 31.4`} strokeLinecap="round" />
+                  </svg>
                 </div>
-                {/* Contact Score ring */}
-                <svg width={14} height={14} className="absolute -bottom-0.5 -right-0.5 ring-progress">
-                  <circle cx={7} cy={7} r={5} strokeWidth={1.5} fill="none" stroke="rgba(255,255,255,0.08)" />
-                  <circle cx={7} cy={7} r={5} strokeWidth={1.5} fill="none" stroke={scoreColor(contact.score)} 
-                    strokeDasharray={`${(contact.score / 100) * 31.4} 31.4`} strokeLinecap="round" />
-                </svg>
-              </div>
 
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-semibold text-white/90 truncate">{contact.name}</h3>
-                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${contact.status === 'active' ? 'bg-emerald-400 animate-pulse-dot' : 'bg-white/20'}`} />
-                </div>
-                <p className="text-[10px] text-white/30 mt-0.5 flex items-center gap-1">
-                  <Phone className="w-2.5 h-2.5" /> {contact.phone}
-                </p>
-                {contact.lastMessage && (
-                  <p className="text-[10px] text-white/20 mt-0.5 truncate flex items-center gap-1">
-                    <MessageSquare className="w-2.5 h-2.5" /> {contact.lastMessage}
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-white/90 truncate">{contact.name}</h3>
+                    <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${contact.status === 'active' ? 'bg-emerald-400 animate-pulse-dot' : 'bg-white/20'}`} />
+                  </div>
+                  <p className="text-[10px] text-white/30 mt-0.5 flex items-center gap-1">
+                    <Phone className="w-2.5 h-2.5" /> {contact.phone}
                   </p>
-                )}
-                {contact.status === 'active' && (
-                  <p className="text-[9px] text-white/20 mt-0.5 flex items-center gap-1">
-                    <Clock className="w-2 h-2" /> Last active: {contact.lastActive}
-                  </p>
-                )}
-                {/* Segment badges */}
-                <div className="flex gap-1 mt-1">
-                  {contact.segments.slice(0, 3).map((segment) => (
-                    <span key={segment} className={`text-[7px] px-1 py-px rounded border font-bold ${segmentColors[segment] || 'bg-white/10 text-white/50 border-white/10'}`}>
-                      {segment}
-                    </span>
-                  ))}
+                  {contact.lastMessage && (
+                    <p className="text-[10px] text-white/20 mt-0.5 truncate flex items-center gap-1">
+                      <MessageSquare className="w-2.5 h-2.5" /> {contact.lastMessage}
+                    </p>
+                  )}
+                  {contact.status === 'active' && (
+                    <p className="text-[9px] text-white/20 mt-0.5 flex items-center gap-1">
+                      <Clock className="w-2 h-2" /> Last active: {formatLastActive(contact.updatedAt)}
+                    </p>
+                  )}
+                  {/* Segment badges */}
+                  {segments.length > 0 && (
+                    <div className="flex gap-1 mt-1">
+                      {segments.slice(0, 3).map((segment) => (
+                        <span key={segment} className={`text-[7px] px-1 py-px rounded border font-bold ${segmentColors[segment] || 'bg-white/10 text-white/50 border-white/10'}`}>
+                          {segment}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
 
-              {/* Tags + More */}
-              <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                <div className="flex gap-1">
-                  {contact.tags.slice(0, 2).map((tag) => (
-                    <span key={tag} className={`text-[8px] px-1.5 py-0.5 rounded-md border ${tagColors[tag] || 'bg-white/10 text-white/50 border-white/10'}`}>
-                      {tag}
-                    </span>
-                  ))}
+                {/* Tags + Delete */}
+                <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                  <div className="flex gap-1">
+                    {tags.slice(0, 2).map((tag) => (
+                      <span key={tag} className={`text-[8px] px-1.5 py-0.5 rounded-md border ${tagColors[tag] || 'bg-white/10 text-white/50 border-white/10'}`}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  <button 
+                    onClick={(e) => handleDeleteContact(contact.id, e)}
+                    disabled={deletingId === contact.id}
+                    className="p-1 rounded hover:bg-red-500/10 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-white/20 hover:text-red-400" />
+                  </button>
                 </div>
-                <button className="p-1 rounded hover:bg-white/5 transition-colors">
-                  <MoreHorizontal className="w-3.5 h-3.5 text-white/20" />
-                </button>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            )
+          })}
         </div>
       )}
     </div>

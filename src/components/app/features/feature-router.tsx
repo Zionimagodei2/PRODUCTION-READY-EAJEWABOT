@@ -33,6 +33,7 @@ const FlowBuilderPage = dynamic(() => import('./flow-builder-page').then(m => ({
 const MessageStatusPage = dynamic(() => import('./message-status-page').then(m => ({ default: m.MessageStatusPage })), { loading: () => <FeatureLoading /> })
 const WebhookManagerPage = dynamic(() => import('./webhook-manager-page').then(m => ({ default: m.WebhookManagerPage })), { loading: () => <FeatureLoading /> })
 const TeamManagementPage = dynamic(() => import('./team-management-page').then(m => ({ default: m.TeamManagementPage })), { loading: () => <FeatureLoading /> })
+const PersonalityAgentPage = dynamic(() => import('./personality-agent-page').then(m => ({ default: m.PersonalityAgentPage })), { loading: () => <FeatureLoading /> })
 
 function FeatureLoading() {
   return (
@@ -70,6 +71,7 @@ const featureComponents: Record<FeaturePage, React.ComponentType> = {
   'message-status': MessageStatusPage,
   'webhook-manager': WebhookManagerPage,
   'team-management': TeamManagementPage,
+  'personality-agent': PersonalityAgentPage,
 }
 
 export function FeatureRouter() {

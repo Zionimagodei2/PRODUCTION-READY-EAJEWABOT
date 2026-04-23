@@ -1,50 +1,103 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MessageSquare, Plus, Trash2, Clock, CheckCircle2, ArrowLeft, Zap, Hash, ToggleLeft } from 'lucide-react'
+import { useToastStore } from '@/store/toast-store'
 
 interface AutoReplyRule {
   id: string
   trigger: string
   response: string
   active: boolean
-  matchType: 'contains' | 'exact' | 'starts_with'
+  matchType: string
+  createdAt: string
 }
 
 export function AutoReplyPage() {
   const { goBack } = useAppStore()
-  const [rules, setRules] = useState<AutoReplyRule[]>([
-    { id: '1', trigger: 'hello', response: 'Hi there! Thanks for reaching out. We\'ll get back to you shortly.', active: true, matchType: 'contains' },
-    { id: '2', trigger: 'price', response: 'Our pricing starts at $29/mo. Would you like a custom quote?', active: true, matchType: 'contains' },
-    { id: '3', trigger: 'hours', response: 'We\'re available Mon-Fri, 9AM-6PM EST.', active: false, matchType: 'exact' },
-  ])
+  const { addToast } = useToastStore()
+  const [rules, setRules] = useState<AutoReplyRule[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [newTrigger, setNewTrigger] = useState('')
   const [newResponse, setNewResponse] = useState('')
-  const [newMatchType, setNewMatchType] = useState<'contains' | 'exact' | 'starts_with'>('contains')
+  const [newMatchType, setNewMatchType] = useState<string>('contains')
 
-  const addRule = () => {
+  // Fetch rules from API
+  const fetchRules = async () => {
+    try {
+      const res = await fetch('/api/auto-reply')
+      if (res.ok) {
+        const data = await res.json()
+        setRules(data)
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Failed to load rules' })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchRules()
+  }, [])
+
+  const addRule = async () => {
     if (!newTrigger.trim() || !newResponse.trim()) return
-    setRules([...rules, {
-      id: Date.now().toString(),
-      trigger: newTrigger.trim(),
-      response: newResponse.trim(),
-      active: true,
-      matchType: newMatchType,
-    }])
+    try {
+      const res = await fetch('/api/auto-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trigger: newTrigger.trim(),
+          response: newResponse.trim(),
+          matchType: newMatchType,
+          active: true,
+        }),
+      })
+      if (res.ok) {
+        const newRule = await res.json()
+        setRules([newRule, ...rules])
+        addToast({ type: 'success', title: 'Rule added' })
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Failed to add rule' })
+    }
     setNewTrigger('')
     setNewResponse('')
     setShowAdd(false)
   }
 
-  const toggleRule = (id: string) => {
-    setRules(rules.map(r => r.id === id ? { ...r, active: !r.active } : r))
+  const toggleRule = async (id: string) => {
+    const rule = rules.find(r => r.id === id)
+    if (!rule) return
+    try {
+      const res = await fetch('/api/auto-reply', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, active: !rule.active }),
+      })
+      if (res.ok) {
+        setRules(rules.map(r => r.id === id ? { ...r, active: !r.active } : r))
+        addToast({ type: 'success', title: `Rule ${!rule.active ? 'activated' : 'deactivated'}` })
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Failed to toggle rule' })
+    }
   }
 
-  const deleteRule = (id: string) => {
-    setRules(rules.filter(r => r.id !== id))
+  const deleteRule = async (id: string) => {
+    try {
+      const res = await fetch(`/api/auto-reply?id=${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setRules(rules.filter(r => r.id !== id))
+        addToast({ type: 'success', title: 'Rule deleted' })
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Failed to delete rule' })
+    }
   }
 
   const matchTypeLabel = (type: string) => {
@@ -54,6 +107,17 @@ export function AutoReplyPage() {
       case 'starts_with': return 'Starts with'
       default: return type
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-5">
+        <div className="glass-card rounded-2xl p-6 text-center">
+          <div className="skeleton-shimmer h-6 w-32 mx-auto rounded mb-3" />
+          <div className="skeleton-shimmer h-4 w-48 mx-auto rounded" />
+        </div>
+      </div>
+    )
   }
 
   return (
