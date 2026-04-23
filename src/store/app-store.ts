@@ -27,6 +27,8 @@ export type FeaturePage =
   | 'contact-groups'
   | 'flow-builder'
   | 'message-status'
+  | 'webhook-manager'
+  | 'team-management'
   | null
 
 interface AppState {

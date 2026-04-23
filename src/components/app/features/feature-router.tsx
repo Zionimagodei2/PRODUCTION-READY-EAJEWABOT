@@ -26,6 +26,8 @@ import { InboxPage } from './inbox-page'
 import { ContactGroupsPage } from './contact-groups-page'
 import { FlowBuilderPage } from './flow-builder-page'
 import { MessageStatusPage } from './message-status-page'
+import { WebhookManagerPage } from './webhook-manager-page'
+import { TeamManagementPage } from './team-management-page'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const featureComponents: Record<FeaturePage, React.ComponentType> = {
@@ -54,6 +56,8 @@ const featureComponents: Record<FeaturePage, React.ComponentType> = {
   'contact-groups': ContactGroupsPage,
   'flow-builder': FlowBuilderPage,
   'message-status': MessageStatusPage,
+  'webhook-manager': WebhookManagerPage,
+  'team-management': TeamManagementPage,
 }
 
 export function FeatureRouter() {

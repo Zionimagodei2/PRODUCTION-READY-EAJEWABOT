@@ -8,7 +8,7 @@ import {
   ArrowRight, Zap, TrendingUp, Activity, FileCode,
   Megaphone, UserPlus, Clock, Sparkles, Phone, 
   CheckCircle2, AlertCircle, ChevronRight, Flame, Radio, Database,
-  Sun, Moon, Target, Wifi, ShieldCheck, Wand2, Upload, QrCode, Timer, MessageCircle, GitBranch
+  Sun, Moon, Target, Wifi, ShieldCheck, Wand2, Upload, QrCode, Timer, MessageCircle, GitBranch, Webhook
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useToastStore } from '@/store/toast-store'
@@ -228,10 +228,12 @@ const insights: FeatureCardProps[] = [
 const dataSection: FeatureCardProps[] = [
   { id: 'data-export', icon: <Database className="w-5 h-5" />, title: 'Data Export', subtitle: 'Export data in various formats', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'contact-import', icon: <Upload className="w-5 h-5" />, title: 'Contact Import', subtitle: 'Import contacts from CSV', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent', hasNewBadge: true },
+  { id: 'webhook-manager', icon: <Webhook className="w-5 h-5" />, title: 'Webhook Manager', subtitle: 'Manage API webhooks & events', color: '#f97316', glowClass: 'neon-glow-orange', borderColor: 'border-orange-500/20', gradientFrom: 'from-orange-500/[0.06]', gradientTo: 'to-transparent' },
 ]
 
 const organizationSection: FeatureCardProps[] = [
   { id: 'contact-groups', icon: <Users className="w-5 h-5" />, title: 'Contact Groups', subtitle: 'Organize & segment contacts', color: '#8b5cf6', glowClass: 'neon-glow-purple', borderColor: 'border-purple-500/20', gradientFrom: 'from-purple-500/[0.06]', gradientTo: 'to-transparent' },
+  { id: 'team-management', icon: <Users className="w-5 h-5" />, title: 'Team Management', subtitle: 'Manage members & roles', color: '#8b5cf6', glowClass: 'neon-glow-purple', borderColor: 'border-purple-500/20', gradientFrom: 'from-purple-500/[0.06]', gradientTo: 'to-transparent' },
 ]
 
 const recentActivity = [
