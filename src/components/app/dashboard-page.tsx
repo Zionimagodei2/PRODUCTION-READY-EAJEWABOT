@@ -81,14 +81,19 @@ function RingProgress({ size = 36, strokeWidth = 3, progress = 0, color = '#3b82
   )
 }
 
-// Current time hook
+// Current time hook - hydration-safe
 function useCurrentTime() {
-  const [time, setTime] = useState(new Date())
+  const [time, setTime] = useState<Date | null>(null)
+  const [mounted, setMounted] = useState(false)
   useEffect(() => {
+    queueMicrotask(() => {
+      setTime(new Date())
+      setMounted(true)
+    })
     const interval = setInterval(() => setTime(new Date()), 60000)
     return () => clearInterval(interval)
   }, [])
-  return time
+  return { time, mounted }
 }
 
 // Mini sparkline component for stat cards (3-4 tiny bars)
@@ -247,7 +252,7 @@ const recentActivity = [
 export function DashboardPage() {
   const { waConnected, setActiveFeature, setAddContactOpen } = useAppStore()
   const { addToast } = useToastStore()
-  const currentTime = useCurrentTime()
+  const { time: currentTime, mounted } = useCurrentTime()
 
   // Rotating tips state
   const tips = [
@@ -268,9 +273,9 @@ export function DashboardPage() {
   // Mark all as read state for recent activity
   const [activityDimmed, setActivityDimmed] = useState(false)
 
-  const greeting = currentTime.getHours() < 12 ? 'Good Morning' : currentTime.getHours() < 18 ? 'Good Afternoon' : 'Good Evening'
-  const formattedDate = currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
-  const formattedTime = currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+  const greeting = mounted && currentTime ? (currentTime.getHours() < 12 ? 'Good Morning' : currentTime.getHours() < 18 ? 'Good Afternoon' : 'Good Evening') : 'Hello'
+  const formattedDate = mounted && currentTime ? currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : ''
+  const formattedTime = mounted && currentTime ? currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : ''
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-6">

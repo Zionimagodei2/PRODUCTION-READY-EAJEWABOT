@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
@@ -13,11 +13,46 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#08080e" },
+    { media: "(prefers-color-scheme: light)", color: "#3b82f6" },
+  ],
+};
+
 export const metadata: Metadata = {
   title: "EAJE WhatsBot - WhatsApp Automation Dashboard",
   description: "Enterprise WhatsApp automation and growth management platform",
+  manifest: "/manifest.json",
   icons: {
-    icon: "/logo.svg",
+    icon: [
+      { url: "/favicon.ico", sizes: "32x32" },
+      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [
+      { url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "EAJE WhatsBot",
+  },
+  formatDetection: {
+    telephone: true,
+    email: true,
+  },
+  applicationName: "EAJE WhatsBot",
+  openGraph: {
+    title: "EAJE WhatsBot",
+    description: "Enterprise WhatsApp automation and growth management platform",
+    type: "website",
+    siteName: "EAJE WhatsBot",
   },
 };
 
@@ -28,11 +63,47 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
+      <head>
+        {/* PWA Meta Tags */}
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="EAJE WhatsBot" />
+        <meta name="application-name" content="EAJE WhatsBot" />
+        <meta name="msapplication-TileColor" content="#3b82f6" />
+        <meta name="msapplication-navbutton-color" content="#3b82f6" />
+        
+        {/* Mobile Permissions - declarative for web apps */}
+        <meta name="permissions" content="notifications,camera,microphone,contacts" />
+        
+        {/* Safe area insets for iOS */}
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+        
+        {/* Preload critical assets */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
         {children}
         <Toaster />
+        {/* Service Worker Registration */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').then(function(reg) {
+                    console.log('SW registered:', reg.scope);
+                  }).catch(function(err) {
+                    console.log('SW registration failed:', err);
+                  });
+                });
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );

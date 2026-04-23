@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Plus, Import, MoreHorizontal, Phone, MessageSquare, Tag, Trash2, UserPlus, Users, RotateCcw, ArrowDownUp, Clock, ShieldCheck } from 'lucide-react'
+import { Search, Import, MoreHorizontal, Phone, MessageSquare, UserPlus, Users, RotateCcw, ArrowDownUp, Clock, ShieldCheck, TrendingUp, UserCheck, Tags, Sparkles } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 import { ListSkeleton } from '@/components/app/loading-skeleton'
 
@@ -48,6 +48,59 @@ const segmentColors: Record<string, string> = {
   Wholesale: 'bg-cyan-500/12 text-cyan-400/80 border-cyan-500/15',
 }
 
+function RingProgress({ value, maxValue, color, size = 36 }: { value: number; maxValue: number; color: string; size?: number }) {
+  const radius = (size - 6) / 2
+  const circumference = 2 * Math.PI * radius
+  const percentage = Math.min(value / maxValue, 1)
+  const dashOffset = circumference * (1 - percentage)
+
+  return (
+    <svg width={size} height={size} className="ring-progress">
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        strokeWidth={3}
+        fill="none"
+        className="ring-progress-bg"
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        strokeWidth={3}
+        fill="none"
+        stroke={color}
+        strokeDasharray={circumference}
+        strokeDashoffset={dashOffset}
+        strokeLinecap="round"
+        className="ring-progress-fill"
+      />
+    </svg>
+  )
+}
+
+const quickStatsVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.1,
+    },
+  },
+}
+
+const quickStatItemVariants = {
+  hidden: { opacity: 0, y: 12, scale: 0.95 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { type: 'spring', stiffness: 300, damping: 25 },
+  },
+}
+
 export function ContactsPage() {
   const [search, setSearch] = useState('')
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
@@ -56,6 +109,17 @@ export function ContactsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [sortBy, setSortBy] = useState<'name' | 'score' | 'active'>('name')
   const [showSortDropdown, setShowSortDropdown] = useState(false)
+
+  // Derived stats
+  const totalContacts = contacts.length
+  const activeContacts = contacts.filter(c => c.status === 'active').length
+  const newThisWeek = contacts.filter(c => {
+    const added = new Date(c.dateAdded)
+    const now = new Date()
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    return added >= weekAgo
+  }).length
+  const taggedContacts = contacts.filter(c => c.tags.length > 0).length
 
   // Handle new contact from modal
   useEffect(() => {
@@ -105,21 +169,82 @@ export function ContactsPage() {
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-4">
-      {/* Stats - Enhanced with accent borders */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="glass-card rounded-xl p-3.5 text-center stat-card-blue">
-          <p className="text-xl font-extrabold text-neon-blue">{contacts.length}</p>
-          <p className="text-[11px] text-white/55 font-semibold">Total</p>
+      {/* Quick Stats Widget - Glass card with ring progress */}
+      <motion.div
+        variants={quickStatsVariants}
+        initial="hidden"
+        animate="visible"
+        className="glass-card-inset rounded-2xl p-4 neon-glow-blue"
+        style={{ boxShadow: '0 0 20px rgba(59,130,246,0.1), 0 0 40px rgba(139,92,246,0.05)' }}
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-neon-blue/20 to-neon-purple/20 flex items-center justify-center">
+            <Users className="w-3.5 h-3.5 text-neon-blue" />
+          </div>
+          <h3 className="text-xs font-bold text-white/70 uppercase tracking-wider">Quick Stats</h3>
         </div>
-        <div className="glass-card rounded-xl p-3.5 text-center stat-card-green">
-          <p className="text-xl font-extrabold text-neon-green">{contacts.filter(c => c.status === 'active').length}</p>
-          <p className="text-[11px] text-white/55 font-semibold">Active</p>
+        <div className="grid grid-cols-2 gap-3">
+          {/* Total Contacts */}
+          <motion.div
+            variants={quickStatItemVariants}
+            className="flex items-center gap-3 rounded-xl bg-white/[0.03] border border-white/[0.06] p-3"
+          >
+            <RingProgress value={totalContacts} maxValue={20} color="#3b82f6" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1">
+                <p className="text-lg font-extrabold text-neon-blue">{totalContacts}</p>
+                <TrendingUp className="w-3 h-3 text-green-400" />
+              </div>
+              <p className="text-[10px] text-white/40 font-medium">Total Contacts</p>
+            </div>
+          </motion.div>
+
+          {/* Active Contacts */}
+          <motion.div
+            variants={quickStatItemVariants}
+            className="flex items-center gap-3 rounded-xl bg-white/[0.03] border border-white/[0.06] p-3"
+          >
+            <RingProgress value={activeContacts} maxValue={totalContacts} color="#22c55e" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1">
+                <p className="text-lg font-extrabold text-neon-green">{activeContacts}</p>
+                <UserCheck className="w-3 h-3 text-green-400/60" />
+              </div>
+              <p className="text-[10px] text-white/40 font-medium">Active</p>
+            </div>
+          </motion.div>
+
+          {/* New This Week */}
+          <motion.div
+            variants={quickStatItemVariants}
+            className="flex items-center gap-3 rounded-xl bg-white/[0.03] border border-white/[0.06] p-3"
+          >
+            <RingProgress value={newThisWeek} maxValue={totalContacts} color="#3b82f6" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1">
+                <p className="text-lg font-extrabold text-blue-400">{newThisWeek}</p>
+                <Sparkles className="w-3 h-3 text-blue-400/60" />
+              </div>
+              <p className="text-[10px] text-white/40 font-medium">New This Week</p>
+            </div>
+          </motion.div>
+
+          {/* Tagged Contacts */}
+          <motion.div
+            variants={quickStatItemVariants}
+            className="flex items-center gap-3 rounded-xl bg-white/[0.03] border border-white/[0.06] p-3"
+          >
+            <RingProgress value={taggedContacts} maxValue={totalContacts} color="#8b5cf6" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1">
+                <p className="text-lg font-extrabold text-neon-purple">{taggedContacts}</p>
+                <Tags className="w-3 h-3 text-purple-400/60" />
+              </div>
+              <p className="text-[10px] text-white/40 font-medium">Tagged</p>
+            </div>
+          </motion.div>
         </div>
-        <div className="glass-card rounded-xl p-3.5 text-center stat-card-orange">
-          <p className="text-xl font-extrabold text-neon-orange">{allTags.length}</p>
-          <p className="text-[11px] text-white/55 font-semibold">Tags</p>
-        </div>
-      </div>
+      </motion.div>
 
       {/* Search */}
       <div className="relative">

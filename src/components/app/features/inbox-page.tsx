@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, MessageCircle, Search, Check, CheckCheck,
-  Plus, MessageSquare, Users, BarChart3
+  Plus, MessageSquare, Users, BarChart3, Phone, Trash2, Archive,
+  ChevronRight
 } from 'lucide-react'
 
 interface Conversation {
@@ -16,6 +17,8 @@ interface Conversation {
   timestamp: string
   unreadCount: number
   isOnline: boolean
+  isTyping?: boolean
+  lastSeen?: string
   messageStatus: 'read' | 'sent' | 'none'
   avatarColor: string
 }
@@ -23,7 +26,7 @@ interface Conversation {
 const mockConversations: Conversation[] = [
   {
     id: '1', name: 'John Smith', isGroup: false, lastMessage: 'Thanks for the update! I\'ll review the proposal and get back to you by tomorrow.',
-    timestamp: '2m', unreadCount: 3, isOnline: true, messageStatus: 'none', avatarColor: '#3b82f6'
+    timestamp: '2m', unreadCount: 3, isOnline: true, isTyping: true, messageStatus: 'none', avatarColor: '#3b82f6'
   },
   {
     id: '2', name: 'Marketing Team', isGroup: true, lastMessage: 'Sarah: The new campaign is performing well, 42% open rate!',
@@ -31,7 +34,7 @@ const mockConversations: Conversation[] = [
   },
   {
     id: '3', name: 'Emily Davis', isGroup: false, lastMessage: 'Can we schedule a call for next week?',
-    timestamp: '1h', unreadCount: 1, isOnline: true, messageStatus: 'none', avatarColor: '#ec4899'
+    timestamp: '1h', unreadCount: 1, isOnline: true, lastSeen: 'Active now', messageStatus: 'none', avatarColor: '#ec4899'
   },
   {
     id: '4', name: 'Sales Group', isGroup: true, lastMessage: 'Mike: Q4 targets have been updated in the dashboard',
@@ -39,11 +42,11 @@ const mockConversations: Conversation[] = [
   },
   {
     id: '5', name: 'Alex Rivera', isGroup: false, lastMessage: 'The bulk order has been confirmed and shipped.',
-    timestamp: '5h', unreadCount: 0, isOnline: false, messageStatus: 'read', avatarColor: '#22c55e'
+    timestamp: '5h', unreadCount: 0, isOnline: false, lastSeen: 'Last seen 3h ago', messageStatus: 'read', avatarColor: '#22c55e'
   },
   {
     id: '6', name: 'Lisa Wong', isGroup: false, lastMessage: 'Please send me the updated price list for Q1.',
-    timestamp: 'Yesterday', unreadCount: 2, isOnline: false, messageStatus: 'none', avatarColor: '#06b6d4'
+    timestamp: 'Yesterday', unreadCount: 2, isOnline: false, lastSeen: 'Last seen yesterday', messageStatus: 'none', avatarColor: '#06b6d4'
   },
   {
     id: '7', name: 'Support Team', isGroup: true, lastMessage: 'Anna: All tickets from last week have been resolved.',
@@ -51,7 +54,7 @@ const mockConversations: Conversation[] = [
   },
   {
     id: '8', name: 'David Brown', isGroup: false, lastMessage: 'Delivery confirmed! Everything looks great.',
-    timestamp: '2d ago', unreadCount: 0, isOnline: false, messageStatus: 'read', avatarColor: '#ef4444'
+    timestamp: '2d ago', unreadCount: 0, isOnline: false, lastSeen: 'Last seen 2d ago', messageStatus: 'read', avatarColor: '#ef4444'
   },
   {
     id: '9', name: 'Product Launch', isGroup: true, lastMessage: 'Jake: Press release draft is ready for review.',
@@ -59,7 +62,7 @@ const mockConversations: Conversation[] = [
   },
   {
     id: '10', name: 'Anna Mueller', isGroup: false, lastMessage: 'I\'m interested in your enterprise plan. Can we discuss?',
-    timestamp: '3d ago', unreadCount: 0, isOnline: false, messageStatus: 'read', avatarColor: '#06b6d4'
+    timestamp: '3d ago', unreadCount: 0, isOnline: false, lastSeen: 'Last seen 5d ago', messageStatus: 'read', avatarColor: '#06b6d4'
   },
 ]
 
@@ -78,10 +81,26 @@ const conversationItem = {
   show: { opacity: 1, x: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
 }
 
+// Swipe action definitions
+const swipeActions = [
+  { icon: Phone, label: 'Call', color: '#22c55e', bg: 'rgba(34,197,94,0.15)' },
+  { icon: Archive, label: 'Archive', color: '#3b82f6', bg: 'rgba(59,130,246,0.15)' },
+  { icon: Trash2, label: 'Delete', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
+]
+
 export function InboxPage() {
   const { goBack, setSelectedContactId, setActiveFeature } = useAppStore()
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchFocused, setSearchFocused] = useState(false)
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all')
+  const [showTransition, setShowTransition] = useState(true)
+  const [hoveredConvId, setHoveredConvId] = useState<string | null>(null)
+
+  // Page transition flash effect
+  useEffect(() => {
+    const timer = setTimeout(() => setShowTransition(false), 500)
+    return () => clearTimeout(timer)
+  }, [])
 
   const filteredConversations = useMemo(() => {
     let filtered = mockConversations
@@ -121,6 +140,13 @@ export function InboxPage() {
       .slice(0, 2)
   }
 
+  const formatLastSeen = (conversation: Conversation) => {
+    if (conversation.isOnline) return 'Online'
+    if (conversation.lastSeen) return conversation.lastSeen
+    if (conversation.timestamp.includes('m')) return `Last seen ${conversation.timestamp} ago`
+    return ''
+  }
+
   const filters: { key: FilterTab; label: string; count: number }[] = [
     { key: 'all', label: 'All', count: totalConversations },
     { key: 'unread', label: 'Unread', count: mockConversations.filter((c) => c.unreadCount > 0).length },
@@ -129,6 +155,9 @@ export function InboxPage() {
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-4">
+      {/* Page Transition Flash */}
+      {showTransition && <div className="page-transition-flash" />}
+
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -145,7 +174,7 @@ export function InboxPage() {
         </motion.button>
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <MessageCircle className="w-5 h-5 text-green-400" style={{ filter: 'drop-shadow(0 0 8px rgba(34,197,94,0.5))' }} />
+            <MessageCircle className="w-5 h-5 text-green-400 neon-text-glow-green" />
             <h1 className="text-lg font-extrabold text-white/95">Inbox</h1>
           </div>
           <p className="text-[11px] text-white/50 mt-0.5">All conversations</p>
@@ -159,7 +188,7 @@ export function InboxPage() {
         transition={{ delay: 0.05 }}
         className="grid grid-cols-3 gap-3"
       >
-        <div className="glass-card rounded-xl p-3 text-center stat-card-green">
+        <div className="glass-card rounded-xl p-3 text-center stat-card-green card-hover-lift">
           <div className="w-7 h-7 mx-auto rounded-lg bg-green-500/10 flex items-center justify-center mb-1.5">
             <MessageSquare className="w-3.5 h-3.5 text-green-400" />
           </div>
@@ -167,48 +196,63 @@ export function InboxPage() {
           <p className="text-[9px] text-white/50 font-semibold mt-0.5">Conversations</p>
           {/* Mini progress */}
           <div className="mt-1.5 h-1 rounded-full bg-white/5 overflow-hidden">
-            <div className="h-full rounded-full bg-green-500/50" style={{ width: '85%' }} />
+            <div className="h-full rounded-full bg-gradient-to-r from-green-500/50 to-green-400/50 progress-shimmer" style={{ width: '85%', backgroundSize: '200% 100%' }} />
           </div>
         </div>
-        <div className="glass-card rounded-xl p-3 text-center stat-card-blue">
+        <div className="glass-card rounded-xl p-3 text-center stat-card-blue card-hover-lift">
           <div className="w-7 h-7 mx-auto rounded-lg bg-blue-500/10 flex items-center justify-center mb-1.5">
             <Users className="w-3.5 h-3.5 text-blue-400" />
           </div>
           <p className="text-xl font-extrabold text-white/95">{totalUnread}</p>
           <p className="text-[9px] text-white/50 font-semibold mt-0.5">Unread</p>
           <div className="mt-1.5 h-1 rounded-full bg-white/5 overflow-hidden">
-            <div className="h-full rounded-full bg-blue-500/50" style={{ width: `${Math.min((totalUnread / totalConversations) * 100, 100)}%` }} />
+            <div className="h-full rounded-full bg-gradient-to-r from-blue-500/50 to-blue-400/50" style={{ width: `${Math.min((totalUnread / totalConversations) * 100, 100)}%` }} />
           </div>
         </div>
-        <div className="glass-card rounded-xl p-3 text-center stat-card-purple">
+        <div className="glass-card rounded-xl p-3 text-center stat-card-purple card-hover-lift">
           <div className="w-7 h-7 mx-auto rounded-lg bg-purple-500/10 flex items-center justify-center mb-1.5">
             <BarChart3 className="w-3.5 h-3.5 text-purple-400" />
           </div>
           <p className="text-xl font-extrabold text-white/95">{responseRate}%</p>
           <p className="text-[9px] text-white/50 font-semibold mt-0.5">Response Rate</p>
           <div className="mt-1.5 h-1 rounded-full bg-white/5 overflow-hidden">
-            <div className="h-full rounded-full bg-purple-500/50" style={{ width: `${responseRate}%` }} />
+            <div className="h-full rounded-full bg-gradient-to-r from-purple-500/50 to-purple-400/50" style={{ width: `${responseRate}%` }} />
           </div>
         </div>
       </motion.div>
 
       <div className="gradient-divider" />
 
-      {/* Search Bar */}
+      {/* Search Bar - Enhanced with animated focus */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
         className="relative"
       >
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+        <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors duration-300 ${
+          searchFocused ? 'text-green-400' : 'text-white/30'
+        }`} />
         <input
           type="text"
           placeholder="Search conversations..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/5 border border-white/8 text-sm text-white/90 placeholder:text-white/30 focus:outline-none focus:border-green-500/30 focus:bg-white/[0.07] transition-all"
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setSearchFocused(false)}
+          className={`w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/5 border text-sm text-white/90 placeholder:text-white/30 focus:outline-none transition-all duration-300 search-focus-ring ${
+            searchFocused
+              ? 'border-green-500/30 bg-white/[0.07] shadow-[0_0_12px_rgba(34,197,94,0.08)]'
+              : 'border-white/8'
+          }`}
         />
+        {searchFocused && (
+          <motion.div
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            className="absolute bottom-0 left-3 right-3 h-0.5 bg-gradient-to-r from-green-500/40 via-green-400/60 to-green-500/40 rounded-full origin-left"
+          />
+        )}
       </motion.div>
 
       {/* Filter Tabs */}
@@ -276,7 +320,9 @@ export function InboxPage() {
                 variants={conversationItem}
                 layout
                 onClick={() => handleConversationClick(conversation)}
-                className="flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-white/[0.03] transition-all duration-200 group"
+                onMouseEnter={() => setHoveredConvId(conversation.id)}
+                onMouseLeave={() => setHoveredConvId(null)}
+                className="relative flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-white/[0.03] transition-all duration-200 group swipe-hint"
                 whileHover={{
                   boxShadow: conversation.unreadCount > 0
                     ? '0 0 15px rgba(34,197,94,0.08)'
@@ -289,8 +335,9 @@ export function InboxPage() {
                   <div
                     className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white/80"
                     style={{
-                      background: `linear-gradient(135deg, ${conversation.avatarColor}30, ${conversation.avatarColor}10)`,
-                      border: `1.5px solid ${conversation.avatarColor}25`
+                      background: `linear-gradient(135deg, ${conversation.avatarColor}40, ${conversation.avatarColor}15)`,
+                      border: `1.5px solid ${conversation.avatarColor}30`,
+                      boxShadow: conversation.unreadCount > 0 ? `0 0 12px ${conversation.avatarColor}15` : 'none'
                     }}
                   >
                     {conversation.isGroup ? (
@@ -299,10 +346,10 @@ export function InboxPage() {
                       getInitials(conversation.name)
                     )}
                   </div>
-                  {/* Online status dot */}
+                  {/* Online status dot with ring animation */}
                   {conversation.isOnline && (
                     <div
-                      className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-[#0c0c14] animate-pulse-dot"
+                      className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-[#0c0c14] online-status-ring"
                       style={{ boxShadow: '0 0 6px rgba(34,197,94,0.6)' }}
                     />
                   )}
@@ -316,42 +363,92 @@ export function InboxPage() {
                     }`}>
                       {conversation.name}
                     </h3>
-                    <span className="text-[10px] text-white/30 flex-shrink-0 font-medium">
-                      {conversation.timestamp}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-2 mt-0.5">
-                    <p className={`text-[11px] truncate leading-relaxed ${
-                      conversation.unreadCount > 0 ? 'text-white/60' : 'text-white/40'
-                    }`}>
-                      {conversation.lastMessage}
-                    </p>
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      {/* Message status icon */}
-                      {conversation.messageStatus === 'read' && (
-                        <CheckCheck className="w-3.5 h-3.5 text-blue-400/60" />
-                      )}
-                      {conversation.messageStatus === 'sent' && (
-                        <Check className="w-3.5 h-3.5 text-white/25" />
-                      )}
-                      {/* Unread badge */}
-                      {conversation.unreadCount > 0 && (
-                        <span
-                          className="min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-green-500 text-[9px] font-bold text-white px-1"
-                          style={{
-                            boxShadow: '0 0 8px rgba(34,197,94,0.4), 0 0 16px rgba(34,197,94,0.15)'
-                          }}
-                        >
-                          {conversation.unreadCount}
-                        </span>
-                      )}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <span className={`text-[10px] font-medium ${
+                        conversation.unreadCount > 0 ? 'text-green-400/60' : 'text-white/30'
+                      }`}>
+                        {conversation.timestamp}
+                      </span>
                     </div>
                   </div>
+
+                  {/* Typing indicator or last message */}
+                  {conversation.isTyping ? (
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <div className="typing-dots">
+                        <span style={{ background: 'rgba(34,197,94,0.6)' }} />
+                        <span style={{ background: 'rgba(34,197,94,0.6)' }} />
+                        <span style={{ background: 'rgba(34,197,94,0.6)' }} />
+                      </div>
+                      <span className="text-[10px] text-green-400/60 font-medium">typing...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-2 mt-0.5">
+                      <p className={`text-[11px] truncate leading-relaxed ${
+                        conversation.unreadCount > 0 ? 'text-white/60' : 'text-white/40'
+                      }`}>
+                        {conversation.lastMessage}
+                      </p>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {/* Message status icon */}
+                        {conversation.messageStatus === 'read' && (
+                          <CheckCheck className="w-3.5 h-3.5 text-blue-400/60" />
+                        )}
+                        {conversation.messageStatus === 'sent' && (
+                          <Check className="w-3.5 h-3.5 text-white/25" />
+                        )}
+                        {/* Unread badge with pulse animation */}
+                        {conversation.unreadCount > 0 && (
+                          <motion.span
+                            initial={{ scale: 0.5, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className="min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-gradient-to-br from-green-500 to-green-600 text-[9px] font-bold text-white px-1 unread-badge-pulse"
+                            style={{
+                              boxShadow: '0 0 8px rgba(34,197,94,0.4), 0 0 16px rgba(34,197,94,0.15)'
+                            }}
+                          >
+                            {conversation.unreadCount}
+                          </motion.span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Last seen - shown below message */}
+                  {!conversation.isOnline && !conversation.isTyping && conversation.lastSeen && (
+                    <p className="text-[9px] text-white/20 mt-0.5 truncate">{formatLastSeen(conversation)}</p>
+                  )}
+                  {conversation.isOnline && !conversation.isTyping && (
+                    <p className="text-[9px] text-green-400/40 mt-0.5">Active now</p>
+                  )}
                 </div>
+
+                {/* Swipe action hints - visible on hover */}
+                <AnimatePresence>
+                  {hoveredConvId === conversation.id && (
+                    <motion.div
+                      initial={{ opacity: 0, x: 5 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 5 }}
+                      className="flex items-center gap-0.5 flex-shrink-0"
+                    >
+                      {swipeActions.map((action) => (
+                        <motion.div
+                          key={action.label}
+                          whileHover={{ scale: 1.15 }}
+                          className="w-6 h-6 rounded-md flex items-center justify-center"
+                          style={{ background: action.bg }}
+                        >
+                          <action.icon className="w-3 h-3" style={{ color: action.color }} />
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* Subtle divider (not on last item) */}
                 {index < filteredConversations.length - 1 && (
-                  <div className="absolute bottom-0 left-16 right-4 h-px bg-white/[0.03]" />
+                  <div className="absolute bottom-0 left-16 right-4 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
                 )}
               </motion.div>
             ))

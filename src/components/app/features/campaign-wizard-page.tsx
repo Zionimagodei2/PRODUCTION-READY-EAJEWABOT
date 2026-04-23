@@ -1,14 +1,14 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '@/store/app-store'
 import { useToastStore } from '@/store/toast-store'
 import {
-  ArrowLeft, Wand2, ArrowRight, Check, ChevronRight,
+  ArrowLeft, Wand2, ArrowRight, Check, CheckCheck, ChevronRight,
   Megaphone, MessageSquare, Bell, ClipboardList,
   Type, FileText, Image as ImageIcon, Variable, Calendar, Clock,
-  Repeat, Rocket, Users, Target, Send
+  Repeat, Rocket, Users, Target, Send, Eye
 } from 'lucide-react'
 
 type Step = 1 | 2 | 3 | 4
@@ -50,11 +50,22 @@ const recurrenceOptions = [
 ]
 
 const stepInfo = [
-  { title: 'Campaign Details', icon: <Type className="w-4 h-4" /> },
-  { title: 'Compose Message', icon: <FileText className="w-4 h-4" /> },
-  { title: 'Schedule', icon: <Calendar className="w-4 h-4" /> },
-  { title: 'Review & Launch', icon: <Rocket className="w-4 h-4" /> },
+  { title: 'Details', fullTitle: 'Campaign Details', icon: <Type className="w-4 h-4" /> },
+  { title: 'Compose', fullTitle: 'Compose Message', icon: <FileText className="w-4 h-4" /> },
+  { title: 'Schedule', fullTitle: 'Schedule', icon: <Calendar className="w-4 h-4" /> },
+  { title: 'Launch', fullTitle: 'Review & Launch', icon: <Rocket className="w-4 h-4" /> },
 ]
+
+// Confetti particles for success animation
+const confettiColors = ['#3b82f6', '#8b5cf6', '#22c55e', '#f59e0b', '#ec4899', '#06b6d4']
+const confettiParticles = Array.from({ length: 20 }, (_, i) => ({
+  id: i,
+  color: confettiColors[i % confettiColors.length],
+  left: `${Math.random() * 100}%`,
+  delay: Math.random() * 0.5,
+  rotation: Math.random() * 360,
+  size: 4 + Math.random() * 4,
+}))
 
 export function CampaignWizardPage() {
   const { goBack } = useAppStore()
@@ -62,6 +73,8 @@ export function CampaignWizardPage() {
   const [currentStep, setCurrentStep] = useState<Step>(1)
   const [showConfirm, setShowConfirm] = useState(false)
   const [isLaunching, setIsLaunching] = useState(false)
+  const [showSuccess, setShowSuccess] = useState(false)
+  const [showTransition, setShowTransition] = useState(true)
 
   // Step 1
   const [campaignName, setCampaignName] = useState('')
@@ -79,8 +92,17 @@ export function CampaignWizardPage() {
   const [scheduleTime, setScheduleTime] = useState('09:00')
   const [recurrence, setRecurrence] = useState('once')
 
+  // Step direction for animation
+  const [stepDirection, setStepDirection] = useState<'forward' | 'back'>('forward')
+
   const charCount = message.length
   const maxChars = 4096
+
+  // Page transition flash effect
+  useEffect(() => {
+    const timer = setTimeout(() => setShowTransition(false), 500)
+    return () => clearTimeout(timer)
+  }, [])
 
   const insertVariable = useCallback((variable: string) => {
     setMessage((prev) => prev + variable)
@@ -106,10 +128,12 @@ export function CampaignWizardPage() {
       addToast({ type: 'warning', title: 'Missing Schedule', message: 'Please select a date' })
       return
     }
+    setStepDirection('forward')
     setCurrentStep((prev) => Math.min(prev + 1, 4) as Step)
   }, [currentStep, campaignName, message, sendNow, scheduleDate, addToast])
 
   const handleBack = useCallback(() => {
+    setStepDirection('back')
     setCurrentStep((prev) => Math.max(prev - 1, 1) as Step)
   }, [])
 
@@ -118,13 +142,17 @@ export function CampaignWizardPage() {
     setTimeout(() => {
       setIsLaunching(false)
       setShowConfirm(false)
+      setShowSuccess(true)
       addToast({
         type: 'success',
         title: 'Campaign Launched! 🚀',
         message: `"${campaignName}" is now ${sendNow ? 'sending' : 'scheduled'}`,
         duration: 5000,
       })
-      goBack()
+      // After showing success animation, navigate back
+      setTimeout(() => {
+        goBack()
+      }, 2500)
     }, 2000)
   }, [campaignName, sendNow, addToast, goBack])
 
@@ -137,8 +165,83 @@ export function CampaignWizardPage() {
   const selectedAudience = audiences.find((a) => a.value === audience)
   const selectedType = campaignTypes.find((t) => t.value === campaignType)
 
+  const slideVariants = {
+    enter: (direction: 'forward' | 'back') => ({
+      x: direction === 'forward' ? 30 : -30,
+      opacity: 0,
+    }),
+    center: { x: 0, opacity: 1 },
+    exit: (direction: 'forward' | 'back') => ({
+      x: direction === 'forward' ? -30 : 30,
+      opacity: 0,
+    }),
+  }
+
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-4">
+      {/* Page Transition Flash */}
+      {showTransition && <div className="page-transition-flash" />}
+
+      {/* Success Animation Overlay */}
+      <AnimatePresence>
+        {showSuccess && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          >
+            {/* Confetti */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              {confettiParticles.map((p) => (
+                <motion.div
+                  key={p.id}
+                  initial={{ y: -20, x: p.left, rotate: p.rotation, opacity: 1 }}
+                  animate={{ y: '110vh', rotate: p.rotation + 360, opacity: 0 }}
+                  transition={{ duration: 2, delay: p.delay, ease: 'easeOut' }}
+                  className="absolute"
+                  style={{ left: p.left, width: p.size, height: p.size, background: p.color, borderRadius: p.id % 3 === 0 ? '50%' : '2px' }}
+                />
+              ))}
+            </div>
+
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+              className="relative z-10 flex flex-col items-center gap-4"
+            >
+              {/* Animated Checkmark Circle */}
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-green-500/20 to-green-600/20 border-2 border-green-500/30 flex items-center justify-center animate-success"
+                style={{ boxShadow: '0 0 30px rgba(34,197,94,0.3), 0 0 60px rgba(34,197,94,0.1)' }}
+              >
+                <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                  <motion.path
+                    d="M12 24L21 33L36 15"
+                    stroke="#22c55e"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    initial={{ pathLength: 0 }}
+                    animate={{ pathLength: 1 }}
+                    transition={{ duration: 0.5, delay: 0.3, ease: 'easeOut' }}
+                  />
+                </svg>
+              </div>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="text-center"
+              >
+                <h3 className="text-xl font-bold text-white/95">Campaign Launched!</h3>
+                <p className="text-sm text-white/50 mt-1">Your campaign is now {sendNow ? 'sending' : 'scheduled'}</p>
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <div className="flex items-center gap-3">
         <motion.button
@@ -158,8 +261,17 @@ export function CampaignWizardPage() {
         </div>
       </div>
 
-      {/* Step Progress Indicator */}
+      {/* Step Progress Indicator - Enhanced */}
       <div className="glass-card rounded-2xl p-4">
+        {/* Progress bar */}
+        <div className="h-1.5 rounded-full bg-white/[0.06] mb-4 overflow-hidden">
+          <motion.div
+            className="h-full rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-green-500"
+            initial={{ width: '0%' }}
+            animate={{ width: `${(currentStep / 4) * 100}%` }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          />
+        </div>
         <div className="flex items-center justify-between">
           {stepInfo.map((step, i) => {
             const status = getStepStatus(i + 1)
@@ -168,7 +280,7 @@ export function CampaignWizardPage() {
                 <div className="flex flex-col items-center gap-1.5">
                   <motion.div
                     animate={{
-                      scale: status === 'current' ? 1.1 : 1,
+                      scale: status === 'current' ? 1.15 : 1,
                       backgroundColor:
                         status === 'completed'
                           ? '#22c55e'
@@ -176,7 +288,7 @@ export function CampaignWizardPage() {
                           ? '#3b82f6'
                           : 'rgba(255,255,255,0.06)',
                     }}
-                    className={`w-9 h-9 rounded-full flex items-center justify-center border-2 ${
+                    className={`w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
                       status === 'completed'
                         ? 'border-green-500/40'
                         : status === 'current'
@@ -185,14 +297,20 @@ export function CampaignWizardPage() {
                     }`}
                     style={
                       status === 'current'
-                        ? { boxShadow: '0 0 16px rgba(59,130,246,0.3)' }
+                        ? { boxShadow: '0 0 16px rgba(59,130,246,0.3), 0 0 8px rgba(59,130,246,0.15)' }
                         : status === 'completed'
                         ? { boxShadow: '0 0 12px rgba(34,197,94,0.2)' }
                         : undefined
                     }
                   >
                     {status === 'completed' ? (
-                      <Check className="w-4 h-4 text-white" />
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: 'spring', stiffness: 400 }}
+                      >
+                        <Check className="w-4 h-4 text-white" />
+                      </motion.div>
                     ) : (
                       <span
                         className={`text-xs font-bold ${
@@ -204,7 +322,7 @@ export function CampaignWizardPage() {
                     )}
                   </motion.div>
                   <span
-                    className={`text-[9px] font-medium text-center leading-tight ${
+                    className={`text-[9px] font-medium text-center leading-tight transition-colors duration-300 ${
                       status === 'current'
                         ? 'text-blue-300'
                         : status === 'completed'
@@ -216,11 +334,16 @@ export function CampaignWizardPage() {
                   </span>
                 </div>
                 {i < 3 && (
-                  <div
-                    className={`flex-1 h-px mx-1.5 mt-[-16px] ${
-                      status === 'completed' ? 'bg-green-500/30' : 'bg-white/8'
-                    }`}
-                  />
+                  <div className="flex-1 mx-1.5 mt-[-16px]">
+                    <motion.div
+                      className={`h-px ${
+                        status === 'completed' ? 'bg-green-500/40' : 'bg-white/8'
+                      }`}
+                      initial={{ scaleX: 0, originX: 0 }}
+                      animate={{ scaleX: 1 }}
+                      transition={{ duration: 0.3, delay: i * 0.1 }}
+                    />
+                  </div>
                 )}
               </div>
             )
@@ -228,16 +351,56 @@ export function CampaignWizardPage() {
         </div>
       </div>
 
+      {/* Live Preview Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="glass-card-inset rounded-xl p-3 campaign-preview-pulse"
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <Eye className="w-3 h-3 text-blue-400/60" />
+          <span className="text-[9px] text-white/30 font-medium uppercase tracking-wider">Live Preview</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-white/80 truncate">
+              {campaignName || 'Untitled Campaign'}
+            </p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[9px] px-1.5 py-0.5 rounded-md font-medium"
+                style={{ background: `${selectedType?.color}15`, color: selectedType?.color, border: `1px solid ${selectedType?.color}25` }}
+              >
+                {selectedType?.label}
+              </span>
+              <span className="text-[9px] text-white/30">
+                → {selectedAudience?.count.toLocaleString()} contacts
+              </span>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-[9px] text-white/30">
+              {sendNow ? 'Send Now' : `${scheduleDate || 'Not set'}`}
+            </p>
+            <p className="text-[9px] text-white/20 mt-0.5">
+              {message ? `${charCount} chars` : 'No message'}
+            </p>
+          </div>
+        </div>
+      </motion.div>
+
       {/* Step Content */}
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" custom={stepDirection}>
         {/* Step 1: Campaign Details */}
         {currentStep === 1 && (
           <motion.div
             key="step1"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.2 }}
+            custom={stepDirection}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.25, ease: 'easeOut' }}
             className="space-y-4"
           >
             <div className="glass-card rounded-2xl p-4 neon-glow-blue space-y-4">
@@ -245,15 +408,15 @@ export function CampaignWizardPage() {
                 <Type className="w-3.5 h-3.5 text-neon-blue" /> Campaign Details
               </h3>
 
-              {/* Campaign Name */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-medium text-white/50">Campaign Name</label>
+              {/* Campaign Name - Floating Label */}
+              <div className="floating-label-group">
                 <input
                   value={campaignName}
                   onChange={(e) => setCampaignName(e.target.value)}
-                  placeholder="e.g., Spring Sale 2024"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-blue-500/40 transition-colors"
+                  placeholder=" "
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 pt-5 pb-2 text-sm text-white placeholder-white/0 focus:outline-none focus:border-blue-500/40 focus:bg-white/[0.07] transition-all"
                 />
+                <label>Campaign Name</label>
               </div>
 
               {/* Campaign Type */}
@@ -266,7 +429,7 @@ export function CampaignWizardPage() {
                       onClick={() => setCampaignType(type.value)}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className={`flex items-center gap-2 p-3 rounded-xl border text-left transition-all ${
+                      className={`flex items-center gap-2 p-3 rounded-xl border text-left transition-all duration-200 ${
                         campaignType === type.value
                           ? 'border-blue-500/30 bg-blue-500/10'
                           : 'border-white/8 bg-white/[0.02] hover:bg-white/[0.04]'
@@ -300,7 +463,7 @@ export function CampaignWizardPage() {
                       onClick={() => setAudience(aud.value)}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className={`flex items-center gap-2 p-3 rounded-xl border text-left transition-all ${
+                      className={`flex items-center gap-2 p-3 rounded-xl border text-left transition-all duration-200 ${
                         audience === aud.value
                           ? 'border-blue-500/30 bg-blue-500/10'
                           : 'border-white/8 bg-white/[0.02] hover:bg-white/[0.04]'
@@ -317,7 +480,13 @@ export function CampaignWizardPage() {
                         <span className="text-[9px] text-white/25">{aud.count} contacts</span>
                       </div>
                       {audience === aud.value && (
-                        <Check className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ type: 'spring', stiffness: 400 }}
+                        >
+                          <Check className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+                        </motion.div>
                       )}
                     </motion.button>
                   ))}
@@ -331,10 +500,12 @@ export function CampaignWizardPage() {
         {currentStep === 2 && (
           <motion.div
             key="step2"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.2 }}
+            custom={stepDirection}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.25, ease: 'easeOut' }}
             className="space-y-4"
           >
             <div className="glass-card rounded-2xl p-4 neon-glow-blue space-y-4">
@@ -359,25 +530,39 @@ export function CampaignWizardPage() {
                 </select>
               </div>
 
-              {/* Message Text Area */}
+              {/* Message Text Area - Floating Label */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-[11px] font-medium text-white/50">Message</label>
                   <span
-                    className={`text-[10px] font-medium ${
+                    className={`text-[10px] font-medium transition-colors ${
                       charCount > maxChars * 0.9 ? 'text-red-400' : 'text-white/30'
                     }`}
                   >
                     {charCount}/{maxChars}
                   </span>
                 </div>
-                <textarea
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Type your message here..."
-                  rows={5}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-blue-500/40 transition-colors resize-none"
-                />
+                <div className="relative">
+                  <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Type your message here..."
+                    rows={5}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-blue-500/40 focus:bg-white/[0.07] transition-all resize-none"
+                  />
+                  {/* Character count bar */}
+                  <div className="absolute bottom-2 left-3 right-3">
+                    <div className="h-0.5 rounded-full bg-white/[0.04] overflow-hidden">
+                      <motion.div
+                        className={`h-full rounded-full transition-colors ${
+                          charCount > maxChars * 0.9 ? 'bg-red-500/50' : 'bg-blue-500/30'
+                        }`}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min((charCount / maxChars) * 100, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Variable Buttons */}
@@ -441,10 +626,12 @@ export function CampaignWizardPage() {
         {currentStep === 3 && (
           <motion.div
             key="step3"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.2 }}
+            custom={stepDirection}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.25, ease: 'easeOut' }}
             className="space-y-4"
           >
             <div className="glass-card rounded-2xl p-4 neon-glow-blue space-y-4">
@@ -457,7 +644,7 @@ export function CampaignWizardPage() {
                 <motion.button
                   onClick={() => setSendNow(true)}
                   whileTap={{ scale: 0.97 }}
-                  className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border text-sm font-medium transition-all ${
+                  className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border text-sm font-medium transition-all duration-200 ${
                     sendNow
                       ? 'border-blue-500/30 bg-blue-500/10 text-blue-300'
                       : 'border-white/8 bg-white/[0.02] text-white/40'
@@ -469,7 +656,7 @@ export function CampaignWizardPage() {
                 <motion.button
                   onClick={() => setSendNow(false)}
                   whileTap={{ scale: 0.97 }}
-                  className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border text-sm font-medium transition-all ${
+                  className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border text-sm font-medium transition-all duration-200 ${
                     !sendNow
                       ? 'border-blue-500/30 bg-blue-500/10 text-blue-300'
                       : 'border-white/8 bg-white/[0.02] text-white/40'
@@ -490,23 +677,25 @@ export function CampaignWizardPage() {
                     transition={{ duration: 0.2 }}
                     className="space-y-3 overflow-hidden"
                   >
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-medium text-white/50">Date</label>
+                    <div className="floating-label-group">
                       <input
                         type="date"
                         value={scheduleDate}
                         onChange={(e) => setScheduleDate(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white/80 focus:outline-none focus:border-blue-500/40 transition-colors"
+                        placeholder=" "
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 pt-5 pb-2 text-sm text-white/80 focus:outline-none focus:border-blue-500/40 transition-colors"
                       />
+                      <label>Date</label>
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-medium text-white/50">Time</label>
+                    <div className="floating-label-group">
                       <input
                         type="time"
                         value={scheduleTime}
                         onChange={(e) => setScheduleTime(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white/80 focus:outline-none focus:border-blue-500/40 transition-colors"
+                        placeholder=" "
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 pt-5 pb-2 text-sm text-white/80 focus:outline-none focus:border-blue-500/40 transition-colors"
                       />
+                      <label>Time</label>
                     </div>
                   </motion.div>
                 )}
@@ -523,7 +712,7 @@ export function CampaignWizardPage() {
                       key={opt.value}
                       onClick={() => setRecurrence(opt.value)}
                       whileTap={{ scale: 0.95 }}
-                      className={`py-2 rounded-xl border text-xs font-medium transition-all ${
+                      className={`py-2 rounded-xl border text-xs font-medium transition-all duration-200 ${
                         recurrence === opt.value
                           ? 'border-blue-500/30 bg-blue-500/10 text-blue-300'
                           : 'border-white/8 bg-white/[0.02] text-white/40'
@@ -542,10 +731,12 @@ export function CampaignWizardPage() {
         {currentStep === 4 && (
           <motion.div
             key="step4"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.2 }}
+            custom={stepDirection}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.25, ease: 'easeOut' }}
             className="space-y-4"
           >
             <div className="glass-card rounded-2xl p-4 neon-glow-blue space-y-4">
@@ -579,13 +770,17 @@ export function CampaignWizardPage() {
                   </div>
                 </div>
 
-                {/* Message Preview */}
+                {/* Message Preview - WhatsApp style */}
                 <div className="bg-white/[0.03] rounded-xl p-3 space-y-2">
                   <span className="text-[10px] text-white/40 uppercase tracking-wider">Message</span>
-                  <div className="bg-green-500/10 border border-green-500/15 rounded-xl p-3 max-h-32 overflow-y-auto">
+                  <div className="chat-bubble-sent rounded-xl p-3 max-h-32 overflow-y-auto">
                     <p className="text-xs text-white/70 leading-relaxed">
                       {message || 'No message composed'}
                     </p>
+                    <div className="flex items-center justify-end gap-1 mt-1">
+                      <span className="text-[8px] text-white/25">12:00</span>
+                      <CheckCheck className="w-2.5 h-2.5 text-blue-400/40" />
+                    </div>
                   </div>
                   {mediaFile && (
                     <div className="flex items-center gap-1.5 text-[10px] text-blue-300/60">
@@ -685,7 +880,9 @@ export function CampaignWizardPage() {
             >
               <div className="w-10 h-1 bg-white/15 rounded-full mx-auto" />
               <div className="text-center space-y-2">
-                <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mx-auto">
+                <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mx-auto"
+                  style={{ boxShadow: '0 0 20px rgba(59,130,246,0.15)' }}
+                >
                   <Rocket className="w-7 h-7 text-blue-400" />
                 </div>
                 <h3 className="text-lg font-bold text-white/95">Launch Campaign?</h3>
@@ -707,9 +904,18 @@ export function CampaignWizardPage() {
                   onClick={handleLaunch}
                   disabled={isLaunching}
                   whileTap={{ scale: 0.97 }}
-                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold text-sm disabled:opacity-50"
+                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold text-sm disabled:opacity-50 transition-opacity"
                 >
-                  {isLaunching ? 'Launching...' : '🚀 Launch Now'}
+                  {isLaunching ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <motion.div
+                        className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                      />
+                      Launching...
+                    </span>
+                  ) : '🚀 Launch Now'}
                 </motion.button>
               </div>
             </motion.div>

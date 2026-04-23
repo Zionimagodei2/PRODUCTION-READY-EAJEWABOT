@@ -67,6 +67,15 @@ function getSmartResponse(message: string): string {
   return 'That\'s a great question! While I\'m most helpful with WhatsApp business automation topics, I\'ll do my best to assist you.\n\nHere are the areas where I can provide the most value:\n\n🚀 **Campaign Strategy** — Optimization, timing, targeting\n💬 **Auto Reply & Chatbot** — Setup, flows, best practices\n📊 **Analytics** — Metrics, reports, insights\n📱 **Contact Management** — Growth, segmentation, hygiene\n🔧 **Automation** — Templates, scheduling, workflows\n\nCould you rephrase your question or pick one of these topics? I\'d love to help!'
 }
 
+// Sound wave component for AI thinking
+function SoundWaveIndicator() {
+  return (
+    <div className="sound-wave">
+      <span /><span /><span /><span /><span />
+    </div>
+  )
+}
+
 export function AiChatPage() {
   const { goBack } = useAppStore()
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -81,8 +90,15 @@ export function AiChatPage() {
   const [isThinking, setIsThinking] = useState(false)
   const [typingMessageId, setTypingMessageId] = useState<string | null>(null)
   const [typingText, setTypingText] = useState('')
+  const [showTransition, setShowTransition] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Page transition flash effect
+  useEffect(() => {
+    const timer = setTimeout(() => setShowTransition(false), 500)
+    return () => clearTimeout(timer)
+  }, [])
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -209,6 +225,9 @@ export function AiChatPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-120px)] max-w-lg mx-auto">
+      {/* Page Transition Flash */}
+      {showTransition && <div className="page-transition-flash" />}
+
       {/* Header */}
       <div className="px-4 pt-4 pb-3">
         <div className="glass-card rounded-xl p-4 neon-glow-orange border border-orange-500/15">
@@ -221,7 +240,9 @@ export function AiChatPage() {
             >
               <ArrowLeft className="w-4 h-4 text-white/60" />
             </motion.button>
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-orange-500/20 to-amber-500/20">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-orange-500/20 to-amber-500/20"
+              style={{ boxShadow: '0 0 12px rgba(249,115,22,0.15)' }}
+            >
               <Bot className="w-5 h-5 text-amber-400" />
             </div>
             <div className="flex-1">
@@ -246,12 +267,12 @@ export function AiChatPage() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} message-bubble`}
             >
-              <div className={`max-w-[85%] ${
+              <div className={`max-w-[85%] relative ${
                 message.role === 'user' 
-                  ? 'bg-blue-500/10 border border-blue-500/15 rounded-2xl rounded-tr-sm' 
-                  : 'bg-purple-500/10 border border-purple-500/15 rounded-2xl rounded-tl-sm'
+                  ? 'chat-bubble-sent rounded-2xl rounded-tr-sm chat-bubble-tail-sent'
+                  : 'chat-bubble-received rounded-2xl rounded-tl-sm chat-bubble-tail-received'
               } px-4 py-3`}>
                 {message.role === 'assistant' && (
                   <div className="flex items-center gap-1.5 mb-1.5">
@@ -265,7 +286,8 @@ export function AiChatPage() {
                     <span className="inline-block w-0.5 h-4 bg-amber-400/70 ml-0.5 animate-pulse" />
                   )}
                 </p>
-                <p className="text-[9px] text-white/20 mt-1.5 text-right">
+                {/* Timestamp - hover to reveal */}
+                <p className="timestamp-hover text-[9px] text-white/20 mt-1.5 text-right">
                   {formatTime(message.timestamp)}
                 </p>
               </div>
@@ -273,34 +295,22 @@ export function AiChatPage() {
           ))}
         </AnimatePresence>
 
-        {/* Thinking Indicator */}
+        {/* Thinking Indicator - Enhanced with sound wave */}
         {isThinking && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex justify-start"
+            className="flex justify-start message-bubble"
           >
-            <div className="bg-purple-500/10 border border-purple-500/15 rounded-2xl rounded-tl-sm px-4 py-3">
-              <div className="flex items-center gap-1.5 mb-1.5">
+            <div className="chat-bubble-received rounded-2xl rounded-tl-sm chat-bubble-tail-received px-4 py-3">
+              <div className="flex items-center gap-1.5 mb-2">
                 <Sparkles className="w-3 h-3 text-amber-400/70" />
                 <span className="text-[10px] font-medium text-amber-400/70">EAJE AI</span>
               </div>
-              <div className="flex items-center gap-1">
-                <motion.div
-                  className="w-2 h-2 rounded-full bg-purple-400/60"
-                  animate={{ y: [0, -6, 0] }}
-                  transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
-                />
-                <motion.div
-                  className="w-2 h-2 rounded-full bg-purple-400/60"
-                  animate={{ y: [0, -6, 0] }}
-                  transition={{ duration: 0.6, repeat: Infinity, delay: 0.15 }}
-                />
-                <motion.div
-                  className="w-2 h-2 rounded-full bg-purple-400/60"
-                  animate={{ y: [0, -6, 0] }}
-                  transition={{ duration: 0.6, repeat: Infinity, delay: 0.3 }}
-                />
+              <div className="flex items-center gap-3">
+                {/* Sound wave indicator */}
+                <SoundWaveIndicator />
+                <span className="text-[10px] text-white/30">Thinking...</span>
               </div>
             </div>
           </motion.div>
@@ -312,13 +322,16 @@ export function AiChatPage() {
       {/* Quick Prompts */}
       <div className="px-4 pt-2 pb-1">
         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-          {quickPrompts.map((prompt) => (
+          {quickPrompts.map((prompt, i) => (
             <motion.button
               key={prompt}
               onClick={() => handleQuickPrompt(prompt)}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               disabled={isThinking}
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 + i * 0.05 }}
               className="flex-shrink-0 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[11px] font-medium text-amber-300/80 hover:bg-amber-500/15 hover:text-amber-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {prompt}
