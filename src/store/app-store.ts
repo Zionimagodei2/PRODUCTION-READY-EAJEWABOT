@@ -12,6 +12,7 @@ export type FeaturePage =
   | 'analytics' 
   | 'campaign-reports'
   | 'message-templates'
+  | 'campaign-detail'
   | null
 
 interface AppState {
@@ -19,11 +20,13 @@ interface AppState {
   activeFeature: FeaturePage
   sidebarOpen: boolean
   waConnected: boolean
+  selectedCampaignId: string | null
   
   setActiveTab: (tab: TabId) => void
   setActiveFeature: (feature: FeaturePage) => void
   setSidebarOpen: (open: boolean) => void
   setWaConnected: (connected: boolean) => void
+  setSelectedCampaignId: (id: string | null) => void
   goBack: () => void
 }
 
@@ -32,10 +35,12 @@ export const useAppStore = create<AppState>((set) => ({
   activeFeature: null,
   sidebarOpen: false,
   waConnected: true,
+  selectedCampaignId: null,
   
   setActiveTab: (tab) => set({ activeTab: tab, activeFeature: null }),
   setActiveFeature: (feature) => set({ activeFeature: feature }),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   setWaConnected: (connected) => set({ waConnected: connected }),
+  setSelectedCampaignId: (id) => set({ selectedCampaignId: id }),
   goBack: () => set({ activeFeature: null }),
 }))

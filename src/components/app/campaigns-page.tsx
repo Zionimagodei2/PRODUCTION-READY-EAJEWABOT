@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Clock, CheckCircle2, XCircle, Send, MoreVertical, Pause, Play, Trash2, Copy } from 'lucide-react'
+import { Plus, Clock, CheckCircle2, XCircle, Send, MoreVertical, Pause, Play, Trash2, Copy, Search, ArrowDownUp } from 'lucide-react'
+import { useAppStore } from '@/store/app-store'
 
 interface Campaign {
   id: string
@@ -31,16 +32,37 @@ const statusConfig = {
   failed: { color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', label: 'Failed' },
 }
 
+type SortBy = 'date' | 'name' | 'status'
+
 export function CampaignsPage() {
+  const { setActiveFeature, setSelectedCampaignId } = useAppStore()
   const [campaigns, setCampaigns] = useState(mockCampaigns)
   const [showCreate, setShowCreate] = useState(false)
   const [newName, setNewName] = useState('')
   const [newTotal, setNewTotal] = useState('')
   const [filter, setFilter] = useState<string>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState<SortBy>('date')
+  const [showSortDropdown, setShowSortDropdown] = useState(false)
 
-  const filteredCampaigns = filter === 'all' 
-    ? campaigns 
-    : campaigns.filter(c => c.status === filter)
+  const handleCampaignClick = (id: string) => {
+    setSelectedCampaignId(id)
+    setActiveFeature('campaign-detail')
+  }
+
+  const filteredAndSorted = campaigns
+    .filter(c => {
+      const matchesFilter = filter === 'all' || c.status === filter
+      const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase())
+      return matchesFilter && matchesSearch
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'name': return a.name.localeCompare(b.name)
+        case 'status': return a.status.localeCompare(b.status)
+        case 'date': default: return b.date.localeCompare(a.date)
+      }
+    })
 
   const handleCreate = () => {
     if (!newName.trim()) return
@@ -74,21 +96,65 @@ export function CampaignsPage() {
         </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-        {['all', 'active', 'scheduled', 'completed', 'paused', 'failed'].map((f) => (
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25" />
+        <input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search campaigns..."
+          className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-neon-blue/50 transition-colors"
+        />
+      </div>
+
+      {/* Filter Tabs + Sort */}
+      <div className="flex items-center gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar flex-1">
+          {['all', 'active', 'scheduled', 'completed', 'paused', 'failed'].map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                filter === f 
+                  ? 'bg-neon-blue/20 text-neon-blue border border-neon-blue/30' 
+                  : 'bg-white/5 text-white/40 border border-white/5 hover:bg-white/10'
+              }`}
+            >
+              {f.charAt(0).toUpperCase() + f.slice(1)}
+            </button>
+          ))}
+        </div>
+        <div className="relative flex-shrink-0">
           <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
-              filter === f 
-                ? 'bg-neon-blue/20 text-neon-blue border border-neon-blue/30' 
-                : 'bg-white/5 text-white/40 border border-white/5 hover:bg-white/10'
-            }`}
+            onClick={() => setShowSortDropdown(!showSortDropdown)}
+            className="w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
           >
-            {f.charAt(0).toUpperCase() + f.slice(1)}
+            <ArrowDownUp className="w-3.5 h-3.5 text-white/40" />
           </button>
-        ))}
+          <AnimatePresence>
+            {showSortDropdown && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                transition={{ duration: 0.15 }}
+                className="absolute right-0 top-11 w-32 rounded-xl bg-[#14141f] border border-white/10 shadow-xl overflow-hidden z-20"
+              >
+                {([['date', 'Date'], ['name', 'Name'], ['status', 'Status']] as [SortBy, string][]).map(([value, label]) => (
+                  <button
+                    key={value}
+                    onClick={() => { setSortBy(value); setShowSortDropdown(false) }}
+                    className={`w-full text-left px-3 py-2.5 text-xs font-medium transition-colors ${
+                      sortBy === value ? 'text-neon-blue bg-blue-500/10' : 'text-white/50 hover:bg-white/5'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Create Campaign */}
@@ -134,7 +200,7 @@ export function CampaignsPage() {
 
       {/* Campaign List */}
       <div className="space-y-2.5">
-        {filteredCampaigns.map((campaign, i) => {
+        {filteredAndSorted.map((campaign, i) => {
           const config = statusConfig[campaign.status]
           const progress = campaign.total > 0 ? (campaign.sent / campaign.total) * 100 : 0
           return (
@@ -143,7 +209,8 @@ export function CampaignsPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="glass-card rounded-xl p-4 space-y-3"
+              onClick={() => handleCampaignClick(campaign.id)}
+              className="glass-card rounded-xl p-4 space-y-3 cursor-pointer hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-500/5 hover:border-white/15 transition-all duration-200"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
@@ -182,7 +249,7 @@ export function CampaignsPage() {
               </div>
 
               {/* Actions */}
-              <div className="flex gap-2 pt-1">
+              <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
                 {campaign.status === 'active' && (
                   <button className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] hover:bg-amber-500/20 transition-colors">
                     <Pause className="w-3 h-3" /> Pause

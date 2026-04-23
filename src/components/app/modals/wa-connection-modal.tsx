@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '@/store/app-store'
 import { X, Wifi, WifiOff, RefreshCw, CheckCircle2, AlertCircle, Smartphone, QrCode } from 'lucide-react'
@@ -12,6 +12,21 @@ export function WaConnectionModal() {
     waConnected ? 'connected' : 'disconnected'
   )
   const [pairingProgress, setPairingProgress] = useState(0)
+
+  const close = useCallback(() => setIsOpen(false), [])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = ''
+    }
+  }, [isOpen, close])
 
   const startPairing = () => {
     setStep('pairing')
@@ -58,7 +73,7 @@ export function WaConnectionModal() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] flex items-end justify-center"
-            onClick={() => setIsOpen(false)}
+            onClick={close}
           >
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <motion.div
@@ -73,7 +88,7 @@ export function WaConnectionModal() {
               <div className="w-10 h-1 rounded-full bg-white/15 mx-auto mb-6" />
 
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={close}
                 className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
               >
                 <X className="w-4 h-4 text-white/50" />

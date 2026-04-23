@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Bell, CheckCircle2, AlertCircle, Info, MessageSquare, Users, Zap } from 'lucide-react'
 
@@ -34,6 +34,21 @@ export function NotificationCenter() {
   const [notifications, setNotifications] = useState(mockNotifications)
 
   const unreadCount = notifications.filter(n => !n.read).length
+
+  const close = useCallback(() => setIsOpen(false), [])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = ''
+    }
+  }, [isOpen, close])
 
   const markAllRead = () => {
     setNotifications(notifications.map(n => ({ ...n, read: true })))
@@ -70,7 +85,7 @@ export function NotificationCenter() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] flex items-end justify-center"
-            onClick={() => setIsOpen(false)}
+            onClick={close}
           >
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <motion.div
@@ -98,7 +113,7 @@ export function NotificationCenter() {
                       Mark all read
                     </button>
                   )}
-                  <button onClick={() => setIsOpen(false)} className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors">
+                  <button onClick={close} className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors">
                     <X className="w-3.5 h-3.5 text-white/40" />
                   </button>
                 </div>

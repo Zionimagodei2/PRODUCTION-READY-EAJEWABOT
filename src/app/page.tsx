@@ -9,6 +9,7 @@ import { ContactsPage } from '@/components/app/contacts-page'
 import { ToolsPage } from '@/components/app/tools-page'
 import { SettingsPage } from '@/components/app/settings-page'
 import { FeatureRouter } from '@/components/app/features/feature-router'
+import { OnboardingModal } from '@/components/app/modals/onboarding-modal'
 import { AnimatePresence, motion } from 'framer-motion'
 
 const tabComponents: Record<string, React.ComponentType> = {
@@ -45,6 +46,7 @@ export default function Home() {
         )}
       </main>
       <BottomNav />
+      <OnboardingModal />
     </div>
   )
 }
