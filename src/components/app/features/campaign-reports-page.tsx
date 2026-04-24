@@ -33,7 +33,7 @@ interface CampaignData {
 
 function campaignToReport(c: CampaignData): Report {
   const failed = c.sent > 0 ? c.sent - c.delivered : 0
-  const read = Math.round(c.delivered * 0.78) // Estimate since we don't track read separately
+  const read = 0 // Read tracking not available — defaults to 0
   let status: Report['status'] = 'partial'
   if (c.status === 'completed' || (c.sent > 0 && (c.delivered / c.sent) >= 0.85)) {
     status = 'completed'

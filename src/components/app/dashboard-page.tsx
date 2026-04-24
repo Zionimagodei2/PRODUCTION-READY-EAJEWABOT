@@ -392,7 +392,7 @@ export function DashboardPage() {
         <div className="flex items-center gap-2">
           {/* Weekly Goal Ring */}
           <div className="relative flex items-center justify-center">
-            <RingProgress size={36} strokeWidth={3} progress={stats?.deliveryRate ?? 72} color="#8b5cf6" />
+            <RingProgress size={36} strokeWidth={3} progress={stats?.deliveryRate ?? 0} color="#8b5cf6" />
             <div className="absolute inset-0 flex items-center justify-center">
               <Target className="w-3 h-3 text-purple-400" />
             </div>
@@ -457,8 +457,8 @@ export function DashboardPage() {
               </span>
             )}
             <div className="relative flex items-center justify-center">
-              <RingProgress size={28} strokeWidth={2.5} progress={stats?.deliveryRate ?? 72} color="#22c55e" />
-              <span className="absolute text-[7px] font-bold text-emerald-400">{Math.round(stats?.deliveryRate ?? 72)}%</span>
+              <RingProgress size={28} strokeWidth={2.5} progress={stats?.deliveryRate ?? 0} color="#22c55e" />
+              <span className="absolute text-[7px] font-bold text-emerald-400">{Math.round(stats?.deliveryRate ?? 0)}%</span>
             </div>
           </div>
         </div>

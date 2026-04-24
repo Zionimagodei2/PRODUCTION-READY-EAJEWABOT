@@ -25,6 +25,8 @@ interface StatsData {
   repliesTrend: { direction: string; percentage: number }
   campaignsThisWeek: number
   campaignsLastWeek: number
+  hourlyActivity: { hour: number; count: number; label: string }[]
+  peakHour: { hour: number; label: string; count: number; formatted: string } | null
 }
 
 interface CampaignData {
@@ -94,10 +96,8 @@ export function AnalyticsPage() {
   // Derived data from stats
   const messagesSent = stats?.totalSent ?? 0
   const delivered = stats?.totalDelivered ?? 0
-  const read = Math.round(delivered * 0.78) // Estimate read from delivered since we don't track read separately
   const replied = stats?.totalReplies ?? 0
   const deliveryRate = stats?.deliveryRate ?? 0
-  const readRate = delivered > 0 ? Math.round((read / delivered) * 1000) / 10 : 0
   const replyRate = stats?.replyRate ?? 0
 
   // Daily stats from weeklyActivity
@@ -107,12 +107,17 @@ export function AnalyticsPage() {
     delivered: Math.round(d.messages * (deliveryRate / 100 || 0.89)),
   }))
 
-  // Hourly peaks - derive from conversation patterns or use empty
-  const hourlyPeaks = [
-    { hour: '6am', value: 15 }, { hour: '8am', value: 45 }, { hour: '10am', value: 78 },
-    { hour: '12pm', value: 92 }, { hour: '2pm', value: 85 }, { hour: '4pm', value: 68 },
-    { hour: '6pm', value: 55 }, { hour: '8pm', value: 35 }, { hour: '10pm', value: 18 },
-  ]
+  // Hourly peaks - derive from real conversation data via API
+  const hourlyPeaks = (stats?.hourlyActivity ?? []).map(h => ({
+    hour: h.label,
+    value: h.count,
+  }))
+  const maxHourly = hourlyPeaks.length > 0 ? Math.max(...hourlyPeaks.map(h => h.value), 1) : 1
+
+  // Sparkline data derived from weeklyActivity - map each day's messages to percentage
+  const weeklyMessages = (stats?.weeklyActivity ?? []).map(d => d.messages)
+  const maxWeeklyMsg = weeklyMessages.length > 0 ? Math.max(...weeklyMessages, 1) : 1
+  const sparklineFromWeekly = weeklyMessages.map(m => Math.round((m / maxWeeklyMsg) * 100))
 
   const maxSent = dailyStats.length > 0 ? Math.max(...dailyStats.map(d => d.sent), 1) : 1
 
@@ -206,13 +211,13 @@ export function AnalyticsPage() {
         ))}
       </motion.div>
 
-      {/* KPI Cards - Enhanced with mini sparklines */}
+      {/* KPI Cards - Enhanced with mini sparklines derived from weekly activity */}
       <div className="grid grid-cols-2 gap-3">
         {[
-          { icon: <MessageSquare className="w-4 h-4" />, label: 'Messages Sent', value: messagesSent.toLocaleString(), trend: stats?.sentTrend, color: '#3b82f6', spark: [40, 70, 55, 85, 65, 90] },
-          { icon: <Eye className="w-4 h-4" />, label: 'Delivered', value: delivered.toLocaleString(), trend: stats?.deliveredTrend, color: '#22c55e', spark: [55, 60, 75, 70, 80, 85] },
-          { icon: <Users className="w-4 h-4" />, label: 'Read', value: read.toLocaleString(), trend: null, color: '#8b5cf6', spark: [35, 50, 45, 60, 55, 70] },
-          { icon: <Clock className="w-4 h-4" />, label: 'Replied', value: replied.toLocaleString(), trend: stats?.repliesTrend, color: '#f59e0b', spark: [60, 50, 55, 40, 45, 35] },
+          { icon: <MessageSquare className="w-4 h-4" />, label: 'Messages Sent', value: messagesSent.toLocaleString(), trend: stats?.sentTrend, color: '#3b82f6', spark: sparklineFromWeekly },
+          { icon: <Eye className="w-4 h-4" />, label: 'Delivered', value: delivered.toLocaleString(), trend: stats?.deliveredTrend, color: '#22c55e', spark: sparklineFromWeekly },
+          { icon: <Users className="w-4 h-4" />, label: 'Replied', value: replied.toLocaleString(), trend: stats?.repliesTrend, color: '#f59e0b', spark: sparklineFromWeekly },
+          { icon: <Clock className="w-4 h-4" />, label: 'Reply Rate', value: `${replyRate}%`, trend: null, color: '#8b5cf6', spark: sparklineFromWeekly },
         ].map((stat, i) => {
           const trendUp = stat.trend ? stat.trend.direction === 'up' : true
           const trendPct = stat.trend ? `${stat.trend.direction === 'down' ? '-' : '+'}${stat.trend.percentage}%` : (stat.value === '0' ? '0%' : '+0%')
@@ -258,10 +263,9 @@ export function AnalyticsPage() {
       </div>
 
       {/* Rate Cards - Enhanced with ring progress */}
-      <div className="grid grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-2 gap-2.5">
         {[
           { label: 'Delivery', value: deliveryRate, color: '#22c55e' },
-          { label: 'Read', value: readRate, color: '#3b82f6' },
           { label: 'Reply', value: replyRate, color: '#f59e0b' },
         ].map((stat, i) => (
           <motion.div
@@ -301,7 +305,6 @@ export function AnalyticsPage() {
           {[
             { label: 'Sent', value: messagesSent, pct: messagesSent > 0 ? 100 : 0, color: '#3b82f6' },
             { label: 'Delivered', value: delivered, pct: messagesSent > 0 ? Math.round((delivered / messagesSent) * 1000) / 10 : 0, color: '#22c55e' },
-            { label: 'Read', value: read, pct: messagesSent > 0 ? Math.round((read / messagesSent) * 1000) / 10 : 0, color: '#8b5cf6' },
             { label: 'Replied', value: replied, pct: messagesSent > 0 ? Math.round((replied / messagesSent) * 1000) / 10 : 0, color: '#f59e0b' },
           ].map((step, i) => (
             <div key={step.label}>
@@ -409,33 +412,33 @@ export function AnalyticsPage() {
           <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Peak Hours</span>
           <div className="flex-1 h-px bg-gradient-to-r from-amber-500/20 to-transparent" />
         </div>
-        {messagesSent > 0 ? (
-          <div className="flex items-end gap-1 h-16">
-            {hourlyPeaks.map((hour, i) => (
+        {messagesSent > 0 && hourlyPeaks.some(h => h.value > 0) ? (
+          <div className="flex items-end gap-[2px] h-16 overflow-x-auto no-scrollbar">
+            {hourlyPeaks.filter(h => h.value > 0).map((hour, i) => (
               <motion.div
                 key={hour.hour}
-                className="flex-1 flex flex-col items-center gap-1"
+                className="flex-1 min-w-[12px] flex flex-col items-center gap-1"
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.55 + i * 0.04 }}
+                transition={{ delay: 0.55 + i * 0.02 }}
               >
                 <div className="w-full relative group cursor-pointer" style={{ height: '48px' }}>
                   <motion.div
                     className="w-full rounded-t-sm absolute bottom-0"
                     style={{
-                      height: `${hour.value}%`,
-                      background: hour.value > 80
+                      height: `${maxHourly > 0 ? (hour.value / maxHourly) * 100 : 0}%`,
+                      background: (hour.value / maxHourly) > 0.8
                         ? 'linear-gradient(to top, rgba(239,68,68,0.3), rgba(239,68,68,0.7))'
-                        : hour.value > 50
+                        : (hour.value / maxHourly) > 0.5
                           ? 'linear-gradient(to top, rgba(245,158,11,0.3), rgba(245,158,11,0.6))'
                           : 'linear-gradient(to top, rgba(34,197,94,0.2), rgba(34,197,94,0.4))',
-                      boxShadow: hour.value > 80 ? '0 0 8px rgba(239,68,68,0.15)' : 'none',
+                      boxShadow: (hour.value / maxHourly) > 0.8 ? '0 0 8px rgba(239,68,68,0.15)' : 'none',
                     }}
                     whileHover={{ filter: 'brightness(1.3)' }}
                   />
                   {/* Tooltip */}
                   <div className="absolute -top-7 left-1/2 -translate-x-1/2 px-1 py-0.5 rounded bg-white/10 text-[7px] text-white/70 font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                    {hour.value}% activity
+                    {hour.value} messages
                   </div>
                 </div>
                 <span className="text-[7px] text-white/20 font-medium">{hour.hour}</span>
@@ -538,7 +541,7 @@ export function AnalyticsPage() {
         <div className="grid grid-cols-2 gap-2.5">
           {[
             { label: 'Best Day', value: bestDay ? bestDay.day : 'N/A', sub: bestDay ? `${bestDay.sent} messages` : 'No data', icon: <Flame className="w-3 h-3" />, color: '#22c55e' },
-            { label: 'Peak Hour', value: '12:00 PM', sub: 'Highest activity', icon: <Clock className="w-3 h-3" />, color: '#ef4444' },
+            { label: 'Peak Hour', value: stats?.peakHour ? stats.peakHour.formatted : 'N/A', sub: stats?.peakHour ? `${stats.peakHour.count} messages` : 'No data', icon: <Clock className="w-3 h-3" />, color: '#ef4444' },
             { label: 'Avg Msg/Day', value: avgMsgDay.toString(), sub: 'This week', icon: <MessageSquare className="w-3 h-3" />, color: '#3b82f6' },
             { label: 'Growth', value: stats?.weeklyTrend ? `${stats.weeklyTrend.direction === 'up' ? '+' : '-'}${stats.weeklyTrend.percentage}%` : '0%', sub: 'vs last week', icon: <TrendingUp className="w-3 h-3" />, color: '#8b5cf6' },
           ].map((insight, i) => (

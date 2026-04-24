@@ -25,6 +25,11 @@ const typeConfig = {
 export function NotificationCenter() {
   const [isOpen, setIsOpen] = useState(false)
   const [notifications, setNotifications] = useState(mockNotifications)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    queueMicrotask(() => setMounted(true))
+  }, [])
 
   const unreadCount = notifications.filter(n => !n.read).length
 
@@ -59,7 +64,7 @@ export function NotificationCenter() {
         className="relative w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
       >
         <Bell className="w-3.5 h-3.5 text-white/50" />
-        {unreadCount > 0 && (
+        {mounted && unreadCount > 0 && (
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}

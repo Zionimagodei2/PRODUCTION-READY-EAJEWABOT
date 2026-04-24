@@ -41,11 +41,7 @@ const qrColorOptions: { id: QrColor; label: string; color: string }[] = [
   { id: 'custom', label: 'Custom', color: '#06b6d4' },
 ]
 
-const pastQrCodes: PastQrCode[] = [
-  { id: '1', type: 'direct', label: '+1 (555) 123-4567', date: 'Mar 4, 2026', value: 'wa.me/15551234567' },
-  { id: '2', type: 'prefilled', label: 'Welcome message', date: 'Mar 2, 2026', value: 'wa.me/15551234567?text=Hello!' },
-  { id: '3', type: 'group', label: 'Marketing Team', date: 'Feb 28, 2026', value: 'chat.whatsapp.com/invite/abc123' },
-]
+// Past QR codes start empty — generated codes are added to the list dynamically
 
 function getTypeLabel(type: QrType): string {
   switch (type) {
@@ -114,6 +110,7 @@ export function QrCodePage() {
   const [isGenerated, setIsGenerated] = useState(false)
   const [seed, setSeed] = useState(42)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [pastQrCodes, setPastQrCodes] = useState<PastQrCode[]>([])
 
   const maxChars = 500
   const selectedSize = qrSizeOptions.find(s => s.id === qrSize)!
@@ -123,6 +120,22 @@ export function QrCodePage() {
   const handleGenerate = () => {
     setSeed(Date.now())
     setIsGenerated(true)
+
+    // Add to past QR codes
+    const link = getWhatsAppLink()
+    if (link) {
+      const label = qrType === 'direct' ? phoneNumber
+        : qrType === 'prefilled' ? (prefilledMessage || 'Pre-filled message')
+        : groupLink
+      setPastQrCodes(prev => [{
+        id: `qr-${Date.now()}`,
+        type: qrType,
+        label: label || 'Untitled',
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        value: link,
+      }, ...prev])
+    }
+
     addToast({
       type: 'success',
       title: 'QR Code Generated',
@@ -507,52 +520,61 @@ export function QrCodePage() {
           <Download className="w-4 h-4 text-white/30" />
           <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Previously Generated</span>
         </div>
-        <div className="glass-card rounded-2xl overflow-hidden divide-y divide-white/[0.04]">
-          {pastQrCodes.map((item, i) => (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.35 + i * 0.05 }}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors"
-            >
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.15)' }}
+        {pastQrCodes.length > 0 ? (
+          <div className="glass-card rounded-2xl overflow-hidden divide-y divide-white/[0.04]">
+            {pastQrCodes.map((item, i) => (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.35 + i * 0.05 }}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors"
               >
-                <QrCode className="w-4 h-4 text-cyan-400/70" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-[12px] text-white/75 font-medium truncate">{item.label}</p>
-                  <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-cyan-500/10 text-cyan-400/60 border border-cyan-500/15">
-                    {getTypeLabel(item.type)}
-                  </span>
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.15)' }}
+                >
+                  <QrCode className="w-4 h-4 text-cyan-400/70" />
                 </div>
-                <p className="text-[10px] text-white/30 mt-0.5">{item.date}</p>
-              </div>
-              <div className="flex items-center gap-1">
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => handleCopyToClipboard(item.value, item.id)}
-                  className="p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08] transition-colors"
-                >
-                  {copiedId === item.id ? (
-                    <Check className="w-3 h-3 text-emerald-400" />
-                  ) : (
-                    <Copy className="w-3 h-3 text-white/40" />
-                  )}
-                </motion.button>
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  className="p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] hover:bg-red-500/10 hover:border-red-500/20 transition-colors"
-                >
-                  <Trash2 className="w-3 h-3 text-white/40 hover:text-red-400" />
-                </motion.button>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-[12px] text-white/75 font-medium truncate">{item.label}</p>
+                    <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-cyan-500/10 text-cyan-400/60 border border-cyan-500/15">
+                      {getTypeLabel(item.type)}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-white/30 mt-0.5">{item.date}</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => handleCopyToClipboard(item.value, item.id)}
+                    className="p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08] transition-colors"
+                  >
+                    {copiedId === item.id ? (
+                      <Check className="w-3 h-3 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3 h-3 text-white/40" />
+                    )}
+                  </motion.button>
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => setPastQrCodes(prev => prev.filter(q => q.id !== item.id))}
+                    className="p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] hover:bg-red-500/10 hover:border-red-500/20 transition-colors"
+                  >
+                    <Trash2 className="w-3 h-3 text-white/40 hover:text-red-400" />
+                  </motion.button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          <div className="glass-card rounded-2xl p-8 text-center">
+            <QrCode className="w-10 h-10 mx-auto text-white/10 mb-3" />
+            <p className="text-sm text-white/40 font-medium">No QR codes generated yet</p>
+            <p className="text-xs text-white/20 mt-1">Generated QR codes will appear here</p>
+          </div>
+        )}
       </motion.div>
     </div>
   )

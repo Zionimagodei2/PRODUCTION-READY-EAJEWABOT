@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Settings as SettingsIcon, Shield, Bell, Palette, Database, Key, Globe, HelpCircle, LogOut, ChevronRight, Moon, Zap, MessageSquare, CreditCard, Activity, HardDrive, Clock, Pencil, Info, MessageCircle, BarChart3, Users, HardDriveDownload } from 'lucide-react'
+import { Settings as SettingsIcon, Shield, Bell, Palette, Database, Key, Globe, HelpCircle, LogOut, ChevronRight, Moon, Zap, MessageSquare, CreditCard, Activity, HardDrive, Clock, Pencil, Info, MessageCircle, BarChart3, Users, HardDriveDownload, Loader2 } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 
 interface SettingItem {
@@ -13,6 +13,24 @@ interface SettingItem {
   value?: boolean
   iconColor?: string
   iconBg?: string
+}
+
+interface StatsData {
+  totalContacts: number
+  activeContacts: number
+  totalCampaigns: number
+  activeCampaigns: number
+  totalSent: number
+  totalDelivered: number
+  totalReplies: number
+  deliveryRate: number
+  replyRate: number
+}
+
+interface ProfileData {
+  name: string
+  email: string
+  plan: string
 }
 
 function Toggle({ value, onToggle, color = '#3b82f6' }: { value: boolean; onToggle?: () => void; color?: string }) {
@@ -64,6 +82,17 @@ function SettingRow({ item, onToggle }: { item: SettingItem; onToggle?: () => vo
   )
 }
 
+function formatNumber(n: number): string {
+  return n.toLocaleString()
+}
+
+function getNextMonthReset(): string {
+  const now = new Date()
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  return `${monthNames[nextMonth.getMonth()]} 1, ${nextMonth.getFullYear()}`
+}
+
 export function SettingsPage() {
   const [notifications, setNotifications] = useState(true)
   const [darkMode, setDarkMode] = useState(true)
@@ -71,14 +100,104 @@ export function SettingsPage() {
   const [deliveryReports, setDeliveryReports] = useState(false)
   const [smartReplies, setSmartReplies] = useState(true)
 
+  const [stats, setStats] = useState<StatsData | null>(null)
+  const [profile, setProfile] = useState<ProfileData>({ name: '', email: '', plan: '' })
+  const [isLoadingStats, setIsLoadingStats] = useState(true)
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true)
+
   const { setActiveFeature } = useAppStore()
+
+  // Fetch stats from API
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const res = await fetch('/api/stats')
+        if (res.ok) {
+          const data = await res.json()
+          setStats({
+            totalContacts: data.totalContacts ?? 0,
+            activeContacts: data.activeContacts ?? 0,
+            totalCampaigns: data.totalCampaigns ?? 0,
+            activeCampaigns: data.activeCampaigns ?? 0,
+            totalSent: data.totalSent ?? 0,
+            totalDelivered: data.totalDelivered ?? 0,
+            totalReplies: data.totalReplies ?? 0,
+            deliveryRate: data.deliveryRate ?? 0,
+            replyRate: data.replyRate ?? 0,
+          })
+        }
+      } catch {
+        // silently fail, stats will remain null showing 0 defaults
+      } finally {
+        setIsLoadingStats(false)
+      }
+    }
+    fetchStats()
+  }, [])
+
+  // Fetch profile settings from API
+  useEffect(() => {
+    async function fetchSettings() {
+      try {
+        const res = await fetch('/api/settings')
+        if (res.ok) {
+          const data = await res.json()
+          setProfile({
+            name: data.profile_name || '',
+            email: data.profile_email || '',
+            plan: data.plan || '',
+          })
+        }
+      } catch {
+        // silently fail, profile will remain empty showing placeholders
+      } finally {
+        setIsLoadingProfile(false)
+      }
+    }
+    fetchSettings()
+  }, [])
+
+  // Derived values for usage stats (defaults to 0)
+  const totalSent = stats?.totalSent ?? 0
+  const activeContacts = stats?.activeContacts ?? 0
+  const totalContacts = stats?.totalContacts ?? 0
+
+  // Message limit: use a reasonable default (could come from settings in future)
+  const messageLimit = 1000
+  const contactLimit = 2000
+
+  // Storage estimate: rough estimate based on DB records (~2KB per contact, ~1KB per campaign, ~0.5KB per conversation)
+  const storageUsedMB = Math.round(
+    (totalContacts * 2 + (stats?.totalCampaigns ?? 0) * 1 + totalSent * 0.5) 
+  )
+  const storageLimitMB = 5120 // 5 GB
+  const storageUsedDisplay = storageUsedMB >= 1024 
+    ? `${(storageUsedMB / 1024).toFixed(1)} GB` 
+    : `${storageUsedMB} MB`
+
+  const messagePercent = messageLimit > 0 ? Math.min((totalSent / messageLimit) * 100, 100) : 0
+  const contactPercent = contactLimit > 0 ? Math.min((activeContacts / contactLimit) * 100, 100) : 0
+  const storagePercent = storageLimitMB > 0 ? Math.min((storageUsedMB / storageLimitMB) * 100, 100) : 0
+
+  // Profile display values
+  const displayName = profile.name || 'Set up your profile'
+  const displayEmail = profile.email || 'Add your email'
+  const displayPlan = profile.plan || 'Free Plan'
+  const initials = profile.name 
+    ? profile.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() 
+    : 'EA'
+
+  // Subscription subtitle
+  const subscriptionSubtitle = profile.plan 
+    ? `${profile.plan} • Active` 
+    : 'Free Plan • Not configured'
 
   const accountSettings: SettingItem[] = [
     { icon: <Activity className="w-4 h-4" />, label: 'API Status', subtitle: 'Monitor service health & uptime', action: 'navigate', iconColor: '#22c55e', iconBg: 'rgba(34,197,94,0.1)' },
     { icon: <Key className="w-4 h-4" />, label: 'API Credentials', subtitle: 'WhatsApp Business API keys', action: 'navigate', iconColor: '#3b82f6', iconBg: 'rgba(59,130,246,0.1)' },
     { icon: <Shield className="w-4 h-4" />, label: 'Security', subtitle: '2FA, session management', action: 'navigate', iconColor: '#22c55e', iconBg: 'rgba(34,197,94,0.1)' },
     { icon: <Globe className="w-4 h-4" />, label: 'Business Profile', subtitle: 'Name, logo, description', action: 'navigate', iconColor: '#06b6d4', iconBg: 'rgba(6,182,212,0.1)' },
-    { icon: <CreditCard className="w-4 h-4" />, label: 'Subscription', subtitle: 'Pro Plan • Renews Jan 30', action: 'navigate', iconColor: '#f97316', iconBg: 'rgba(249,115,22,0.1)' },
+    { icon: <CreditCard className="w-4 h-4" />, label: 'Subscription', subtitle: subscriptionSubtitle, action: 'navigate', iconColor: '#f97316', iconBg: 'rgba(249,115,22,0.1)' },
   ]
 
   const appSettings: SettingItem[] = [
@@ -104,15 +223,23 @@ export function SettingsPage() {
         className="glass-card-inset rounded-2xl p-5 flex items-center gap-4 shimmer-border"
       >
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center border-2 border-white/10 shadow-lg avatar-glow-pulse">
-          <span className="text-xl font-black text-white">EA</span>
+          <span className="text-xl font-black text-white">{initials}</span>
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <h3 className="text-[15px] font-bold text-white/95">Enterprise Admin</h3>
+            <h3 className={`text-[15px] font-bold ${profile.name ? 'text-white/95' : 'text-white/40'}`}>
+              {displayName}
+            </h3>
           </div>
-          <p className="text-xs text-white/50 mt-0.5">admin@eje-whatsbot.com</p>
+          <p className={`text-xs mt-0.5 ${profile.email ? 'text-white/50' : 'text-white/30'}`}>
+            {displayEmail}
+          </p>
           <div className="flex items-center gap-1.5 mt-1.5">
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-500/15 text-blue-400 border border-blue-500/20">Pro Plan</span>
+            {profile.plan && profile.plan !== 'Free Plan' ? (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-500/15 text-blue-400 border border-blue-500/20">{displayPlan}</span>
+            ) : (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white/5 text-white/30 border border-white/10">{displayPlan}</span>
+            )}
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">Active</span>
           </div>
         </div>
@@ -134,6 +261,7 @@ export function SettingsPage() {
         <div className="flex items-center gap-2">
           <BarChart3 className="w-4 h-4 text-blue-400" />
           <span className="text-xs font-bold text-white/70 uppercase tracking-wider">Usage Statistics</span>
+          {isLoadingStats && <Loader2 className="w-3 h-3 text-blue-400 animate-spin ml-auto" />}
         </div>
         {/* Messages Sent */}
         <div className="space-y-1.5">
@@ -147,12 +275,12 @@ export function SettingsPage() {
                 <p className="text-[9px] text-white/30">This month</p>
               </div>
             </div>
-            <span className="text-xs font-bold text-blue-400">847 <span className="text-white/30 font-normal">/ 1,000</span></span>
+            <span className="text-xs font-bold text-blue-400">{formatNumber(totalSent)} <span className="text-white/30 font-normal">/ {formatNumber(messageLimit)}</span></span>
           </div>
           <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
             <div
               className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 progress-shimmer"
-              style={{ width: '84.7%', backgroundSize: '200% 100%' }}
+              style={{ width: `${messagePercent}%`, backgroundSize: '200% 100%' }}
             />
           </div>
         </div>
@@ -168,12 +296,12 @@ export function SettingsPage() {
                 <p className="text-[9px] text-white/30">Engaged users</p>
               </div>
             </div>
-            <span className="text-xs font-bold text-green-400">1,284 <span className="text-white/30 font-normal">/ 2,000</span></span>
+            <span className="text-xs font-bold text-green-400">{formatNumber(activeContacts)} <span className="text-white/30 font-normal">/ {formatNumber(contactLimit)}</span></span>
           </div>
           <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
             <div
               className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-400 progress-shimmer"
-              style={{ width: '64.2%', backgroundSize: '200% 100%' }}
+              style={{ width: `${contactPercent}%`, backgroundSize: '200% 100%' }}
             />
           </div>
         </div>
@@ -189,18 +317,18 @@ export function SettingsPage() {
                 <p className="text-[9px] text-white/30">Media & data</p>
               </div>
             </div>
-            <span className="text-xs font-bold text-purple-400">2.1 GB <span className="text-white/30 font-normal">/ 5 GB</span></span>
+            <span className="text-xs font-bold text-purple-400">{storageUsedDisplay} <span className="text-white/30 font-normal">/ 5 GB</span></span>
           </div>
           <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
             <div
               className="h-full rounded-full bg-gradient-to-r from-purple-500 to-blue-400 progress-shimmer"
-              style={{ width: '42%', backgroundSize: '200% 100%' }}
+              style={{ width: `${storagePercent}%`, backgroundSize: '200% 100%' }}
             />
           </div>
         </div>
         <div className="flex items-center gap-1.5 text-[10px] text-white/30">
           <Clock className="w-2.5 h-2.5" />
-          <span>Usage resets on Feb 1, 2024</span>
+          <span>Usage resets on {getNextMonthReset()}</span>
         </div>
       </motion.div>
 
@@ -273,7 +401,7 @@ export function SettingsPage() {
           <Info className="w-2.5 h-2.5" />
           <span>EAJE WhatsBot v2.4.0</span>
         </div>
-        <p className="text-[8px] text-white/10">Build 2024.01.15 • Pro License</p>
+        <p className="text-[8px] text-white/10">Build 2024.01.15</p>
       </div>
     </div>
   )

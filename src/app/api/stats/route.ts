@@ -14,6 +14,13 @@ function formatTimeAgo(date: Date): string {
   return `${diffDays}d ago`
 }
 
+function formatHour(hour: number): string {
+  if (hour === 0) return '12:00 AM'
+  if (hour === 12) return '12:00 PM'
+  if (hour < 12) return `${hour}:00 AM`
+  return `${hour - 12}:00 PM`
+}
+
 function computeTrend(current: number, previous: number): { direction: 'up' | 'down' | 'neutral'; percentage: number } {
   if (previous === 0) {
     return { direction: current > 0 ? 'up' : 'neutral', percentage: 0 }
@@ -126,10 +133,12 @@ export async function GET() {
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .slice(0, 5)
       .map(c => ({
+        id: `campaign-${c.id}`,
         type: 'campaign' as const,
-        description: `Campaign "${c.name}" - ${c.status} (${c.sent} sent)`,
+        text: `Campaign "${c.name}" - ${c.status} (${c.sent} sent)`,
+        time: formatTimeAgo(new Date(c.updatedAt)),
+        color: c.status === 'active' ? '#22c55e' : c.status === 'completed' ? '#8b5cf6' : '#3b82f6',
         timestamp: c.updatedAt.toISOString(),
-        timeAgo: formatTimeAgo(new Date(c.updatedAt)),
       }))
 
     const recentConversations = await db.conversation.findMany({
@@ -138,15 +147,32 @@ export async function GET() {
     })
 
     const recentMessageActivity = recentConversations.map(c => ({
+      id: `message-${c.id}`,
       type: 'message' as const,
-      description: `${c.direction === 'outgoing' ? 'Sent to' : 'Message from'} ${c.contactName || 'Unknown'}`,
+      text: `${c.direction === 'outgoing' ? 'Sent to' : 'Message from'} ${c.contactName || 'Unknown'}`,
+      time: formatTimeAgo(new Date(c.timestamp)),
+      color: c.direction === 'outgoing' ? '#3b82f6' : '#22c55e',
       timestamp: c.timestamp.toISOString(),
-      timeAgo: formatTimeAgo(new Date(c.timestamp)),
     }))
 
     const recentActivity = [...recentCampaignActivity, ...recentMessageActivity]
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
       .slice(0, 10)
+
+    // Hourly activity distribution - count conversations per hour across all data
+    const allConversations = await db.conversation.findMany()
+    const hourlyActivity: { hour: number; count: number; label: string }[] = []
+    const hourLabels = ['12am', '1am', '2am', '3am', '4am', '5am', '6am', '7am', '8am', '9am', '10am', '11am', '12pm', '1pm', '2pm', '3pm', '4pm', '5pm', '6pm', '7pm', '8pm', '9pm', '10pm', '11pm']
+    for (let h = 0; h < 24; h++) {
+      const count = allConversations.filter(c => new Date(c.timestamp).getHours() === h).length
+      hourlyActivity.push({ hour: h, count, label: hourLabels[h] })
+    }
+
+    // Find peak hour
+    const peakHourData = hourlyActivity.reduce((peak, h) => h.count > peak.count ? h : peak, hourlyActivity[0])
+    const peakHour = peakHourData.count > 0
+      ? { hour: peakHourData.hour, label: peakHourData.label, count: peakHourData.count, formatted: formatHour(peakHourData.hour) }
+      : null
 
     // Compute trends for stat cards
     const sentTrend = computeTrend(campaignsThisWeek, campaignsLastWeek)
@@ -179,6 +205,8 @@ export async function GET() {
       repliesTrend,
       campaignsThisWeek,
       campaignsLastWeek,
+      hourlyActivity,
+      peakHour,
     })
   } catch (error) {
     console.error('Stats API error:', error)

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Users, Search, Link2, Play, Pause, Download, Copy, CheckCircle2, AlertCircle, ExternalLink, Clock, Sparkles, Zap, ShieldCheck, QrCode, ChevronRight } from 'lucide-react'
+import { Users, Search, Link2, Play, Pause, Download, Copy, CheckCircle2, AlertCircle, ExternalLink, Sparkles, Zap, ShieldCheck, QrCode, ChevronRight } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 
 // Group Extractor Sub-component
@@ -345,11 +345,6 @@ export function ToolsPage() {
     { title: 'QR Code', icon: <QrCode className="w-4 h-4" />, accentColor: '#06b6d4', accentBg: 'bg-cyan-500/10', accentText: 'text-cyan-400', feature: 'qr-code' as const },
   ]
 
-  const recentlyUsed = [
-    { id: 'extractor' as const, label: 'Group Extractor', icon: <Users className="w-3 h-3" />, time: '2h ago', color: '#22c55e' },
-    { id: 'generator' as const, label: 'Link Generator', icon: <Link2 className="w-3 h-3" />, time: '5h ago', color: '#f97316' },
-  ]
-
   const tools = [
     { id: 'extractor' as const, label: 'Group Extractor', color: 'neon-green', orbColor: 'rgba(34,197,94,0.15)' },
     { id: 'scraper' as const, label: 'Lead Scraper', color: 'neon-green', orbColor: 'rgba(139,92,246,0.15)' },
@@ -393,36 +388,6 @@ export function ToolsPage() {
       </motion.div>
 
       <div className="gradient-divider" />
-
-      {/* Recently Used Section */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <div className="flex items-center gap-2 mb-2">
-          <Clock className="w-3 h-3 text-white/30" />
-          <span className="text-[10px] font-bold text-white/30 uppercase tracking-wider">Recently Used</span>
-        </div>
-        <div className="flex gap-2">
-          {recentlyUsed.map((tool) => (
-            <motion.button
-              key={tool.id}
-              onClick={() => setActiveTool(tool.id)}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-all"
-              style={{ boxShadow: `0 0 12px ${tool.color}08` }}
-            >
-              <div style={{ color: tool.color }}>{tool.icon}</div>
-              <div className="text-left">
-                <p className="text-[10px] font-semibold text-white/70">{tool.label}</p>
-                <p className="text-[8px] text-white/25">{tool.time}</p>
-              </div>
-            </motion.button>
-          ))}
-        </div>
-      </motion.div>
 
       {/* Tool Tabs */}
       <div className="flex gap-2">
