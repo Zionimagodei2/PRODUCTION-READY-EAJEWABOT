@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Clock, CheckCircle2, XCircle, Send, MoreVertical, Pause, Play, Trash2, Copy, Search, ArrowDownUp, Megaphone, RotateCcw, TrendingUp, Tag, Users, ShoppingBag, Gift } from 'lucide-react'
+import { Plus, Clock, CheckCircle2, XCircle, Send, MoreVertical, Pause, Play, Trash2, Copy, Search, ArrowDownUp, Megaphone, RotateCcw, Tag, Users, ShoppingBag, Gift } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 import { ListSkeleton } from '@/components/app/loading-skeleton'
 import { useToastStore } from '@/store/toast-store'
@@ -244,26 +244,15 @@ export function CampaignsPage() {
         </div>
       </div>
 
-      {/* Last 7 Days trend sparkline */}
+      {/* Campaign Summary - real data from DB */}
       <div className="glass-card rounded-xl p-3 flex items-center gap-3">
         <div className="flex-1">
-          <p className="text-[10px] text-white/40 font-semibold">Last 7 Days Trend</p>
-          <p className="text-[11px] text-emerald-400 font-bold mt-0.5 flex items-center gap-0.5">
-            <TrendingUp className="w-3 h-3" /> +18% vs last week
+          <p className="text-[10px] text-white/40 font-semibold">Total Campaigns</p>
+          <p className="text-[11px] text-white/70 font-bold mt-0.5">
+            {campaigns.length} campaign{campaigns.length !== 1 ? 's' : ''} ({campaigns.filter(c => c.status === 'active').length} active)
           </p>
         </div>
-        <div className="flex items-end gap-[2px] h-7">
-          {[35, 50, 45, 70, 65, 55, 80].map((h, i) => (
-            <div
-              key={i}
-              className="w-[4px] rounded-sm"
-              style={{
-                height: `${h}%`,
-                background: `linear-gradient(to top, rgba(59,130,246,0.3), rgba(59,130,246,0.7))`,
-              }}
-            />
-          ))}
-        </div>
+        <CampaignDonutChart campaigns={campaigns} />
       </div>
 
       {/* Search Bar */}

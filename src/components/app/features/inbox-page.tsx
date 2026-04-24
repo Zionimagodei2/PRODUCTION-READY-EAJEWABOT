@@ -1,72 +1,37 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, MessageCircle, Search, Check, CheckCheck,
   Plus, MessageSquare, Users, BarChart3, Phone, Trash2, Archive,
-  ChevronRight
+  Loader2
 } from 'lucide-react'
 
-interface Conversation {
-  id: string
-  name: string
-  isGroup: boolean
+interface ConversationThread {
+  contactId: string
+  contactName: string
   lastMessage: string
-  timestamp: string
+  lastTimestamp: string
   unreadCount: number
-  isOnline: boolean
-  isTyping?: boolean
-  lastSeen?: string
   messageStatus: 'read' | 'sent' | 'none'
   avatarColor: string
+  totalMessages: number
+  isOnline: boolean
 }
 
-const mockConversations: Conversation[] = [
-  {
-    id: '1', name: 'John Smith', isGroup: false, lastMessage: 'Thanks for the update! I\'ll review the proposal and get back to you by tomorrow.',
-    timestamp: '2m', unreadCount: 3, isOnline: true, isTyping: true, messageStatus: 'none', avatarColor: '#3b82f6'
-  },
-  {
-    id: '2', name: 'Marketing Team', isGroup: true, lastMessage: 'Sarah: The new campaign is performing well, 42% open rate!',
-    timestamp: '15m', unreadCount: 5, isOnline: false, messageStatus: 'none', avatarColor: '#8b5cf6'
-  },
-  {
-    id: '3', name: 'Emily Davis', isGroup: false, lastMessage: 'Can we schedule a call for next week?',
-    timestamp: '1h', unreadCount: 1, isOnline: true, lastSeen: 'Active now', messageStatus: 'none', avatarColor: '#ec4899'
-  },
-  {
-    id: '4', name: 'Sales Group', isGroup: true, lastMessage: 'Mike: Q4 targets have been updated in the dashboard',
-    timestamp: '3h', unreadCount: 0, isOnline: false, messageStatus: 'read', avatarColor: '#f97316'
-  },
-  {
-    id: '5', name: 'Alex Rivera', isGroup: false, lastMessage: 'The bulk order has been confirmed and shipped.',
-    timestamp: '5h', unreadCount: 0, isOnline: false, lastSeen: 'Last seen 3h ago', messageStatus: 'read', avatarColor: '#22c55e'
-  },
-  {
-    id: '6', name: 'Lisa Wong', isGroup: false, lastMessage: 'Please send me the updated price list for Q1.',
-    timestamp: 'Yesterday', unreadCount: 2, isOnline: false, lastSeen: 'Last seen yesterday', messageStatus: 'none', avatarColor: '#06b6d4'
-  },
-  {
-    id: '7', name: 'Support Team', isGroup: true, lastMessage: 'Anna: All tickets from last week have been resolved.',
-    timestamp: 'Yesterday', unreadCount: 0, isOnline: false, messageStatus: 'sent', avatarColor: '#f59e0b'
-  },
-  {
-    id: '8', name: 'David Brown', isGroup: false, lastMessage: 'Delivery confirmed! Everything looks great.',
-    timestamp: '2d ago', unreadCount: 0, isOnline: false, lastSeen: 'Last seen 2d ago', messageStatus: 'read', avatarColor: '#ef4444'
-  },
-  {
-    id: '9', name: 'Product Launch', isGroup: true, lastMessage: 'Jake: Press release draft is ready for review.',
-    timestamp: '2d ago', unreadCount: 0, isOnline: false, messageStatus: 'sent', avatarColor: '#8b5cf6'
-  },
-  {
-    id: '10', name: 'Anna Mueller', isGroup: false, lastMessage: 'I\'m interested in your enterprise plan. Can we discuss?',
-    timestamp: '3d ago', unreadCount: 0, isOnline: false, lastSeen: 'Last seen 5d ago', messageStatus: 'read', avatarColor: '#06b6d4'
-  },
-]
+interface ApiConversation {
+  id: string
+  contactId: string
+  contactName: string
+  direction: string
+  content: string
+  timestamp: string
+  createdAt: string
+}
 
-type FilterTab = 'all' | 'unread' | 'groups'
+type FilterTab = 'all' | 'unread'
 
 const container = {
   hidden: { opacity: 0 },
@@ -88,6 +53,36 @@ const swipeActions = [
   { icon: Trash2, label: 'Delete', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
 ]
 
+const avatarColors = ['#3b82f6', '#8b5cf6', '#ec4899', '#f97316', '#22c55e', '#06b6d4', '#f59e0b', '#ef4444']
+
+function getAvatarColor(id: string): string {
+  let hash = 0
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  return avatarColors[Math.abs(hash) % avatarColors.length]
+}
+
+function formatRelativeTime(dateStr: string): string {
+  try {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+
+    if (diffMins < 1) return 'now'
+    if (diffMins < 60) return `${diffMins}m`
+    if (diffHours < 24) return `${diffHours}h`
+    if (diffDays < 7) return `${diffDays}d`
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w`
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  } catch {
+    return ''
+  }
+}
+
 export function InboxPage() {
   const { goBack, setSelectedContactId, setActiveFeature } = useAppStore()
   const [searchQuery, setSearchQuery] = useState('')
@@ -95,6 +90,74 @@ export function InboxPage() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all')
   const [showTransition, setShowTransition] = useState(true)
   const [hoveredConvId, setHoveredConvId] = useState<string | null>(null)
+  const [threads, setThreads] = useState<ConversationThread[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchConversations = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const res = await fetch('/api/conversations')
+      if (!res.ok) throw new Error('Failed to fetch conversations')
+      const data: ApiConversation[] = await res.json()
+
+      // Group by contactId to create threads
+      const threadMap = new Map<string, ApiConversation[]>()
+
+      for (const conv of data) {
+        const key = conv.contactId || conv.contactName || 'unknown'
+        if (!threadMap.has(key)) {
+          threadMap.set(key, [])
+        }
+        threadMap.get(key)!.push(conv)
+      }
+
+      // Build thread objects
+      const builtThreads: ConversationThread[] = []
+
+      for (const [contactId, messages] of threadMap) {
+        // Sort messages by timestamp descending (most recent first)
+        messages.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+
+        const latest = messages[0]
+        const unreadCount = messages.filter(m => m.direction === 'incoming').length
+
+        // Determine message status based on last outgoing message
+        const hasOutgoing = messages.some(m => m.direction === 'outgoing')
+        const lastOutgoing = messages.find(m => m.direction === 'outgoing')
+        let messageStatus: 'read' | 'sent' | 'none' = 'none'
+        if (lastOutgoing) {
+          messageStatus = 'sent'
+        }
+        if (hasOutgoing && unreadCount === 0) {
+          messageStatus = 'read'
+        }
+
+        builtThreads.push({
+          contactId,
+          contactName: latest.contactName || 'Unknown Contact',
+          lastMessage: latest.content,
+          lastTimestamp: latest.timestamp,
+          unreadCount,
+          messageStatus,
+          avatarColor: getAvatarColor(contactId),
+          totalMessages: messages.length,
+          isOnline: false, // We don't have real online status data
+        })
+      }
+
+      // Sort threads by most recent message
+      builtThreads.sort((a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime())
+
+      setThreads(builtThreads)
+    } catch (err) {
+      console.error('Failed to fetch conversations:', err)
+      setError('Failed to load conversations')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
 
   // Page transition flash effect
   useEffect(() => {
@@ -102,33 +165,38 @@ export function InboxPage() {
     return () => clearTimeout(timer)
   }, [])
 
+  // Fetch conversations on mount
+  useEffect(() => {
+    fetchConversations()
+  }, [fetchConversations])
+
   const filteredConversations = useMemo(() => {
-    let filtered = mockConversations
+    let filtered = threads
 
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
       filtered = filtered.filter(
-        (c) => c.name.toLowerCase().includes(query) || c.lastMessage.toLowerCase().includes(query)
+        (c) => c.contactName.toLowerCase().includes(query) || c.lastMessage.toLowerCase().includes(query)
       )
     }
 
     // Apply tab filter
     if (activeFilter === 'unread') {
       filtered = filtered.filter((c) => c.unreadCount > 0)
-    } else if (activeFilter === 'groups') {
-      filtered = filtered.filter((c) => c.isGroup)
     }
 
     return filtered
-  }, [searchQuery, activeFilter])
+  }, [searchQuery, activeFilter, threads])
 
-  const totalConversations = mockConversations.length
-  const totalUnread = mockConversations.reduce((sum, c) => sum + c.unreadCount, 0)
-  const responseRate = 94
+  const totalConversations = threads.length
+  const totalUnread = threads.reduce((sum, c) => sum + c.unreadCount, 0)
+  const responseRate = threads.length > 0
+    ? Math.round((threads.filter(t => t.messageStatus === 'read' || t.messageStatus === 'sent').length / threads.length) * 100)
+    : 0
 
-  const handleConversationClick = (conversation: Conversation) => {
-    setSelectedContactId(conversation.id)
+  const handleConversationClick = (thread: ConversationThread) => {
+    setSelectedContactId(thread.contactId)
     setActiveFeature('contact-detail')
   }
 
@@ -138,19 +206,12 @@ export function InboxPage() {
       .map((n) => n[0])
       .join('')
       .slice(0, 2)
-  }
-
-  const formatLastSeen = (conversation: Conversation) => {
-    if (conversation.isOnline) return 'Online'
-    if (conversation.lastSeen) return conversation.lastSeen
-    if (conversation.timestamp.includes('m')) return `Last seen ${conversation.timestamp} ago`
-    return ''
+      .toUpperCase()
   }
 
   const filters: { key: FilterTab; label: string; count: number }[] = [
     { key: 'all', label: 'All', count: totalConversations },
-    { key: 'unread', label: 'Unread', count: mockConversations.filter((c) => c.unreadCount > 0).length },
-    { key: 'groups', label: 'Groups', count: mockConversations.filter((c) => c.isGroup).length },
+    { key: 'unread', label: 'Unread', count: threads.filter((c) => c.unreadCount > 0).length },
   ]
 
   return (
@@ -206,7 +267,7 @@ export function InboxPage() {
           <p className="text-xl font-extrabold text-white/95">{totalUnread}</p>
           <p className="text-[9px] text-white/50 font-semibold mt-0.5">Unread</p>
           <div className="mt-1.5 h-1 rounded-full bg-white/5 overflow-hidden">
-            <div className="h-full rounded-full bg-gradient-to-r from-blue-500/50 to-blue-400/50" style={{ width: `${Math.min((totalUnread / totalConversations) * 100, 100)}%` }} />
+            <div className="h-full rounded-full bg-gradient-to-r from-blue-500/50 to-blue-400/50" style={{ width: `${totalConversations > 0 ? Math.min((totalUnread / totalConversations) * 100, 100) : 0}%` }} />
           </div>
         </div>
         <div className="glass-card rounded-xl p-3 text-center stat-card-purple card-hover-lift">
@@ -294,95 +355,114 @@ export function InboxPage() {
         </div>
       </motion.div>
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex flex-col items-center justify-center py-16">
+          <Loader2 className="w-8 h-8 text-green-400/50 animate-spin mb-3" />
+          <p className="text-sm text-white/40">Loading conversations...</p>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && !isLoading && (
+        <div className="flex flex-col items-center justify-center py-16">
+          <MessageCircle className="w-10 h-10 text-red-400/30 mb-3" />
+          <p className="text-sm text-red-400/60 font-medium">{error}</p>
+          <motion.button
+            onClick={fetchConversations}
+            whileTap={{ scale: 0.95 }}
+            className="mt-3 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white/50 font-medium hover:bg-white/10 transition-colors"
+          >
+            Retry
+          </motion.button>
+        </div>
+      )}
+
       {/* Conversation List */}
-      <motion.div
-        variants={container}
-        initial="hidden"
-        animate="show"
-        className="glass-card rounded-2xl overflow-hidden"
-      >
-        <AnimatePresence mode="popLayout">
-          {filteredConversations.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="empty-state py-12"
-            >
-              <MessageCircle className="w-10 h-10 text-white/10 mb-3" />
-              <p className="text-sm text-white/40 font-medium">No conversations found</p>
-              <p className="text-xs text-white/25 mt-1">Try adjusting your search or filters</p>
-            </motion.div>
-          ) : (
-            filteredConversations.map((conversation, index) => (
+      {!isLoading && !error && (
+        <motion.div
+          variants={container}
+          initial="hidden"
+          animate="show"
+          className="glass-card rounded-2xl overflow-hidden"
+        >
+          <AnimatePresence mode="popLayout">
+            {filteredConversations.length === 0 ? (
               <motion.div
-                key={conversation.id}
-                variants={conversationItem}
-                layout
-                onClick={() => handleConversationClick(conversation)}
-                onMouseEnter={() => setHoveredConvId(conversation.id)}
-                onMouseLeave={() => setHoveredConvId(null)}
-                className="relative flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-white/[0.03] transition-all duration-200 group swipe-hint"
-                whileHover={{
-                  boxShadow: conversation.unreadCount > 0
-                    ? '0 0 15px rgba(34,197,94,0.08)'
-                    : '0 0 10px rgba(255,255,255,0.02)'
-                }}
-                whileTap={{ scale: 0.98 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="empty-state py-12"
               >
-                {/* Avatar */}
-                <div className="relative flex-shrink-0">
-                  <div
-                    className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white/80"
-                    style={{
-                      background: `linear-gradient(135deg, ${conversation.avatarColor}40, ${conversation.avatarColor}15)`,
-                      border: `1.5px solid ${conversation.avatarColor}30`,
-                      boxShadow: conversation.unreadCount > 0 ? `0 0 12px ${conversation.avatarColor}15` : 'none'
-                    }}
-                  >
-                    {conversation.isGroup ? (
-                      <Users className="w-4.5 h-4.5" style={{ color: conversation.avatarColor }} />
-                    ) : (
-                      getInitials(conversation.name)
+                <MessageCircle className="w-10 h-10 text-white/10 mb-3" />
+                {threads.length === 0 ? (
+                  <>
+                    <p className="text-sm text-white/40 font-medium">No conversations yet</p>
+                    <p className="text-xs text-white/25 mt-1">Start a conversation by sending a message to a contact</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-white/40 font-medium">No conversations found</p>
+                    <p className="text-xs text-white/25 mt-1">Try adjusting your search or filters</p>
+                  </>
+                )}
+              </motion.div>
+            ) : (
+              filteredConversations.map((conversation, index) => (
+                <motion.div
+                  key={conversation.contactId}
+                  variants={conversationItem}
+                  layout
+                  onClick={() => handleConversationClick(conversation)}
+                  onMouseEnter={() => setHoveredConvId(conversation.contactId)}
+                  onMouseLeave={() => setHoveredConvId(null)}
+                  className="relative flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-white/[0.03] transition-all duration-200 group swipe-hint"
+                  whileHover={{
+                    boxShadow: conversation.unreadCount > 0
+                      ? '0 0 15px rgba(34,197,94,0.08)'
+                      : '0 0 10px rgba(255,255,255,0.02)'
+                  }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  {/* Avatar */}
+                  <div className="relative flex-shrink-0">
+                    <div
+                      className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white/80"
+                      style={{
+                        background: `linear-gradient(135deg, ${conversation.avatarColor}40, ${conversation.avatarColor}15)`,
+                        border: `1.5px solid ${conversation.avatarColor}30`,
+                        boxShadow: conversation.unreadCount > 0 ? `0 0 12px ${conversation.avatarColor}15` : 'none'
+                      }}
+                    >
+                      {getInitials(conversation.contactName)}
+                    </div>
+                    {/* Online status dot */}
+                    {conversation.isOnline && (
+                      <div
+                        className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-[#0c0c14] online-status-ring"
+                        style={{ boxShadow: '0 0 6px rgba(34,197,94,0.6)' }}
+                      />
                     )}
                   </div>
-                  {/* Online status dot with ring animation */}
-                  {conversation.isOnline && (
-                    <div
-                      className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-[#0c0c14] online-status-ring"
-                      style={{ boxShadow: '0 0 6px rgba(34,197,94,0.6)' }}
-                    />
-                  )}
-                </div>
 
-                {/* Message Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className={`text-[13px] font-bold truncate ${
-                      conversation.unreadCount > 0 ? 'text-white/95' : 'text-white/70'
-                    }`}>
-                      {conversation.name}
-                    </h3>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <span className={`text-[10px] font-medium ${
-                        conversation.unreadCount > 0 ? 'text-green-400/60' : 'text-white/30'
+                  {/* Message Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className={`text-[13px] font-bold truncate ${
+                        conversation.unreadCount > 0 ? 'text-white/95' : 'text-white/70'
                       }`}>
-                        {conversation.timestamp}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Typing indicator or last message */}
-                  {conversation.isTyping ? (
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <div className="typing-dots">
-                        <span style={{ background: 'rgba(34,197,94,0.6)' }} />
-                        <span style={{ background: 'rgba(34,197,94,0.6)' }} />
-                        <span style={{ background: 'rgba(34,197,94,0.6)' }} />
+                        {conversation.contactName}
+                      </h3>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <span className={`text-[10px] font-medium ${
+                          conversation.unreadCount > 0 ? 'text-green-400/60' : 'text-white/30'
+                        }`}>
+                          {formatRelativeTime(conversation.lastTimestamp)}
+                        </span>
                       </div>
-                      <span className="text-[10px] text-green-400/60 font-medium">typing...</span>
                     </div>
-                  ) : (
+
+                    {/* Last message */}
                     <div className="flex items-center justify-between gap-2 mt-0.5">
                       <p className={`text-[11px] truncate leading-relaxed ${
                         conversation.unreadCount > 0 ? 'text-white/60' : 'text-white/40'
@@ -397,7 +477,7 @@ export function InboxPage() {
                         {conversation.messageStatus === 'sent' && (
                           <Check className="w-3.5 h-3.5 text-white/25" />
                         )}
-                        {/* Unread badge with pulse animation */}
+                        {/* Unread badge */}
                         {conversation.unreadCount > 0 && (
                           <motion.span
                             initial={{ scale: 0.5, opacity: 0 }}
@@ -412,49 +492,41 @@ export function InboxPage() {
                         )}
                       </div>
                     </div>
-                  )}
+                  </div>
 
-                  {/* Last seen - shown below message */}
-                  {!conversation.isOnline && !conversation.isTyping && conversation.lastSeen && (
-                    <p className="text-[9px] text-white/20 mt-0.5 truncate">{formatLastSeen(conversation)}</p>
-                  )}
-                  {conversation.isOnline && !conversation.isTyping && (
-                    <p className="text-[9px] text-green-400/40 mt-0.5">Active now</p>
-                  )}
-                </div>
+                  {/* Swipe action hints - visible on hover */}
+                  <AnimatePresence>
+                    {hoveredConvId === conversation.contactId && (
+                      <motion.div
+                        initial={{ opacity: 0, x: 5 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 5 }}
+                        className="flex items-center gap-0.5 flex-shrink-0"
+                      >
+                        {swipeActions.map((action) => (
+                          <motion.div
+                            key={action.label}
+                            whileHover={{ scale: 1.15 }}
+                            className="w-6 h-6 rounded-md flex items-center justify-center"
+                            style={{ background: action.bg }}
+                          >
+                            <action.icon className="w-3 h-3" style={{ color: action.color }} />
+                          </motion.div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-                {/* Swipe action hints - visible on hover */}
-                <AnimatePresence>
-                  {hoveredConvId === conversation.id && (
-                    <motion.div
-                      initial={{ opacity: 0, x: 5 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 5 }}
-                      className="flex items-center gap-0.5 flex-shrink-0"
-                    >
-                      {swipeActions.map((action) => (
-                        <motion.div
-                          key={action.label}
-                          whileHover={{ scale: 1.15 }}
-                          className="w-6 h-6 rounded-md flex items-center justify-center"
-                          style={{ background: action.bg }}
-                        >
-                          <action.icon className="w-3 h-3" style={{ color: action.color }} />
-                        </motion.div>
-                      ))}
-                    </motion.div>
+                  {/* Subtle divider (not on last item) */}
+                  {index < filteredConversations.length - 1 && (
+                    <div className="absolute bottom-0 left-16 right-4 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
                   )}
-                </AnimatePresence>
-
-                {/* Subtle divider (not on last item) */}
-                {index < filteredConversations.length - 1 && (
-                  <div className="absolute bottom-0 left-16 right-4 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
-                )}
-              </motion.div>
-            ))
-          )}
-        </AnimatePresence>
-      </motion.div>
+                </motion.div>
+              ))
+            )}
+          </AnimatePresence>
+        </motion.div>
+      )}
 
       {/* FAB - New Conversation */}
       <motion.button

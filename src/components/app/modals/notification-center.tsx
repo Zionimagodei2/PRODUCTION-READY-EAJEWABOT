@@ -13,14 +13,7 @@ interface Notification {
   read: boolean
 }
 
-const mockNotifications: Notification[] = [
-  { id: '1', type: 'success', title: 'Campaign Completed', description: '"Product Launch" delivered 912/1000 messages', time: '2m ago', read: false },
-  { id: '2', type: 'message', title: 'New Reply', description: 'John Smith replied to your campaign message', time: '15m ago', read: false },
-  { id: '3', type: 'warning', title: 'Rate Limit Warning', description: 'You\'ve sent 80% of your daily message limit', time: '1h ago', read: false },
-  { id: '4', type: 'info', title: 'Group Extraction Complete', description: 'Extracted 45 contacts from Marketing Team', time: '2h ago', read: true },
-  { id: '5', type: 'success', title: 'Auto Reply Activated', description: '3 new auto-reply rules are now active', time: '3h ago', read: true },
-  { id: '6', type: 'message', title: 'Chatbot Triggered', description: 'Welcome Flow triggered 23 times today', time: '5h ago', read: true },
-]
+const mockNotifications: Notification[] = []
 
 const typeConfig = {
   success: { icon: <CheckCircle2 className="w-4 h-4" />, color: '#22c55e', bg: 'rgba(34,197,94,0.1)', border: 'rgba(34,197,94,0.15)' },

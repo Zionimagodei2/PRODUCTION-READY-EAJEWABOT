@@ -11,30 +11,35 @@ export function GroupExtractor() {
   const [progress, setProgress] = useState(0)
   const [extracted, setExtracted] = useState<{name: string; phone: string; group: string}[]>([])
 
-  const mockResults = [
-    { name: 'Alice Martin', phone: '+1 555 0101', group: 'Marketing Team' },
-    { name: 'Bob Chen', phone: '+86 139 0013 9000', group: 'Marketing Team' },
-    { name: 'Carol White', phone: '+44 7700 900001', group: 'Sales Group' },
-    { name: 'Dan Lopez', phone: '+34 612 345 678', group: 'Sales Group' },
-    { name: 'Eva Kim', phone: '+82 10 1234 5678', group: 'Support Chat' },
-  ]
-
-  const startExtraction = () => {
+  const startExtraction = async () => {
     setExtracting(true)
     setProgress(0)
     setExtracted([])
     
-    let p = 0
-    const interval = setInterval(() => {
-      p += Math.random() * 15
-      if (p >= 100) {
-        p = 100
-        clearInterval(interval)
-        setExtracting(false)
-        setExtracted(mockResults)
+    try {
+      const res = await fetch('/api/contacts?limit=50')
+      if (res.ok) {
+        const contacts = await res.json()
+        // Simulate progress while loading
+        let p = 0
+        const progressInterval = setInterval(() => {
+          p = Math.min(p + Math.random() * 20, 90)
+          setProgress(p)
+        }, 300)
+        
+        clearInterval(progressInterval)
+        setProgress(100)
+        setExtracted(contacts.map((c: { name: string; phone: string; tags: string }) => ({
+          name: c.name,
+          phone: c.phone,
+          group: c.tags?.split(',')[0]?.trim() || 'Uncategorized',
+        })))
       }
-      setProgress(p)
-    }, 400)
+    } catch {
+      // Failed to extract
+    } finally {
+      setExtracting(false)
+    }
   }
 
   return (
@@ -55,9 +60,8 @@ export function GroupExtractor() {
           <div>
             <label className="text-[10px] text-white/40 mb-1 block">Select Group</label>
             <select className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/70 focus:outline-none focus:border-neon-green/40">
-              <option>Marketing Team (45 members)</option>
-              <option>Sales Group (32 members)</option>
-              <option>Support Chat (28 members)</option>
+              <option>All WhatsApp Groups</option>
+              <option>Contacts by Tag</option>
             </select>
           </div>
 
@@ -136,18 +140,32 @@ export function LeadScraper() {
   const [keyword, setKeyword] = useState('')
   const [results, setResults] = useState<{business: string; phone: string; category: string}[]>([])
 
-  const mockResults = [
-    { business: 'Tech Solutions Inc', phone: '+1 555 0201', category: 'Technology' },
-    { business: 'Green Market Co', phone: '+44 7700 900002', category: 'Retail' },
-    { business: 'Digital Agency Pro', phone: '+1 555 0203', category: 'Marketing' },
-  ]
+  const [location, setLocation] = useState('')
 
-  const startScrape = () => {
+  const startScrape = async () => {
+    if (!keyword.trim()) return
     setScraping(true)
-    setTimeout(() => {
+    setResults([])
+    
+    try {
+      const res = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword: keyword.trim(), location: location.trim() }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setResults((data.leads || []).map((l: { business: string; phone: string; category: string }) => ({
+          business: l.business,
+          phone: l.phone,
+          category: l.category,
+        })))
+      }
+    } catch {
+      // Search failed
+    } finally {
       setScraping(false)
-      setResults(mockResults)
-    }, 2500)
+    }
   }
 
   return (
@@ -178,13 +196,15 @@ export function LeadScraper() {
           <div>
             <label className="text-[10px] text-white/40 mb-1 block">Location</label>
             <input
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
               placeholder="City or area..."
               className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-neon-green/40"
             />
           </div>
           <button
             onClick={startScrape}
-            disabled={scraping}
+            disabled={scraping || !keyword.trim()}
             className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
               scraping 
                 ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20' 

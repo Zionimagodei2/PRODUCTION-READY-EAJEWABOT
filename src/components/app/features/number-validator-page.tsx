@@ -15,75 +15,6 @@ interface ValidationResult {
   reason?: string
   country?: string
   flag?: string
-  carrier?: string
-}
-
-const countryFlags: Record<string, { flag: string; name: string }> = {
-  '+1': { flag: '🇺🇸', name: 'United States' },
-  '+44': { flag: '🇬🇧', name: 'United Kingdom' },
-  '+86': { flag: '🇨🇳', name: 'China' },
-  '+34': { flag: '🇪🇸', name: 'Spain' },
-  '+852': { flag: '🇭🇰', name: 'Hong Kong' },
-  '+61': { flag: '🇦🇺', name: 'Australia' },
-  '+49': { flag: '🇩🇪', name: 'Germany' },
-  '+55': { flag: '🇧🇷', name: 'Brazil' },
-  '+91': { flag: '🇮🇳', name: 'India' },
-  '+81': { flag: '🇯🇵', name: 'Japan' },
-  '+33': { flag: '🇫🇷', name: 'France' },
-  '+39': { flag: '🇮🇹', name: 'Italy' },
-  '+7': { flag: '🇷🇺', name: 'Russia' },
-  '+82': { flag: '🇰🇷', name: 'South Korea' },
-  '+52': { flag: '🇲🇽', name: 'Mexico' },
-  '+234': { flag: '🇳🇬', name: 'Nigeria' },
-  '+27': { flag: '🇿🇦', name: 'South Africa' },
-  '+971': { flag: '🇦🇪', name: 'UAE' },
-}
-
-const carriers = ['WhatsApp', 'Viber', 'Telegram', 'WeChat', 'LINE', 'KakaoTalk', 'Signal', 'iMessage']
-
-const invalidReasons = [
-  'Invalid format',
-  'Number does not exist',
-  'Not registered on WhatsApp',
-  'Country code not supported',
-  'Number blocked',
-  'Landline number detected',
-]
-
-function getCountryInfo(phone: string) {
-  const sortedCodes = Object.keys(countryFlags).sort((a, b) => b.length - a.length)
-  for (const code of sortedCodes) {
-    if (phone.startsWith(code)) {
-      return countryFlags[code]
-    }
-  }
-  return { flag: '🌍', name: 'Unknown' }
-}
-
-function mockValidate(numbers: string[]): ValidationResult[] {
-  return numbers.map((num) => {
-    const trimmed = num.trim()
-    const isValid = Math.random() < 0.7
-
-    if (isValid) {
-      const country = getCountryInfo(trimmed)
-      const carrier = carriers[Math.floor(Math.random() * carriers.length)]
-      return {
-        number: trimmed,
-        valid: true,
-        country: country.name,
-        flag: country.flag,
-        carrier,
-      }
-    } else {
-      const reason = invalidReasons[Math.floor(Math.random() * invalidReasons.length)]
-      return {
-        number: trimmed,
-        valid: false,
-        reason,
-      }
-    }
-  })
 }
 
 export function NumberValidatorPage() {
@@ -98,7 +29,7 @@ export function NumberValidatorPage() {
   const invalidCount = results.filter((r) => !r.valid).length
   const totalCount = results.length
 
-  const handleValidate = useCallback(() => {
+  const handleValidate = useCallback(async () => {
     const numbers = input
       .split('\n')
       .map((n) => n.trim())
@@ -113,24 +44,50 @@ export function NumberValidatorPage() {
     setProgress(0)
     setResults([])
 
+    // Simulate progress while waiting for API
     let current = 0
     const total = numbers.length
-    const interval = setInterval(() => {
-      current++
-      setProgress(Math.round((current / total) * 100))
+    const progressInterval = setInterval(() => {
+      current = Math.min(current + Math.random() * 15, 90)
+      setProgress(Math.round(current))
+    }, 200)
 
-      if (current >= total) {
-        clearInterval(interval)
-        const validated = mockValidate(numbers)
-        setResults(validated)
-        setIsValidating(false)
-        addToast({
-          type: 'success',
-          title: 'Validation Complete',
-          message: `${validated.filter((r) => r.valid).length} valid, ${validated.filter((r) => !r.valid).length} invalid`,
-        })
+    try {
+      const response = await fetch('/api/validate-numbers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numbers }),
+      })
+
+      clearInterval(progressInterval)
+      setProgress(100)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Validation request failed')
       }
-    }, 150)
+
+      const data = await response.json()
+      setResults(data.results)
+      setIsValidating(false)
+
+      const validResults = data.results.filter((r: ValidationResult) => r.valid).length
+      const invalidResults = data.results.filter((r: ValidationResult) => !r.valid).length
+      addToast({
+        type: 'success',
+        title: 'Validation Complete',
+        message: `${validResults} valid, ${invalidResults} invalid`,
+      })
+    } catch (error) {
+      clearInterval(progressInterval)
+      setIsValidating(false)
+      setProgress(0)
+      addToast({
+        type: 'error',
+        title: 'Validation Failed',
+        message: error instanceof Error ? error.message : 'Could not validate numbers',
+      })
+    }
   }, [input, addToast])
 
   const handlePasteFromClipboard = useCallback(async () => {
@@ -157,10 +114,10 @@ export function NumberValidatorPage() {
         return
       }
 
-      const headers = type === 'valid' ? 'Number,Country,Carrier,Valid' : 'Number,Reason,Valid'
+      const headers = type === 'valid' ? 'Number,Country,Valid' : 'Number,Reason,Valid'
       const rows = filtered.map((r) =>
         type === 'valid'
-          ? `"${r.number}","${r.country || ''}","${r.carrier || ''}","Yes"`
+          ? `"${r.number}","${r.country || ''}","Yes"`
           : `"${r.number}","${r.reason || ''}","No"`
       )
       const csv = [headers, ...rows].join('\n')
@@ -193,7 +150,7 @@ export function NumberValidatorPage() {
             <ShieldCheck className="w-5 h-5 text-neon-green neon-text-glow-green" />
             Number Validator
           </h1>
-          <p className="text-[10px] text-white/40 mt-0.5">Verify WhatsApp numbers before sending</p>
+          <p className="text-[10px] text-white/40 mt-0.5">Verify phone number formats before sending</p>
         </div>
       </div>
 
@@ -207,7 +164,7 @@ export function NumberValidatorPage() {
           <label className="text-xs font-semibold text-white/60 uppercase tracking-wider">
             Phone Numbers
           </label>
-          <span className="text-[10px] text-white/30">One per line</span>
+          <span className="text-[10px] text-white/30">One per line, with country code</span>
         </div>
         <textarea
           value={input}
@@ -386,11 +343,9 @@ export function NumberValidatorPage() {
                             <Globe className="w-2.5 h-2.5" /> {result.country}
                           </span>
                         )}
-                        {result.carrier && (
-                          <span className="text-[10px] text-cyan-400/60 flex items-center gap-0.5">
-                            <Signal className="w-2.5 h-2.5" /> {result.carrier}
-                          </span>
-                        )}
+                        <span className="text-[10px] text-cyan-400/60 flex items-center gap-0.5">
+                          <Signal className="w-2.5 h-2.5" /> Valid format
+                        </span>
                       </div>
                     ) : (
                       <span className="text-[10px] text-red-400/60 flex items-center gap-0.5 mt-0.5">

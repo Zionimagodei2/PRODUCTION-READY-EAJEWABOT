@@ -14,6 +14,11 @@ import { motion } from 'framer-motion'
 import { useToastStore } from '@/store/toast-store'
 import { DashboardSkeleton } from '@/components/app/loading-skeleton'
 
+interface TrendData {
+  direction: 'up' | 'down' | 'neutral'
+  percentage: number
+}
+
 interface Stats {
   totalContacts: number
   activeContacts: number
@@ -26,7 +31,14 @@ interface Stats {
   deliveryRate: number
   replyRate: number
   weeklyActivity: { day: string; messages: number }[]
+  prevWeekActivity: { day: string; messages: number }[]
+  weeklyTrend: TrendData
   recentActivity: { id: string; type: string; text: string; time: string; color: string }[]
+  sentTrend: TrendData
+  deliveredTrend: TrendData
+  repliesTrend: TrendData
+  campaignsThisWeek: number
+  campaignsLastWeek: number
 }
 
 interface FeatureCardProps {
@@ -312,9 +324,30 @@ export function DashboardPage() {
   const totalReplies = stats?.totalReplies ?? 0
   const weeklyActivity = stats?.weeklyActivity ?? []
   const recentActivity = stats?.recentActivity ?? []
+  const sentTrend = stats?.sentTrend
+  const deliveredTrend = stats?.deliveredTrend
+  const repliesTrend = stats?.repliesTrend
+  const weeklyTrend = stats?.weeklyTrend
+
+  // Compute mini sparkline bars from real weekly activity data (last 4 days)
+  const miniSparklineData = weeklyActivity.slice(-4).map(d => d.messages)
+  const maxMini = Math.max(...miniSparklineData, 1)
+  const miniSparklinePcts = miniSparklineData.map(v => Math.round((v / maxMini) * 100))
 
   // Compute weekly activity percentages for sparkline
   const maxWeeklyMessages = Math.max(...weeklyActivity.map(d => d.messages), 1)
+
+  // Helper to format trend display
+  const formatTrend = (trend?: TrendData): { trend?: 'up' | 'down'; trendValue?: string; vsLabel?: string } => {
+    if (!trend || trend.direction === 'neutral') return {}
+    const arrow = trend.direction === 'up' ? '↑' : '↓'
+    const label = `${arrow}${trend.percentage}%`
+    return {
+      trend: trend.direction,
+      trendValue: label,
+      vsLabel: `${label} vs last week`,
+    }
+  }
 
   if (isLoadingStats) {
     return <DashboardSkeleton />
@@ -375,10 +408,8 @@ export function DashboardPage() {
           icon={<Send className="w-4 h-4 text-neon-blue" />}
           colorClass="bg-blue-500/10"
           statClass="stat-card-blue"
-          trend="up"
-          trendValue="↑12%"
-          vsLabel="↑12% vs last week"
-          sparklineBars={[40, 70, 50, 85]}
+          {...formatTrend(sentTrend)}
+          sparklineBars={miniSparklinePcts.length >= 4 ? miniSparklinePcts : undefined}
           sparklineColor="#3b82f6"
         />
         <StatCard 
@@ -388,10 +419,8 @@ export function DashboardPage() {
           colorClass="bg-green-500/10"
           statClass="stat-card-green"
           breathColor="#22c55e"
-          trend="up"
-          trendValue="↑8%"
-          vsLabel="↑8% vs last week"
-          sparklineBars={[55, 65, 80, 70]}
+          {...formatTrend(deliveredTrend)}
+          sparklineBars={miniSparklinePcts.length >= 4 ? miniSparklinePcts : undefined}
           sparklineColor="#22c55e"
         />
         <StatCard 
@@ -400,10 +429,8 @@ export function DashboardPage() {
           icon={<Activity className="w-4 h-4 text-neon-purple" />}
           colorClass="bg-purple-500/10"
           statClass="stat-card-purple"
-          trend="down"
-          trendValue="↓3%"
-          vsLabel="↓3% vs last week"
-          sparklineBars={[60, 45, 50, 35]}
+          {...formatTrend(repliesTrend)}
+          sparklineBars={miniSparklinePcts.length >= 4 ? miniSparklinePcts : undefined}
           sparklineColor="#8b5cf6"
         />
       </div>
@@ -421,9 +448,14 @@ export function DashboardPage() {
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xs font-bold text-white/70 uppercase tracking-wider">Activity This Week</h3>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-0.5">
-              <TrendingUp className="w-3 h-3" /> +12%
-            </span>
+            {weeklyTrend && weeklyTrend.direction !== 'neutral' && (
+              <span className={`text-[10px] font-semibold flex items-center gap-0.5 ${
+                weeklyTrend.direction === 'up' ? 'text-emerald-400' : 'text-red-400'
+              }`}>
+                <TrendingUp className={`w-3 h-3 ${weeklyTrend.direction === 'down' ? 'rotate-180' : ''}`} />
+                {weeklyTrend.direction === 'up' ? '+' : '-'}{weeklyTrend.percentage}%
+              </span>
+            )}
             <div className="relative flex items-center justify-center">
               <RingProgress size={28} strokeWidth={2.5} progress={stats?.deliveryRate ?? 72} color="#22c55e" />
               <span className="absolute text-[7px] font-bold text-emerald-400">{Math.round(stats?.deliveryRate ?? 72)}%</span>

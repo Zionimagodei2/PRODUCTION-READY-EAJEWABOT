@@ -20,11 +20,11 @@ const campaignTypes = [
   { value: 'survey', label: 'Survey', icon: <ClipboardList className="w-4 h-4" />, color: '#8b5cf6' },
 ]
 
-const audiences = [
-  { value: 'all', label: 'All Contacts', count: 1284 },
-  { value: 'vip', label: 'VIP', count: 156 },
-  { value: 'customers', label: 'Customers', count: 847 },
-  { value: 'leads', label: 'Leads', count: 281 },
+const defaultAudiences = [
+  { value: 'all', label: 'All Contacts', count: 0 },
+  { value: 'vip', label: 'VIP', count: 0 },
+  { value: 'customers', label: 'Customers', count: 0 },
+  { value: 'leads', label: 'Leads', count: 0 },
 ]
 
 const messageTemplates = [
@@ -80,6 +80,7 @@ export function CampaignWizardPage() {
   const [campaignName, setCampaignName] = useState('')
   const [campaignType, setCampaignType] = useState('promotional')
   const [audience, setAudience] = useState('all')
+  const [audiences, setAudiences] = useState(defaultAudiences)
 
   // Step 2
   const [message, setMessage] = useState('')
@@ -102,6 +103,27 @@ export function CampaignWizardPage() {
   useEffect(() => {
     const timer = setTimeout(() => setShowTransition(false), 500)
     return () => clearTimeout(timer)
+  }, [])
+
+  // Fetch real audience stats from the database
+  useEffect(() => {
+    const fetchAudienceStats = async () => {
+      try {
+        const res = await fetch('/api/audience-stats')
+        if (res.ok) {
+          const data = await res.json()
+          setAudiences([
+            { value: 'all', label: 'All Contacts', count: data.all },
+            { value: 'vip', label: 'VIP', count: data.vip },
+            { value: 'customers', label: 'Customers', count: data.customers },
+            { value: 'leads', label: 'Leads', count: data.leads },
+          ])
+        }
+      } catch {
+        // Keep default (0 counts) on failure
+      }
+    }
+    fetchAudienceStats()
   }, [])
 
   const insertVariable = useCallback((variable: string) => {
@@ -139,7 +161,32 @@ export function CampaignWizardPage() {
 
   const handleLaunch = useCallback(() => {
     setIsLaunching(true)
-    setTimeout(() => {
+    // Actually create the campaign in the database
+    const createCampaign = async () => {
+      try {
+        const selectedAudienceCount = audiences.find((a) => a.value === audience)?.count ?? 0
+        const res = await fetch('/api/campaigns', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: campaignName || 'Untitled Campaign',
+            status: sendNow ? 'active' : 'scheduled',
+            total: selectedAudienceCount,
+            message: message,
+          }),
+        })
+        if (!res.ok) {
+          addToast({ type: 'error', title: 'Failed to create campaign', message: 'Please try again' })
+          setIsLaunching(false)
+          setShowConfirm(false)
+          return
+        }
+      } catch {
+        addToast({ type: 'error', title: 'Network error', message: 'Could not create campaign' })
+        setIsLaunching(false)
+        setShowConfirm(false)
+        return
+      }
       setIsLaunching(false)
       setShowConfirm(false)
       setShowSuccess(true)
@@ -153,8 +200,9 @@ export function CampaignWizardPage() {
       setTimeout(() => {
         goBack()
       }, 2500)
-    }, 2000)
-  }, [campaignName, sendNow, addToast, goBack])
+    }
+    createCampaign()
+  }, [campaignName, sendNow, addToast, goBack, audiences, audience, message])
 
   const getStepStatus = (step: number) => {
     if (step < currentStep) return 'completed'
@@ -162,7 +210,7 @@ export function CampaignWizardPage() {
     return 'upcoming'
   }
 
-  const selectedAudience = audiences.find((a) => a.value === audience)
+  const selectedAudience = audiences.find((a) => a.value === audience) ?? defaultAudiences[0]
   const selectedType = campaignTypes.find((t) => t.value === campaignType)
 
   const slideVariants = {

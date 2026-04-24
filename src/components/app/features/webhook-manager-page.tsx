@@ -37,80 +37,6 @@ interface EventLogEntry {
   payload?: string
 }
 
-// --- Mock Data ---
-
-const mockEndpoints: WebhookEndpoint[] = [
-  {
-    id: '1',
-    url: 'https://api.myapp.com/webhooks/whatsapp/messages',
-    status: 'Active',
-    events: ['message.received', 'message.delivered', 'message.read'],
-    lastTriggered: '2 min ago',
-    successCount: 1243,
-    failureCount: 12,
-    eventLogs: [
-      { id: 'e1', eventType: 'message.received', status: 200, responseTime: 142, timestamp: '2 min ago', payload: '{"from":"+1234567890","text":"Hello"}' },
-      { id: 'e2', eventType: 'message.delivered', status: 200, responseTime: 89, timestamp: '5 min ago' },
-      { id: 'e3', eventType: 'message.read', status: 200, responseTime: 67, timestamp: '8 min ago' },
-      { id: 'e4', eventType: 'message.received', status: 500, responseTime: 2103, timestamp: '15 min ago' },
-      { id: 'e5', eventType: 'message.delivered', status: 200, responseTime: 95, timestamp: '20 min ago' },
-    ]
-  },
-  {
-    id: '2',
-    url: 'https://crm.example.com/api/wa-status-callback',
-    status: 'Active',
-    events: ['message.delivered', 'message.failed', 'contact.added'],
-    lastTriggered: '12 min ago',
-    successCount: 876,
-    failureCount: 34,
-    eventLogs: [
-      { id: 'e6', eventType: 'message.delivered', status: 200, responseTime: 201, timestamp: '12 min ago' },
-      { id: 'e7', eventType: 'message.failed', status: 404, responseTime: 450, timestamp: '25 min ago' },
-      { id: 'e8', eventType: 'contact.added', status: 200, responseTime: 134, timestamp: '1h ago' },
-    ]
-  },
-  {
-    id: '3',
-    url: 'https://notifications.service.io/hooks/wh-status',
-    status: 'Paused',
-    events: ['message.received', 'message.read'],
-    lastTriggered: '2h ago',
-    successCount: 512,
-    failureCount: 8,
-    eventLogs: [
-      { id: 'e9', eventType: 'message.read', status: 200, responseTime: 112, timestamp: '2h ago' },
-      { id: 'e10', eventType: 'message.received', status: 200, responseTime: 178, timestamp: '3h ago' },
-    ]
-  },
-  {
-    id: '4',
-    url: 'https://legacy-system.corp.net/webhook/wh',
-    status: 'Inactive',
-    events: ['message.failed', 'contact.updated'],
-    lastTriggered: '5d ago',
-    successCount: 198,
-    failureCount: 56,
-    eventLogs: [
-      { id: 'e11', eventType: 'message.failed', status: 500, responseTime: 5320, timestamp: '5d ago' },
-      { id: 'e12', eventType: 'contact.updated', status: 404, responseTime: 890, timestamp: '6d ago' },
-    ]
-  },
-]
-
-const mockRecentEvents: EventLogEntry[] = [
-  { id: 're1', eventType: 'message.received', status: 200, responseTime: 142, timestamp: 'Just now' },
-  { id: 're2', eventType: 'message.delivered', status: 200, responseTime: 89, timestamp: '2 min ago' },
-  { id: 're3', eventType: 'message.failed', status: 500, responseTime: 2103, timestamp: '5 min ago' },
-  { id: 're4', eventType: 'message.read', status: 200, responseTime: 67, timestamp: '8 min ago' },
-  { id: 're5', eventType: 'message.received', status: 200, responseTime: 156, timestamp: '12 min ago' },
-  { id: 're6', eventType: 'message.delivered', status: 301, responseTime: 245, timestamp: '15 min ago' },
-  { id: 're7', eventType: 'contact.added', status: 200, responseTime: 134, timestamp: '20 min ago' },
-  { id: 're8', eventType: 'message.failed', status: 404, responseTime: 450, timestamp: '25 min ago' },
-  { id: 're9', eventType: 'message.received', status: 200, responseTime: 98, timestamp: '30 min ago' },
-  { id: 're10', eventType: 'message.read', status: 200, responseTime: 72, timestamp: '45 min ago' },
-]
-
 const availableEvents = [
   'message.received',
   'message.delivered',
@@ -134,12 +60,6 @@ const listItem = {
 }
 
 // --- Helper Functions ---
-
-function getStatusColor(status: EventLogStatus): string {
-  if (status >= 200 && status < 300) return '#22c55e'
-  if (status >= 300 && status < 400) return '#f59e0b'
-  return '#ef4444'
-}
 
 function getStatusBgClass(status: EventLogStatus): string {
   if (status >= 200 && status < 300) return 'bg-green-500/10 border-green-500/15 text-green-400'
@@ -188,7 +108,7 @@ export function WebhookManagerPage() {
   const { goBack } = useAppStore()
   const { addToast } = useToastStore()
 
-  const [endpoints, setEndpoints] = useState<WebhookEndpoint[]>(mockEndpoints)
+  const [endpoints, setEndpoints] = useState<WebhookEndpoint[]>([])
   const [expandedEndpoint, setExpandedEndpoint] = useState<string | null>(null)
   const [eventFilter, setEventFilter] = useState<FilterTab>('all')
   const [showConfigModal, setShowConfigModal] = useState(false)
@@ -203,10 +123,12 @@ export function WebhookManagerPage() {
 
   // Compute stats
   const activeWebhooks = endpoints.filter(e => e.status === 'Active').length
-  const eventsToday = 2847
   const totalSuccess = endpoints.reduce((sum, e) => sum + e.successCount, 0)
   const totalFail = endpoints.reduce((sum, e) => sum + e.failureCount, 0)
-  const successRate = Math.round((totalSuccess / (totalSuccess + totalFail)) * 100)
+  const successRate = (totalSuccess + totalFail) > 0 ? Math.round((totalSuccess / (totalSuccess + totalFail)) * 100) : 0
+
+  // Collect all event logs from all endpoints
+  const allEventLogs: EventLogEntry[] = endpoints.flatMap(e => e.eventLogs)
 
   // Toggle endpoint expansion
   const toggleExpand = (id: string) => {
@@ -259,6 +181,19 @@ export function WebhookManagerPage() {
     addToast({ type: 'info', message: 'Webhook endpoint removed' })
   }
 
+  // Toggle endpoint status
+  const handleToggleStatus = (id: string) => {
+    setEndpoints(prev => prev.map(e => {
+      if (e.id !== id) return e
+      const nextStatus: Record<WebhookStatus, WebhookStatus> = {
+        Active: 'Paused',
+        Paused: 'Active',
+        Inactive: 'Active',
+      }
+      return { ...e, status: nextStatus[e.status] }
+    }))
+  }
+
   // Toggle event in config
   const toggleConfigEvent = (event: string) => {
     setConfigEvents(prev =>
@@ -285,7 +220,7 @@ export function WebhookManagerPage() {
     { key: 'message', label: 'Message' },
   ]
 
-  const filteredRecentEvents = filterEventsByTab(mockRecentEvents, eventFilter)
+  const filteredRecentEvents = filterEventsByTab(allEventLogs, eventFilter)
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-4">
@@ -323,19 +258,21 @@ export function WebhookManagerPage() {
         <div className="glass-card rounded-xl p-3 text-center stat-card-green">
           <div className="w-7 h-7 mx-auto rounded-lg bg-green-500/10 flex items-center justify-center mb-1.5 relative">
             <Globe className="w-3.5 h-3.5 text-green-400" />
-            <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-500 animate-breathe" style={{ color: '#22c55e' }} />
+            {activeWebhooks > 0 && (
+              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-500 animate-breathe" style={{ color: '#22c55e' }} />
+            )}
           </div>
           <p className="text-xl font-extrabold text-white/95">{activeWebhooks}</p>
           <p className="text-[9px] text-white/50 font-semibold mt-0.5">Active Webhooks</p>
         </div>
 
-        {/* Events Today */}
+        {/* Total Events */}
         <div className="glass-card rounded-xl p-3 text-center stat-card-orange">
           <div className="w-7 h-7 mx-auto rounded-lg bg-orange-500/10 flex items-center justify-center mb-1.5">
             <Activity className="w-3.5 h-3.5 text-orange-400" />
           </div>
-          <p className="text-xl font-extrabold text-white/95">{eventsToday.toLocaleString()}</p>
-          <p className="text-[9px] text-white/50 font-semibold mt-0.5">Events Today</p>
+          <p className="text-xl font-extrabold text-white/95">{allEventLogs.length.toLocaleString()}</p>
+          <p className="text-[9px] text-white/50 font-semibold mt-0.5">Total Events</p>
         </div>
 
         {/* Success Rate */}
@@ -343,16 +280,18 @@ export function WebhookManagerPage() {
           <div className="w-7 h-7 mx-auto rounded-lg bg-blue-500/10 flex items-center justify-center mb-1.5">
             <Zap className="w-3.5 h-3.5 text-blue-400" />
           </div>
-          <p className="text-xl font-extrabold text-white/95">{successRate}%</p>
+          <p className="text-xl font-extrabold text-white/95">{endpoints.length > 0 ? `${successRate}%` : '—'}</p>
           <p className="text-[9px] text-white/50 font-semibold mt-0.5">Success Rate</p>
-          <div className="mt-1.5 h-1 rounded-full bg-white/5 overflow-hidden">
-            <motion.div
-              className="h-full rounded-full bg-blue-500/50"
-              initial={{ width: 0 }}
-              animate={{ width: `${successRate}%` }}
-              transition={{ duration: 1, ease: 'easeOut' }}
-            />
-          </div>
+          {endpoints.length > 0 && (
+            <div className="mt-1.5 h-1 rounded-full bg-white/5 overflow-hidden">
+              <motion.div
+                className="h-full rounded-full bg-blue-500/50"
+                initial={{ width: 0 }}
+                animate={{ width: `${successRate}%` }}
+                transition={{ duration: 1, ease: 'easeOut' }}
+              />
+            </div>
+          )}
         </div>
       </motion.div>
 
@@ -381,138 +320,168 @@ export function WebhookManagerPage() {
           </motion.button>
         </div>
 
-        <motion.div variants={container} initial="hidden" animate="show" className="space-y-3">
-          {endpoints.map((endpoint) => {
-            const statusBadge = getWebhookStatusBadge(endpoint.status)
-            const total = endpoint.successCount + endpoint.failureCount
-            const successPercent = total > 0 ? Math.round((endpoint.successCount / total) * 100) : 0
-            const isExpanded = expandedEndpoint === endpoint.id
+        {endpoints.length === 0 ? (
+          <div className="glass-card rounded-2xl py-14 text-center">
+            <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-orange-500/10 border border-orange-500/15 flex items-center justify-center">
+              <Webhook className="w-7 h-7 text-orange-400/50" />
+            </div>
+            <p className="text-sm text-white/50 font-semibold mb-1">No webhook endpoints</p>
+            <p className="text-xs text-white/30 mb-4 max-w-[220px] mx-auto">
+              Add a webhook endpoint to receive real-time event notifications.
+            </p>
+            <motion.button
+              onClick={() => { resetConfigModal(); setShowConfigModal(true) }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500/20 to-amber-500/10 border border-orange-500/25 text-orange-300 font-semibold text-xs hover:from-orange-500/30 hover:to-amber-500/15 transition-all"
+              style={{ boxShadow: '0 0 15px rgba(249,115,22,0.15)' }}
+            >
+              <Plus className="w-3.5 h-3.5" /> Create Webhook
+            </motion.button>
+          </div>
+        ) : (
+          <motion.div variants={container} initial="hidden" animate="show" className="space-y-3">
+            {endpoints.map((endpoint) => {
+              const statusBadge = getWebhookStatusBadge(endpoint.status)
+              const total = endpoint.successCount + endpoint.failureCount
+              const successPercent = total > 0 ? Math.round((endpoint.successCount / total) * 100) : 0
+              const isExpanded = expandedEndpoint === endpoint.id
 
-            return (
-              <motion.div
-                key={endpoint.id}
-                variants={listItem}
-                className="glass-card rounded-2xl overflow-hidden"
-              >
-                {/* Endpoint Card */}
+              return (
                 <motion.div
-                  onClick={() => toggleExpand(endpoint.id)}
-                  className="p-4 cursor-pointer hover:bg-white/[0.02] transition-all duration-200"
-                  whileTap={{ scale: 0.99 }}
+                  key={endpoint.id}
+                  variants={listItem}
+                  className="glass-card rounded-2xl overflow-hidden"
                 >
-                  {/* URL + Status row */}
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Globe className="w-3.5 h-3.5 text-orange-400/60 flex-shrink-0" />
-                        <p className="text-[12px] font-mono text-white/70 truncate">{truncateUrl(endpoint.url)}</p>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold border ${statusBadge.bg} ${statusBadge.text}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${statusBadge.dot} ${endpoint.status === 'Active' ? 'animate-breathe' : ''}`} style={endpoint.status === 'Active' ? { color: '#22c55e' } : undefined} />
-                          {endpoint.status}
-                        </span>
-                        <span className="text-[9px] text-white/30">•</span>
-                        <span className="text-[10px] text-white/40 flex items-center gap-0.5">
-                          <Clock className="w-2.5 h-2.5" />
-                          {endpoint.lastTriggered}
-                        </span>
-                      </div>
-                    </div>
-                    <motion.div
-                      animate={{ rotate: isExpanded ? 180 : 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <ChevronDown className="w-4 h-4 text-white/20" />
-                    </motion.div>
-                  </div>
-
-                  {/* Events tags */}
-                  <div className="flex flex-wrap gap-1 mb-2.5">
-                    {endpoint.events.map((event) => (
-                      <span key={event} className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-semibold border ${getEventBadgeColor(event)}`}>
-                        <Hash className="w-2 h-2" />
-                        {event.split('.')[1]}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Success/Failure mini bar */}
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-green-500/70 to-green-400/50"
-                        style={{ width: `${successPercent}%` }}
-                      />
-                    </div>
-                    <div className="flex items-center gap-2 text-[9px]">
-                      <span className="text-green-400 font-bold flex items-center gap-0.5">
-                        <CheckCircle2 className="w-2.5 h-2.5" />
-                        {endpoint.successCount.toLocaleString()}
-                      </span>
-                      <span className="text-red-400 font-bold flex items-center gap-0.5">
-                        <XCircle className="w-2.5 h-2.5" />
-                        {endpoint.failureCount.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                </motion.div>
-
-                {/* Expanded Event Logs */}
-                <AnimatePresence>
-                  {isExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.25 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="px-4 pb-3 border-t border-white/[0.04]">
-                        <div className="flex items-center justify-between mt-3 mb-2">
-                          <p className="text-[10px] font-bold text-white/50 uppercase tracking-wider">Recent Events</p>
-                          <motion.button
-                            onClick={(e) => { e.stopPropagation(); handleDeleteWebhook(endpoint.id) }}
-                            whileTap={{ scale: 0.9 }}
-                            className="text-[9px] text-red-400/60 hover:text-red-400 flex items-center gap-0.5 transition-colors"
-                          >
-                            <Trash2 className="w-2.5 h-2.5" />
-                            Delete
-                          </motion.button>
+                  {/* Endpoint Card */}
+                  <motion.div
+                    onClick={() => toggleExpand(endpoint.id)}
+                    className="p-4 cursor-pointer hover:bg-white/[0.02] transition-all duration-200"
+                    whileTap={{ scale: 0.99 }}
+                  >
+                    {/* URL + Status row */}
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Globe className="w-3.5 h-3.5 text-orange-400/60 flex-shrink-0" />
+                          <p className="text-[12px] font-mono text-white/70 truncate">{truncateUrl(endpoint.url)}</p>
                         </div>
-                        <div className="space-y-1.5 max-h-48 overflow-y-auto no-scrollbar">
-                          {endpoint.eventLogs.length === 0 ? (
-                            <p className="text-[10px] text-white/25 text-center py-4">No events recorded yet</p>
-                          ) : (
-                            endpoint.eventLogs.map((log) => (
-                              <div
-                                key={log.id}
-                                className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-white/[0.02] border border-white/[0.03]"
+                        <div className="flex items-center gap-1.5">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold border ${statusBadge.bg} ${statusBadge.text}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${statusBadge.dot} ${endpoint.status === 'Active' ? 'animate-breathe' : ''}`} style={endpoint.status === 'Active' ? { color: '#22c55e' } : undefined} />
+                            {endpoint.status}
+                          </span>
+                          <span className="text-[9px] text-white/30">•</span>
+                          <span className="text-[10px] text-white/40 flex items-center gap-0.5">
+                            <Clock className="w-2.5 h-2.5" />
+                            {endpoint.lastTriggered}
+                          </span>
+                        </div>
+                      </div>
+                      <motion.div
+                        animate={{ rotate: isExpanded ? 180 : 0 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <ChevronDown className="w-4 h-4 text-white/20" />
+                      </motion.div>
+                    </div>
+
+                    {/* Events tags */}
+                    <div className="flex flex-wrap gap-1 mb-2.5">
+                      {endpoint.events.map((event) => (
+                        <span key={event} className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-semibold border ${getEventBadgeColor(event)}`}>
+                          <Hash className="w-2 h-2" />
+                          {event.split('.')[1]}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Success/Failure mini bar */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-green-500/70 to-green-400/50"
+                          style={{ width: `${successPercent}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 text-[9px]">
+                        <span className="text-green-400 font-bold flex items-center gap-0.5">
+                          <CheckCircle2 className="w-2.5 h-2.5" />
+                          {endpoint.successCount.toLocaleString()}
+                        </span>
+                        <span className="text-red-400 font-bold flex items-center gap-0.5">
+                          <XCircle className="w-2.5 h-2.5" />
+                          {endpoint.failureCount.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* Expanded Event Logs */}
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="px-4 pb-3 border-t border-white/[0.04]">
+                          <div className="flex items-center justify-between mt-3 mb-2">
+                            <p className="text-[10px] font-bold text-white/50 uppercase tracking-wider">Recent Events</p>
+                            <div className="flex items-center gap-2">
+                              <motion.button
+                                onClick={(e) => { e.stopPropagation(); handleToggleStatus(endpoint.id) }}
+                                whileTap={{ scale: 0.9 }}
+                                className="text-[9px] text-amber-400/60 hover:text-amber-400 flex items-center gap-0.5 transition-colors"
                               >
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold border ${getEventBadgeColor(log.eventType)}`}>
-                                    {log.eventType.split('.')[1]}
-                                  </span>
-                                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold border ${getStatusBgClass(log.status)}`}>
-                                    {log.status}
-                                  </span>
+                                {endpoint.status === 'Active' ? 'Pause' : 'Resume'}
+                              </motion.button>
+                              <motion.button
+                                onClick={(e) => { e.stopPropagation(); handleDeleteWebhook(endpoint.id) }}
+                                whileTap={{ scale: 0.9 }}
+                                className="text-[9px] text-red-400/60 hover:text-red-400 flex items-center gap-0.5 transition-colors"
+                              >
+                                <Trash2 className="w-2.5 h-2.5" />
+                                Delete
+                              </motion.button>
+                            </div>
+                          </div>
+                          <div className="space-y-1.5 max-h-48 overflow-y-auto no-scrollbar">
+                            {endpoint.eventLogs.length === 0 ? (
+                              <p className="text-[10px] text-white/25 text-center py-4">No events recorded yet</p>
+                            ) : (
+                              endpoint.eventLogs.map((log) => (
+                                <div
+                                  key={log.id}
+                                  className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-white/[0.02] border border-white/[0.03]"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold border ${getEventBadgeColor(log.eventType)}`}>
+                                      {log.eventType.split('.')[1]}
+                                    </span>
+                                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold border ${getStatusBgClass(log.status)}`}>
+                                      {log.status}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-[9px] text-white/30">
+                                    <span>{log.responseTime}ms</span>
+                                    <span>{log.timestamp}</span>
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-2 text-[9px] text-white/30">
-                                  <span>{log.responseTime}ms</span>
-                                  <span>{log.timestamp}</span>
-                                </div>
-                              </div>
-                            ))
-                          )}
+                              ))
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            )
-          })}
-        </motion.div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              )
+            })}
+          </motion.div>
+        )}
       </motion.div>
 
       <div className="gradient-divider" />
@@ -531,89 +500,99 @@ export function WebhookManagerPage() {
           <div className="flex-1 h-px bg-gradient-to-r from-amber-500/20 to-transparent" />
         </div>
 
-        {/* Filter Tabs */}
-        <div className="flex gap-1 p-1 rounded-xl bg-white/[0.03] border border-white/5 mb-3">
-          {filterTabs.map((tab) => (
-            <motion.button
-              key={tab.key}
-              onClick={() => setEventFilter(tab.key)}
-              whileTap={{ scale: 0.95 }}
-              className={`relative flex-1 flex items-center justify-center py-2 rounded-lg text-[10px] font-semibold transition-all duration-200 ${
-                eventFilter === tab.key
-                  ? 'text-orange-400'
-                  : 'text-white/40 hover:text-white/60'
-              }`}
-            >
-              {eventFilter === tab.key && (
-                <motion.div
-                  layoutId="eventFilterIndicator"
-                  className="absolute inset-0 rounded-lg bg-orange-500/10 border border-orange-500/15"
-                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                />
-              )}
-              <span className="relative z-10">{tab.label}</span>
-            </motion.button>
-          ))}
-        </div>
-
-        {/* Event List */}
-        <div className="glass-card rounded-2xl overflow-hidden divide-y divide-white/[0.03]">
-          <AnimatePresence mode="popLayout">
-            {filteredRecentEvents.length === 0 ? (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="empty-state py-12"
-              >
-                <AlertTriangle className="w-10 h-10 text-white/10 mb-3" />
-                <p className="text-sm text-white/40 font-medium">No events found</p>
-                <p className="text-xs text-white/25 mt-1">Try a different filter</p>
-              </motion.div>
-            ) : (
-              filteredRecentEvents.map((event, i) => {
-                const statusColor = getStatusColor(event.status)
-                return (
-                  <motion.div
-                    key={event.id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 10 }}
-                    transition={{ delay: i * 0.03 }}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-all duration-200"
-                  >
-                    {/* Status indicator dot */}
-                    <div
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{
-                        backgroundColor: statusColor,
-                        boxShadow: `0 0 6px ${statusColor}60`
-                      }}
+        {allEventLogs.length === 0 ? (
+          <div className="glass-card rounded-2xl py-10 text-center">
+            <Activity className="w-8 h-8 text-white/10 mx-auto mb-2" />
+            <p className="text-xs text-white/30 font-medium">No events recorded</p>
+            <p className="text-[10px] text-white/20 mt-1">Events will appear here when webhooks are triggered</p>
+          </div>
+        ) : (
+          <>
+            {/* Filter Tabs */}
+            <div className="flex gap-1 p-1 rounded-xl bg-white/[0.03] border border-white/5 mb-3">
+              {filterTabs.map((tab) => (
+                <motion.button
+                  key={tab.key}
+                  onClick={() => setEventFilter(tab.key)}
+                  whileTap={{ scale: 0.95 }}
+                  className={`relative flex-1 flex items-center justify-center py-2 rounded-lg text-[10px] font-semibold transition-all duration-200 ${
+                    eventFilter === tab.key
+                      ? 'text-orange-400'
+                      : 'text-white/40 hover:text-white/60'
+                  }`}
+                >
+                  {eventFilter === tab.key && (
+                    <motion.div
+                      layoutId="eventFilterIndicator"
+                      className="absolute inset-0 rounded-lg bg-orange-500/10 border border-orange-500/15"
+                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                     />
+                  )}
+                  <span className="relative z-10">{tab.label}</span>
+                </motion.button>
+              ))}
+            </div>
 
-                    {/* Event details */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${getEventBadgeColor(event.eventType)}`}>
-                          {event.eventType.split('.')[1]}
-                        </span>
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${getStatusBgClass(event.status)}`}>
-                          {event.status} {event.status < 300 ? 'OK' : event.status < 400 ? 'Redirect' : event.status === 404 ? 'Not Found' : 'Server Error'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Response time & timestamp */}
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-[10px] font-mono text-white/50">{event.responseTime}ms</p>
-                      <p className="text-[9px] text-white/25 mt-0.5">{event.timestamp}</p>
-                    </div>
+            {/* Event List */}
+            <div className="glass-card rounded-2xl overflow-hidden divide-y divide-white/[0.03]">
+              <AnimatePresence mode="popLayout">
+                {filteredRecentEvents.length === 0 ? (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="empty-state py-12"
+                  >
+                    <AlertTriangle className="w-10 h-10 text-white/10 mb-3" />
+                    <p className="text-sm text-white/40 font-medium">No events found</p>
+                    <p className="text-xs text-white/25 mt-1">Try a different filter</p>
                   </motion.div>
-                )
-              })
-            )}
-          </AnimatePresence>
-        </div>
+                ) : (
+                  filteredRecentEvents.map((event, i) => {
+                    const statusColor = event.status >= 200 && event.status < 300 ? '#22c55e' : event.status >= 300 && event.status < 400 ? '#f59e0b' : '#ef4444'
+                    return (
+                      <motion.div
+                        key={event.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 10 }}
+                        transition={{ delay: i * 0.03 }}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-all duration-200"
+                      >
+                        {/* Status indicator dot */}
+                        <div
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{
+                            backgroundColor: statusColor,
+                            boxShadow: `0 0 6px ${statusColor}60`
+                          }}
+                        />
+
+                        {/* Event details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${getEventBadgeColor(event.eventType)}`}>
+                              {event.eventType.split('.')[1]}
+                            </span>
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${getStatusBgClass(event.status)}`}>
+                              {event.status} {event.status < 300 ? 'OK' : event.status < 400 ? 'Redirect' : event.status === 404 ? 'Not Found' : 'Server Error'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Response time & timestamp */}
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-[10px] font-mono text-white/50">{event.responseTime}ms</p>
+                          <p className="text-[9px] text-white/25 mt-0.5">{event.timestamp}</p>
+                        </div>
+                      </motion.div>
+                    )
+                  })
+                )}
+              </AnimatePresence>
+            </div>
+          </>
+        )}
       </motion.div>
 
       {/* Webhook Configuration Modal (Bottom Sheet) */}

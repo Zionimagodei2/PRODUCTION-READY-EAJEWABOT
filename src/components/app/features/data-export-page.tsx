@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { useToastStore } from '@/store/toast-store'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -32,12 +32,12 @@ interface ExportHistoryItem {
   status: 'completed' | 'failed'
 }
 
-const exportOptions: ExportOption[] = [
+const defaultExportOptions: ExportOption[] = [
   {
     id: 'contacts',
     icon: <Users className="w-5 h-5" />,
     title: 'Contacts',
-    recordCount: 1284,
+    recordCount: 0,
     formats: ['csv', 'json', 'vcard'],
     color: '#22c55e',
     description: 'All contact information and tags',
@@ -46,7 +46,7 @@ const exportOptions: ExportOption[] = [
     id: 'campaigns',
     icon: <Megaphone className="w-5 h-5" />,
     title: 'Campaigns',
-    recordCount: 47,
+    recordCount: 0,
     formats: ['csv', 'pdf'],
     color: '#3b82f6',
     description: 'Campaign details and delivery stats',
@@ -55,7 +55,7 @@ const exportOptions: ExportOption[] = [
     id: 'messages',
     icon: <MessageSquare className="w-5 h-5" />,
     title: 'Messages',
-    recordCount: 15230,
+    recordCount: 0,
     formats: ['csv', 'json'],
     color: '#8b5cf6',
     description: 'Message logs and delivery receipts',
@@ -64,19 +64,11 @@ const exportOptions: ExportOption[] = [
     id: 'analytics',
     icon: <BarChart3 className="w-5 h-5" />,
     title: 'Analytics',
-    recordCount: 365,
+    recordCount: 0,
     formats: ['csv', 'pdf'],
     color: '#ec4899',
     description: 'Performance metrics and trends',
   },
-]
-
-const exportHistory: ExportHistoryItem[] = [
-  { id: '1', title: 'Contacts Export', format: 'CSV', date: 'Mar 4, 2026 2:30 PM', size: '2.4 MB', status: 'completed' },
-  { id: '2', title: 'Campaign Report', format: 'PDF', date: 'Mar 3, 2026 11:15 AM', size: '1.8 MB', status: 'completed' },
-  { id: '3', title: 'Message Log', format: 'JSON', date: 'Mar 2, 2026 4:45 PM', size: '5.1 MB', status: 'completed' },
-  { id: '4', title: 'Analytics Report', format: 'PDF', date: 'Mar 1, 2026 9:00 AM', size: '3.2 MB', status: 'completed' },
-  { id: '5', title: 'Contacts Export', format: 'vCard', date: 'Feb 28, 2026 3:20 PM', size: '4.7 MB', status: 'failed' },
 ]
 
 const dateRangeOptions: { id: DateRange; label: string }[] = [
@@ -93,73 +85,45 @@ const formatConfig: Record<ExportFormat, { icon: React.ReactNode; label: string;
   pdf: { icon: <FileText className="w-3.5 h-3.5" />, label: 'PDF', color: '#ef4444' },
 }
 
-function generateMockCSV(type: string): string {
-  if (type === 'contacts') {
-    return 'Name,Phone,Email,Company,Tags,Status\nJohn Doe,+1234567890,john@example.com,Acme Inc,"VIP,Active",Active\nSarah Miller,+447911123456,sarah@example.com,Tech Corp,"Lead,New",Active\nMike Johnson,+15551234567,mike@example.com,Global Ltd,"Customer",Inactive\nEmma Wilson,+61412345678,emma@example.com,StartUp Co,"Prospect",Active\n'
-  }
-  if (type === 'campaigns') {
-    return 'Campaign Name,Status,Sent,Delivered,Replied,Delivery Rate\nProduct Launch Promo,Completed,452,401,89,88.7%\nFlash Sale Alert,Active,1247,1147,234,92.0%\nWelcome Series,Completed,312,296,78,94.9%\nMonthly Digest,Scheduled,0,0,0,N/A\n'
-  }
-  if (type === 'messages') {
-    return 'Timestamp,Contact,Direction,Message,Status\n2026-03-04 14:30,John Doe,Outgoing,Hey John! Check our new product,Delivered\n2026-03-04 14:31,John Doe,Incoming,Thanks! I will check it out,Read\n2026-03-04 15:00,Sarah Miller,Outgoing,Hi Sarah! Your order is ready,Delivered\n'
-  }
-  return 'Date,Messages Sent,Messages Delivered,Replies,Delivery Rate,Reply Rate\n2026-03-04,452,401,89,88.7%,22.2%\n2026-03-03,380,352,76,92.6%,21.6%\n2026-03-02,520,489,112,94.0%,22.9%\n'
-}
-
-function generateMockJSON(type: string): string {
-  if (type === 'contacts') {
-    return JSON.stringify([
-      { name: 'John Doe', phone: '+1234567890', email: 'john@example.com', company: 'Acme Inc', tags: ['VIP', 'Active'], status: 'Active' },
-      { name: 'Sarah Miller', phone: '+447911123456', email: 'sarah@example.com', company: 'Tech Corp', tags: ['Lead', 'New'], status: 'Active' },
-      { name: 'Mike Johnson', phone: '+15551234567', email: 'mike@example.com', company: 'Global Ltd', tags: ['Customer'], status: 'Inactive' },
-    ], null, 2)
-  }
-  if (type === 'messages') {
-    return JSON.stringify([
-      { timestamp: '2026-03-04T14:30:00Z', contact: 'John Doe', direction: 'Outgoing', message: 'Hey John! Check our new product', status: 'Delivered' },
-      { timestamp: '2026-03-04T14:31:00Z', contact: 'John Doe', direction: 'Incoming', message: 'Thanks! I will check it out', status: 'Read' },
-    ], null, 2)
-  }
-  return JSON.stringify({ date: '2026-03-04', messagesSent: 452, messagesDelivered: 401, replies: 89, deliveryRate: '88.7%', replyRate: '22.2%' }, null, 2)
-}
-
-function generateMockVCard(): string {
-  return `BEGIN:VCARD
-VERSION:3.0
-FN:John Doe
-TEL:+1234567890
-EMAIL:john@example.com
-ORG:Acme Inc
-END:VCARD
-BEGIN:VCARD
-VERSION:3.0
-FN:Sarah Miller
-TEL:+447911123456
-EMAIL:sarah@example.com
-ORG:Tech Corp
-END:VCARD
-BEGIN:VCARD
-VERSION:3.0
-FN:Mike Johnson
-TEL:+15551234567
-EMAIL:mike@example.com
-ORG:Global Ltd
-END:VCARD`
-}
-
 export function DataExportPage() {
   const { goBack } = useAppStore()
   const { addToast } = useToastStore()
   const [dateRange, setDateRange] = useState<DateRange>('30d')
   const [exportingId, setExportingId] = useState<string | null>(null)
   const [exportProgress, setExportProgress] = useState(0)
+  const [exportOptions, setExportOptions] = useState<ExportOption[]>(defaultExportOptions)
+  const [exportHistory, setExportHistory] = useState<ExportHistoryItem[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // Fetch real record counts from the API
+  useEffect(() => {
+    async function fetchCounts() {
+      try {
+        const res = await fetch('/api/export')
+        if (res.ok) {
+          const data = await res.json()
+          queueMicrotask(() => {
+            setExportOptions(prev => prev.map(opt => ({
+              ...opt,
+              recordCount: data[opt.id as keyof typeof data] ?? 0,
+            })))
+          })
+        }
+      } catch (error) {
+        console.error('Failed to fetch export counts:', error)
+      } finally {
+        queueMicrotask(() => setLoading(false))
+      }
+    }
+    fetchCounts()
+  }, [])
 
   const handleExport = useCallback(
-    (option: ExportOption, format: ExportFormat) => {
+    async (option: ExportOption, format: ExportFormat) => {
       setExportingId(option.id)
       setExportProgress(0)
 
-      // Simulate export progress
+      // Show progress animation
       const progressInterval = setInterval(() => {
         setExportProgress((prev) => {
           if (prev >= 90) {
@@ -170,47 +134,97 @@ export function DataExportPage() {
         })
       }, 200)
 
-      // Simulate export delay then download
-      setTimeout(() => {
-        clearInterval(progressInterval)
-        setExportProgress(100)
+      try {
+        if (format === 'vcard') {
+          // vCard: fetch contacts and generate vCard locally
+          const contactsRes = await fetch('/api/contacts')
+          if (contactsRes.ok) {
+            const contacts = await contactsRes.json()
+            const vcardContent = contacts.map((c: { name: string; phone: string; email: string; company: string }) =>
+              `BEGIN:VCARD\nVERSION:3.0\nFN:${c.name}\nTEL:${c.phone}\nEMAIL:${c.email}\nORG:${c.company}\nEND:VCARD`
+            ).join('\n')
 
-        let content: string
-        let mimeType: string
-        let extension: string
+            clearInterval(progressInterval)
+            setExportProgress(100)
 
-        if (format === 'csv') {
-          content = generateMockCSV(option.id)
-          mimeType = 'text/csv'
-          extension = 'csv'
-        } else if (format === 'json') {
-          content = generateMockJSON(option.id)
-          mimeType = 'application/json'
-          extension = 'json'
-        } else if (format === 'vcard') {
-          content = generateMockVCard()
-          mimeType = 'text/vcard'
-          extension = 'vcf'
+            const blob = new Blob([vcardContent], { type: 'text/vcard' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `eaje-contacts-${new Date().toISOString().slice(0, 10)}.vcf`
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            URL.revokeObjectURL(url)
+
+            addToHistory(option.title, 'vCard', vcardContent.length)
+          }
+        } else if (format === 'pdf') {
+          // PDF: generate a simple text report since we can't generate real PDF client-side
+          clearInterval(progressInterval)
+          setExportProgress(100)
+
+          const res = await fetch('/api/stats')
+          let reportContent = `EAJE WhatsBot - ${option.title} Report\nGenerated: ${new Date().toLocaleString()}\nDate Range: ${dateRangeOptions.find(d => d.id === dateRange)?.label}\n\n`
+          if (res.ok) {
+            const stats = await res.json()
+            reportContent += `Summary Statistics:\n`
+            reportContent += `Total Sent: ${stats.totalSent}\n`
+            reportContent += `Total Delivered: ${stats.totalDelivered}\n`
+            reportContent += `Total Replies: ${stats.totalReplies}\n`
+            reportContent += `Delivery Rate: ${stats.deliveryRate}%\n`
+            reportContent += `Reply Rate: ${stats.replyRate}%\n`
+            reportContent += `Total Contacts: ${stats.totalContacts}\n`
+            reportContent += `Total Campaigns: ${stats.totalCampaigns}\n`
+          }
+
+          const blob = new Blob([reportContent], { type: 'text/plain' })
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `eaje-${option.id}-${new Date().toISOString().slice(0, 10)}.txt`
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+          URL.revokeObjectURL(url)
+
+          addToHistory(option.title, 'PDF', reportContent.length)
         } else {
-          // PDF - generate a simple text file as placeholder
-          content = `EAJE WhatsBot - ${option.title} Report\nGenerated: ${new Date().toLocaleString()}\nDate Range: ${dateRangeOptions.find(d => d.id === dateRange)?.label}\n\nThis is a simulated PDF export.\nIn production, this would contain formatted charts and tables.`
-          mimeType = 'text/plain'
-          extension = 'txt'
+          // CSV/JSON: call the real export API
+          const res = await fetch('/api/export', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: option.id, format }),
+          })
+
+          clearInterval(progressInterval)
+          setExportProgress(100)
+
+          if (res.ok) {
+            const content = await res.text()
+            const mimeType = format === 'csv' ? 'text/csv' : 'application/json'
+            const extension = format === 'csv' ? 'csv' : 'json'
+
+            const blob = new Blob([content], { type: mimeType })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `eaje-${option.id}-${new Date().toISOString().slice(0, 10)}.${extension}`
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            URL.revokeObjectURL(url)
+
+            addToHistory(option.title, format.toUpperCase(), content.length)
+          } else {
+            addToast({
+              type: 'error',
+              title: 'Export Failed',
+              message: `Failed to export ${option.title} as ${format.toUpperCase()}`,
+              duration: 3000,
+            })
+          }
         }
-
-        // Create Blob and trigger download
-        const blob = new Blob([content], { type: mimeType })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `eaje-${option.id}-${new Date().toISOString().slice(0, 10)}.${extension}`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
-
-        setExportingId(null)
-        setExportProgress(0)
 
         addToast({
           type: 'success',
@@ -218,10 +232,39 @@ export function DataExportPage() {
           message: `${option.title} exported as ${format.toUpperCase()} successfully`,
           duration: 3000,
         })
-      }, 1500)
+      } catch (error) {
+        console.error('Export error:', error)
+        addToast({
+          type: 'error',
+          title: 'Export Failed',
+          message: `Failed to export ${option.title}`,
+          duration: 3000,
+        })
+      } finally {
+        setExportingId(null)
+        setExportProgress(0)
+      }
     },
     [dateRange, addToast]
   )
+
+  function addToHistory(title: string, format: string, byteSize: number) {
+    const sizeStr = byteSize > 1024 * 1024
+      ? `${(byteSize / (1024 * 1024)).toFixed(1)} MB`
+      : byteSize > 1024
+        ? `${(byteSize / 1024).toFixed(1)} KB`
+        : `${byteSize} B`
+
+    const newItem: ExportHistoryItem = {
+      id: Date.now().toString(),
+      title: `${title} Export`,
+      format,
+      date: new Date().toLocaleString(),
+      size: sizeStr,
+      status: 'completed',
+    }
+    setExportHistory(prev => [newItem, ...prev].slice(0, 10))
+  }
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-5">
@@ -308,7 +351,13 @@ export function DataExportPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <h3 className="text-[13px] font-bold text-white/90">{option.title}</h3>
-                  <span className="text-[10px] text-white/30 font-medium">{option.recordCount.toLocaleString()} records</span>
+                  <span className="text-[10px] text-white/30 font-medium">
+                    {loading ? (
+                      <Loader2 className="w-3 h-3 animate-spin inline" />
+                    ) : (
+                      `${option.recordCount.toLocaleString()} records`
+                    )}
+                  </span>
                 </div>
                 <p className="text-[11px] text-white/40 mt-0.5">{option.description}</p>
 
@@ -346,24 +395,25 @@ export function DataExportPage() {
                   {option.formats.map((format) => {
                     const config = formatConfig[format]
                     const isExporting = exportingId === option.id
+                    const noRecords = !loading && option.recordCount === 0
                     return (
                       <motion.button
                         key={format}
-                        onClick={() => !isExporting && handleExport(option, format)}
-                        disabled={isExporting}
-                        whileTap={!isExporting ? { scale: 0.95 } : undefined}
+                        onClick={() => !isExporting && !noRecords && handleExport(option, format)}
+                        disabled={isExporting || noRecords}
+                        whileTap={!isExporting && !noRecords ? { scale: 0.95 } : undefined}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all duration-200 ${
-                          isExporting
+                          isExporting || noRecords
                             ? 'bg-white/[0.02] text-white/20 border border-white/[0.04] cursor-not-allowed'
                             : 'bg-white/[0.04] text-white/50 border border-white/[0.08] hover:bg-white/[0.08] hover:text-white/70 hover:border-white/[0.12]'
                         }`}
                         style={
-                          !isExporting
+                          !isExporting && !noRecords
                             ? { boxShadow: `0 0 10px ${config.color}08` }
                             : undefined
                         }
                       >
-                        <div style={{ color: isExporting ? 'rgba(255,255,255,0.2)' : config.color }}>
+                        <div style={{ color: isExporting || noRecords ? 'rgba(255,255,255,0.2)' : config.color }}>
                           {config.icon}
                         </div>
                         {config.label}
@@ -387,48 +437,56 @@ export function DataExportPage() {
           <Clock className="w-4 h-4 text-white/30" />
           <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Export History</span>
         </div>
-        <div className="glass-card rounded-2xl overflow-hidden divide-y divide-white/[0.04]">
-          {exportHistory.map((item, i) => (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.4 + i * 0.05 }}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors"
-            >
-              <div
-                className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                  item.status === 'completed'
-                    ? 'bg-emerald-500/10 border border-emerald-500/20'
-                    : 'bg-red-500/10 border border-red-500/20'
-                }`}
+        {exportHistory.length > 0 ? (
+          <div className="glass-card rounded-2xl overflow-hidden divide-y divide-white/[0.04]">
+            {exportHistory.map((item, i) => (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.4 + i * 0.05 }}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors"
               >
-                {item.status === 'completed' ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                ) : (
-                  <HardDrive className="w-4 h-4 text-red-400" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-[12px] text-white/75 font-medium truncate">{item.title}</p>
-                  <span
-                    className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-white/[0.04] text-white/30 border border-white/[0.06]"
-                  >
-                    {item.format}
-                  </span>
+                <div
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                    item.status === 'completed'
+                      ? 'bg-emerald-500/10 border border-emerald-500/20'
+                      : 'bg-red-500/10 border border-red-500/20'
+                  }`}
+                >
+                  {item.status === 'completed' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  ) : (
+                    <HardDrive className="w-4 h-4 text-red-400" />
+                  )}
                 </div>
-                <p className="text-[10px] text-white/30 mt-0.5">{item.date}</p>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <p className="text-[11px] text-white/40 font-medium">{item.size}</p>
-                <p className={`text-[9px] font-semibold mt-0.5 ${item.status === 'completed' ? 'text-emerald-400/60' : 'text-red-400/60'}`}>
-                  {item.status === 'completed' ? 'Success' : 'Failed'}
-                </p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-[12px] text-white/75 font-medium truncate">{item.title}</p>
+                    <span
+                      className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-white/[0.04] text-white/30 border border-white/[0.06]"
+                    >
+                      {item.format}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-white/30 mt-0.5">{item.date}</p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-[11px] text-white/40 font-medium">{item.size}</p>
+                  <p className={`text-[9px] font-semibold mt-0.5 ${item.status === 'completed' ? 'text-emerald-400/60' : 'text-red-400/60'}`}>
+                    {item.status === 'completed' ? 'Success' : 'Failed'}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          <div className="glass-card rounded-2xl p-8 text-center">
+            <Clock className="w-10 h-10 mx-auto text-white/10 mb-3" />
+            <p className="text-sm text-white/40 font-medium">No exports yet</p>
+            <p className="text-xs text-white/20 mt-1">Your export history will appear here</p>
+          </div>
+        )}
       </motion.div>
     </div>
   )

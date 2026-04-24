@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '@/store/app-store'
 import { useToastStore } from '@/store/toast-store'
@@ -15,31 +15,70 @@ interface ColumnMapping {
   contactField: string
 }
 
+interface ParsedCSV {
+  filename: string
+  size: string
+  rowCount: number
+  columns: string[]
+  rows: Record<string, string>[]
+}
+
 const contactFields = [
   { value: '', label: 'Skip this column' },
   { value: 'name', label: 'Name' },
   { value: 'phone', label: 'Phone' },
   { value: 'tags', label: 'Tags' },
   { value: 'email', label: 'Email' },
+  { value: 'company', label: 'Company' },
+  { value: 'location', label: 'Location' },
 ]
 
-const mockCsvData = {
-  filename: 'contacts_2024.csv',
-  size: '12.4 KB',
-  rowCount: 48,
-  columns: ['Full Name', 'Mobile Number', 'Contact Tags', 'Email Address', 'Company'],
-  rows: [
-    { 'Full Name': 'Alice Johnson', 'Mobile Number': '+1 555 0101', 'Contact Tags': 'customer,vip', 'Email Address': 'alice@example.com', 'Company': 'TechCorp' },
-    { 'Full Name': 'Bob Williams', 'Mobile Number': '+44 7700 900001', 'Contact Tags': 'lead', 'Email Address': 'bob@example.com', 'Company': 'DesignHub' },
-    { 'Full Name': 'Carol Davis', 'Mobile Number': '+86 138 0001 0001', 'Contact Tags': 'customer', 'Email Address': 'carol@example.com', 'Company': 'SalesForce' },
-    { 'Full Name': 'Dan Smith', 'Mobile Number': '+1 555 0102', 'Contact Tags': 'prospect', 'Email Address': 'dan@example.com', 'Company': 'Acme Inc' },
-    { 'Full Name': 'Eva Brown', 'Mobile Number': '+49 151 1234 5678', 'Contact Tags': 'lead,hot', 'Email Address': 'eva@example.com', 'Company': 'InnovateGmbH' },
-  ],
+function parseCSVText(text: string): { columns: string[]; rows: Record<string, string>[] } {
+  const lines = text.trim().split(/\r?\n/)
+  if (lines.length < 2) return { columns: [], rows: [] }
+
+  // Detect delimiter
+  const firstLine = lines[0]
+  const delimiter = firstLine.includes('\t') ? '\t' : firstLine.includes(';') ? ';' : ','
+
+  const columns = firstLine.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''))
+  const rows: Record<string, string>[] = []
+
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue
+    const values = lines[i].split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''))
+    const row: Record<string, string> = {}
+    columns.forEach((col, j) => {
+      row[col] = values[j] || ''
+    })
+    rows.push(row)
+  }
+
+  return { columns, rows }
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+// Auto-detect column mapping based on header names
+function autoDetectMapping(col: string): string {
+  const lower = col.toLowerCase().trim()
+  if (lower.includes('name') || lower.includes('nom') || lower === 'full name') return 'name'
+  if (lower.includes('phone') || lower.includes('mobile') || lower.includes('tel') || lower.includes('cell') || lower.includes('number')) return 'phone'
+  if (lower.includes('tag') || lower.includes('label') || lower.includes('group') || lower.includes('category')) return 'tags'
+  if (lower.includes('email') || lower.includes('mail') || lower.includes('courriel')) return 'email'
+  if (lower.includes('company') || lower.includes('org') || lower.includes('business') || lower.includes('entreprise')) return 'company'
+  if (lower.includes('city') || lower.includes('location') || lower.includes('address') || lower.includes('ville')) return 'location'
+  return ''
 }
 
 export function ContactImportPage() {
   const { goBack, setActiveTab } = useAppStore()
   const { addToast } = useToastStore()
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [fileUploaded, setFileUploaded] = useState(false)
   const [columnMappings, setColumnMappings] = useState<ColumnMapping[]>([])
@@ -48,31 +87,60 @@ export function ContactImportPage() {
   const [isImporting, setIsImporting] = useState(false)
   const [importComplete, setImportComplete] = useState(false)
   const [importResults, setImportResults] = useState({ success: 0, errors: 0, skipped: 0 })
+  const [csvData, setCsvData] = useState<ParsedCSV | null>(null)
 
-  const handleUpload = useCallback(() => {
-    // Simulate file upload with mock data
-    setFileUploaded(true)
-    const initialMappings = mockCsvData.columns.map((col) => ({
-      csvColumn: col,
-      contactField: '',
-    }))
-    // Auto-detect mappings
-    initialMappings[0].contactField = 'name'
-    initialMappings[1].contactField = 'phone'
-    initialMappings[2].contactField = 'tags'
-    initialMappings[3].contactField = 'email'
-    // Skip 'Company' column
-    setColumnMappings(initialMappings)
-    addToast({ type: 'success', title: 'File Loaded', message: `${mockCsvData.rowCount} rows found` })
+  const processFile = useCallback((file: File) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const text = e.target?.result as string
+      if (!text) {
+        addToast({ type: 'error', title: 'File Error', message: 'Could not read file' })
+        return
+      }
+
+      const { columns, rows } = parseCSVText(text)
+      if (columns.length === 0 || rows.length === 0) {
+        addToast({ type: 'error', title: 'Invalid CSV', message: 'File appears to be empty or invalid' })
+        return
+      }
+
+      const parsed: ParsedCSV = {
+        filename: file.name,
+        size: formatFileSize(file.size),
+        rowCount: rows.length,
+        columns,
+        rows,
+      }
+      setCsvData(parsed)
+      setFileUploaded(true)
+
+      // Auto-detect mappings
+      const initialMappings = columns.map((col) => ({
+        csvColumn: col,
+        contactField: autoDetectMapping(col),
+      }))
+      setColumnMappings(initialMappings)
+      addToast({ type: 'success', title: 'File Loaded', message: `${rows.length} rows found in ${file.name}` })
+    }
+    reader.onerror = () => {
+      addToast({ type: 'error', title: 'Read Error', message: 'Failed to read file' })
+    }
+    reader.readAsText(file)
   }, [addToast])
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) processFile(file)
+  }, [processFile])
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault()
       setIsDragOver(false)
-      handleUpload()
+      const file = e.dataTransfer.files?.[0]
+      if (file) processFile(file)
     },
-    [handleUpload]
+    [processFile]
   )
 
   const updateMapping = useCallback((index: number, field: string) => {
@@ -81,45 +149,67 @@ export function ContactImportPage() {
     )
   }, [])
 
-  const handleImport = useCallback(() => {
+  const handleImport = useCallback(async () => {
     const hasPhone = columnMappings.some((m) => m.contactField === 'phone')
     if (!hasPhone) {
       addToast({ type: 'warning', title: 'Missing Phone Mapping', message: 'Map at least one column to Phone' })
       return
     }
+    if (!csvData) return
 
     setIsImporting(true)
     setImportProgress(0)
 
-    const total = mockCsvData.rowCount
-    let current = 0
     let success = 0
     let errors = 0
     let skipped = 0
+    const total = csvData.rows.length
 
-    const interval = setInterval(() => {
-      current++
-      const rand = Math.random()
-      if (rand < 0.85) success++
-      else if (rand < 0.92) errors++
-      else skipped++
+    // Import contacts one by one (or in small batches)
+    for (let i = 0; i < total; i++) {
+      const row = csvData.rows[i]
+      const contactData: Record<string, string> = {}
+      columnMappings.forEach((mapping) => {
+        if (mapping.contactField) {
+          contactData[mapping.contactField] = row[mapping.csvColumn] || ''
+        }
+      })
 
-      setImportProgress(Math.round((current / total) * 100))
-
-      if (current >= total) {
-        clearInterval(interval)
-        setIsImporting(false)
-        setImportComplete(true)
-        setImportResults({ success, errors, skipped })
-        addToast({
-          type: 'success',
-          title: 'Import Complete!',
-          message: `${success} imported, ${errors} errors, ${skipped} skipped`,
-          duration: 5000,
-        })
+      // Skip if no phone number
+      if (!contactData.phone || contactData.phone.trim().length < 5) {
+        skipped++
+        setImportProgress(Math.round(((i + 1) / total) * 100))
+        continue
       }
-    }, 80)
-  }, [columnMappings, addToast])
+
+      try {
+        const res = await fetch('/api/contacts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(contactData),
+        })
+        if (res.ok) {
+          success++
+        } else {
+          errors++
+        }
+      } catch {
+        errors++
+      }
+
+      setImportProgress(Math.round(((i + 1) / total) * 100))
+    }
+
+    setIsImporting(false)
+    setImportComplete(true)
+    setImportResults({ success, errors, skipped })
+    addToast({
+      type: 'success',
+      title: 'Import Complete!',
+      message: `${success} imported, ${errors} errors, ${skipped} skipped`,
+      duration: 5000,
+    })
+  }, [columnMappings, csvData, addToast])
 
   const handleViewContacts = useCallback(() => {
     setActiveTab('contacts')
@@ -132,6 +222,8 @@ export function ContactImportPage() {
     setIsImporting(false)
     setImportComplete(false)
     setImportResults({ success: 0, errors: 0, skipped: 0 })
+    setCsvData(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }, [])
 
   return (
@@ -154,6 +246,15 @@ export function ContactImportPage() {
           <p className="text-[10px] text-white/40 mt-0.5">Import contacts from CSV files</p>
         </div>
       </div>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv,.tsv,.txt"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
 
       {/* Upload Area */}
       <AnimatePresence mode="wait">
@@ -188,7 +289,7 @@ export function ContactImportPage() {
               <p className="text-[11px] text-white/35">or</p>
             </div>
             <motion.button
-              onClick={handleUpload}
+              onClick={() => fileInputRef.current?.click()}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500/20 to-cyan-500/10 border border-cyan-500/25 text-cyan-300 text-xs font-semibold hover:from-cyan-500/30 hover:to-cyan-500/15 transition-all"
@@ -196,9 +297,9 @@ export function ContactImportPage() {
             >
               <FolderOpen className="w-3.5 h-3.5" /> Browse Files
             </motion.button>
-            <p className="text-[10px] text-white/20">Supports CSV, TSV, and XLSX formats</p>
+            <p className="text-[10px] text-white/20">Supports CSV and TSV formats • Max 10MB</p>
           </motion.div>
-        ) : (
+        ) : csvData ? (
           <motion.div
             key="file-info"
             initial={{ opacity: 0, y: 10 }}
@@ -213,14 +314,14 @@ export function ContactImportPage() {
                   <FileSpreadsheet className="w-5 h-5 text-cyan-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-white/90 truncate">{mockCsvData.filename}</p>
+                  <p className="text-sm font-semibold text-white/90 truncate">{csvData.filename}</p>
                   <div className="flex items-center gap-3 mt-0.5">
-                    <span className="text-[10px] text-white/35">{mockCsvData.size}</span>
+                    <span className="text-[10px] text-white/35">{csvData.size}</span>
                     <span className="text-[10px] text-white/35 flex items-center gap-1">
-                      <Table2 className="w-2.5 h-2.5" /> {mockCsvData.rowCount} rows
+                      <Table2 className="w-2.5 h-2.5" /> {csvData.rowCount} rows
                     </span>
                     <span className="text-[10px] text-white/35 flex items-center gap-1">
-                      <MapPin className="w-2.5 h-2.5" /> {mockCsvData.columns.length} cols
+                      <MapPin className="w-2.5 h-2.5" /> {csvData.columns.length} cols
                     </span>
                   </div>
                 </div>
@@ -276,7 +377,7 @@ export function ContactImportPage() {
                 <table className="w-full text-[10px]">
                   <thead>
                     <tr className="border-b border-white/[0.06]">
-                      {mockCsvData.columns.map((col) => (
+                      {csvData.columns.map((col) => (
                         <th key={col} className="text-left px-2 py-2 text-white/35 font-semibold whitespace-nowrap">
                           {col}
                         </th>
@@ -284,11 +385,11 @@ export function ContactImportPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {mockCsvData.rows.map((row, i) => (
+                    {csvData.rows.slice(0, 5).map((row, i) => (
                       <tr key={i} className="border-b border-white/[0.03] last:border-0">
-                        {mockCsvData.columns.map((col) => (
+                        {csvData.columns.map((col) => (
                           <td key={col} className="px-2 py-2 text-white/55 whitespace-nowrap">
-                            {row[col as keyof typeof row]}
+                            {row[col] || '—'}
                           </td>
                         ))}
                       </tr>
@@ -315,7 +416,7 @@ export function ContactImportPage() {
                     </>
                   ) : (
                     <>
-                      <Upload className="w-4 h-4" /> Import {mockCsvData.rowCount} Contacts
+                      <Upload className="w-4 h-4" /> Import {csvData.rowCount} Contacts
                     </>
                   )}
                 </motion.button>
@@ -390,7 +491,7 @@ export function ContactImportPage() {
               )}
             </AnimatePresence>
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
     </div>
   )

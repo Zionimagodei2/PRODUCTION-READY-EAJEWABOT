@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FileText, Download, Filter, Search, CheckCircle2, XCircle, Clock, Eye, ChevronDown, ArrowLeft, Hash, TrendingUp, AlertTriangle, BarChart3 } from 'lucide-react'
+import { FileText, Download, Search, CheckCircle2, XCircle, Eye, ChevronDown, ArrowLeft, Hash, TrendingUp, AlertTriangle, BarChart3, Loader2 } from 'lucide-react'
 
 interface Report {
   id: string
@@ -17,21 +17,72 @@ interface Report {
   status: 'completed' | 'partial' | 'failed'
 }
 
-const mockReports: Report[] = [
-  { id: '1', campaignName: 'Product Launch Promo', date: '2024-01-15', totalSent: 1000, delivered: 912, read: 756, replied: 234, failed: 88, status: 'completed' },
-  { id: '2', campaignName: 'Weekly Newsletter #12', date: '2024-01-14', totalSent: 500, delivered: 467, read: 389, replied: 67, failed: 33, status: 'completed' },
-  { id: '3', campaignName: 'Holiday Greetings', date: '2024-01-10', totalSent: 800, delivered: 756, read: 612, replied: 92, failed: 44, status: 'completed' },
-  { id: '4', campaignName: 'Flash Sale Alert', date: '2024-01-14', totalSent: 600, delivered: 510, read: 398, replied: 45, failed: 90, status: 'partial' },
-  { id: '5', campaignName: 'Customer Follow-up', date: '2024-01-13', totalSent: 200, delivered: 145, read: 89, replied: 12, failed: 55, status: 'failed' },
-]
+interface CampaignData {
+  id: string
+  name: string
+  status: string
+  total: number
+  sent: number
+  delivered: number
+  replies: number
+  message: string
+  date: string
+  createdAt: string
+  updatedAt: string
+}
+
+function campaignToReport(c: CampaignData): Report {
+  const failed = c.sent > 0 ? c.sent - c.delivered : 0
+  const read = Math.round(c.delivered * 0.78) // Estimate since we don't track read separately
+  let status: Report['status'] = 'partial'
+  if (c.status === 'completed' || (c.sent > 0 && (c.delivered / c.sent) >= 0.85)) {
+    status = 'completed'
+  } else if (c.sent > 0 && (c.delivered / c.sent) < 0.5) {
+    status = 'failed'
+  }
+  return {
+    id: c.id,
+    campaignName: c.name,
+    date: new Date(c.createdAt).toISOString().slice(0, 10),
+    totalSent: c.sent,
+    delivered: c.delivered,
+    read,
+    replied: c.replies,
+    failed,
+    status,
+  }
+}
 
 export function CampaignReportsPage() {
   const { goBack } = useAppStore()
   const [search, setSearch] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [filter, setFilter] = useState<string>('all')
+  const [reports, setReports] = useState<Report[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const filtered = mockReports.filter(r => {
+  useEffect(() => {
+    async function fetchCampaigns() {
+      try {
+        const res = await fetch('/api/campaigns')
+        if (res.ok) {
+          const campaigns: CampaignData[] = await res.json()
+          // Only include campaigns that have been sent (sent > 0) or are completed
+          const reportData = campaigns
+            .filter(c => c.sent > 0 || c.status === 'completed')
+            .map(campaignToReport)
+          queueMicrotask(() => setReports(reportData))
+        }
+      } catch (error) {
+        console.error('Failed to fetch campaign reports:', error)
+      } finally {
+        queueMicrotask(() => setLoading(false))
+      }
+    }
+    fetchCampaigns()
+  }, [])
+
+  const filtered = reports.filter(r => {
     const matchSearch = r.campaignName.toLowerCase().includes(search.toLowerCase())
     const matchFilter = filter === 'all' || r.status === filter
     return matchSearch && matchFilter
@@ -43,11 +94,30 @@ export function CampaignReportsPage() {
     failed: { color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', label: 'Failed', glow: '0 0 10px rgba(239,68,68,0.15)' },
   }
 
-  // Summary stats
-  const totalSent = mockReports.reduce((a, r) => a + r.totalSent, 0)
-  const totalDelivered = mockReports.reduce((a, r) => a + r.delivered, 0)
-  const totalFailed = mockReports.reduce((a, r) => a + r.failed, 0)
-  const avgDeliveryRate = ((totalDelivered / totalSent) * 100).toFixed(1)
+  // Summary stats from real data
+  const totalSent = reports.reduce((a, r) => a + r.totalSent, 0)
+  const totalDelivered = reports.reduce((a, r) => a + r.delivered, 0)
+  const totalFailed = reports.reduce((a, r) => a + r.failed, 0)
+  const avgDeliveryRate = totalSent > 0 ? ((totalDelivered / totalSent) * 100).toFixed(1) : '0.0'
+
+  if (loading) {
+    return (
+      <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-5">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-white/[0.04] border border-white/[0.08]">
+            <ArrowLeft className="w-4 h-4 text-white/70" />
+          </div>
+          <div className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-red-400" />
+            <h2 className="text-lg font-extrabold text-white/95">Campaign Reports</h2>
+          </div>
+        </div>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 text-red-400 animate-spin" />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-5">
@@ -151,9 +221,9 @@ export function CampaignReportsPage() {
 
         {filtered.map((report, i) => {
           const config = statusConfig[report.status]
-          const deliveryRate = ((report.delivered / report.totalSent) * 100).toFixed(1)
-          const readRate = ((report.read / report.delivered) * 100).toFixed(1)
-          const replyRate = ((report.replied / report.read) * 100).toFixed(1)
+          const deliveryRate = report.totalSent > 0 ? ((report.delivered / report.totalSent) * 100).toFixed(1) : '0.0'
+          const readRate = report.delivered > 0 ? ((report.read / report.delivered) * 100).toFixed(1) : '0.0'
+          const replyRate = report.read > 0 ? ((report.replied / report.read) * 100).toFixed(1) : '0.0'
           const isExpanded = expandedId === report.id
 
           return (
@@ -211,7 +281,7 @@ export function CampaignReportsPage() {
                   <div
                     className="h-full rounded-full"
                     style={{
-                      width: `${(report.delivered / report.totalSent) * 100}%`,
+                      width: report.totalSent > 0 ? `${(report.delivered / report.totalSent) * 100}%` : '0%',
                       background: report.status === 'completed'
                         ? 'linear-gradient(90deg, rgba(34,197,94,0.5), rgba(34,197,94,0.8))'
                         : report.status === 'partial'
@@ -264,12 +334,12 @@ export function CampaignReportsPage() {
                               <motion.div
                                 className="h-full rounded-full"
                                 style={{
-                                  width: `${(stat.value / stat.total) * 100}%`,
+                                  width: stat.total > 0 ? `${(stat.value / stat.total) * 100}%` : '0%',
                                   background: `linear-gradient(90deg, ${stat.color}50, ${stat.color})`,
                                   boxShadow: `0 0 4px ${stat.color}30`,
                                 }}
                                 initial={{ width: 0 }}
-                                animate={{ width: `${(stat.value / stat.total) * 100}%` }}
+                                animate={{ width: stat.total > 0 ? `${(stat.value / stat.total) * 100}%` : '0%' }}
                                 transition={{ duration: 0.4 }}
                               />
                             </div>
@@ -300,8 +370,12 @@ export function CampaignReportsPage() {
           className="glass-card rounded-2xl p-8 text-center"
         >
           <FileText className="w-10 h-10 mx-auto text-white/10 mb-3" />
-          <p className="text-sm text-white/40 font-medium">No reports found</p>
-          <p className="text-xs text-white/20 mt-1">Try adjusting your search or filters</p>
+          <p className="text-sm text-white/40 font-medium">
+            {reports.length === 0 ? 'No campaign reports yet' : 'No reports found'}
+          </p>
+          <p className="text-xs text-white/20 mt-1">
+            {reports.length === 0 ? 'Reports will appear when campaigns are sent' : 'Try adjusting your search or filters'}
+          </p>
         </motion.div>
       )}
     </div>

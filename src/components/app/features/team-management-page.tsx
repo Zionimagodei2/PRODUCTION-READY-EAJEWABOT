@@ -88,78 +88,6 @@ const allPermissions = [
   'API Access',
 ]
 
-const mockMembers: TeamMember[] = [
-  {
-    id: '1',
-    name: 'Sarah Chen',
-    email: 'sarah@eaje.com',
-    role: 'admin',
-    avatarColor: '#8b5cf6',
-    isOnline: true,
-    lastActive: 'Now',
-    permissions: allPermissions,
-  },
-  {
-    id: '2',
-    name: 'Mike Johnson',
-    email: 'mike@eaje.com',
-    role: 'manager',
-    avatarColor: '#3b82f6',
-    isOnline: true,
-    lastActive: 'Now',
-    permissions: ['Campaigns', 'Contacts', 'Templates', 'Analytics'],
-  },
-  {
-    id: '3',
-    name: 'Emma Wilson',
-    email: 'emma@eaje.com',
-    role: 'agent',
-    avatarColor: '#22c55e',
-    isOnline: false,
-    lastActive: '15m ago',
-    permissions: ['Campaigns', 'Contacts'],
-  },
-  {
-    id: '4',
-    name: 'Alex Rivera',
-    email: 'alex@eaje.com',
-    role: 'agent',
-    avatarColor: '#f97316',
-    isOnline: true,
-    lastActive: 'Now',
-    permissions: ['Campaigns', 'Contacts', 'Templates'],
-  },
-  {
-    id: '5',
-    name: 'Lisa Park',
-    email: 'lisa@eaje.com',
-    role: 'viewer',
-    avatarColor: '#ec4899',
-    isOnline: false,
-    lastActive: '2h ago',
-    permissions: ['Analytics'],
-  },
-  {
-    id: '6',
-    name: 'David Kim',
-    email: 'david@eaje.com',
-    role: 'manager',
-    avatarColor: '#06b6d4',
-    isOnline: false,
-    lastActive: '1h ago',
-    permissions: ['Campaigns', 'Contacts', 'Analytics'],
-  },
-]
-
-const mockActivity: ActivityEntry[] = [
-  { id: '1', type: 'member_added', memberName: 'Alex Rivera', detail: 'Added as Agent', timestamp: '2m ago', color: '#22c55e' },
-  { id: '2', type: 'login', memberName: 'Sarah Chen', detail: 'Logged in from Chrome', timestamp: '15m ago', color: '#3b82f6' },
-  { id: '3', type: 'role_changed', memberName: 'Mike Johnson', detail: 'Promoted to Manager', timestamp: '1h ago', color: '#8b5cf6' },
-  { id: '4', type: 'permission_updated', memberName: 'Emma Wilson', detail: 'Templates access granted', timestamp: '2h ago', color: '#f59e0b' },
-  { id: '5', type: 'login', memberName: 'Lisa Park', detail: 'Logged in from Safari', timestamp: '3h ago', color: '#3b82f6' },
-  { id: '6', type: 'member_removed', memberName: 'Tom Baker', detail: 'Removed from team', timestamp: '5h ago', color: '#ef4444' },
-]
-
 const activityIcons: Record<ActivityEntry['type'], React.ReactNode> = {
   member_added: <UserPlus className="w-3.5 h-3.5" />,
   role_changed: <Crown className="w-3.5 h-3.5" />,
@@ -168,26 +96,31 @@ const activityIcons: Record<ActivityEntry['type'], React.ReactNode> = {
   member_removed: <X className="w-3.5 h-3.5" />,
 }
 
+const avatarColors = ['#8b5cf6', '#3b82f6', '#22c55e', '#f97316', '#ec4899', '#06b6d4', '#f59e0b', '#ef4444']
+
 export function TeamManagementPage() {
   const { goBack } = useAppStore()
   const { addToast } = useToastStore()
 
+  const [members, setMembers] = useState<TeamMember[]>([])
+  const [activityLog, setActivityLog] = useState<ActivityEntry[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<Role | 'all'>('all')
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteName, setInviteName] = useState('')
   const [inviteRole, setInviteRole] = useState<Role>('agent')
   const [invitePermissions, setInvitePermissions] = useState<string[]>(['Campaigns', 'Contacts'])
   const [isInviting, setIsInviting] = useState(false)
 
-  const onlineCount = mockMembers.filter(m => m.isOnline).length
+  const onlineCount = members.filter(m => m.isOnline).length
   const roleCounts: Record<string, number> = {}
-  mockMembers.forEach(m => {
+  members.forEach(m => {
     roleCounts[m.role] = (roleCounts[m.role] || 0) + 1
   })
 
   const filteredMembers = useMemo(() => {
-    let filtered = mockMembers
+    let filtered = members
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       filtered = filtered.filter(m =>
@@ -198,7 +131,7 @@ export function TeamManagementPage() {
       filtered = filtered.filter(m => m.role === roleFilter)
     }
     return filtered
-  }, [searchQuery, roleFilter])
+  }, [searchQuery, roleFilter, members])
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').slice(0, 2)
@@ -213,27 +146,68 @@ export function TeamManagementPage() {
   }, [])
 
   const handleInvite = useCallback(() => {
+    if (!inviteName.trim()) {
+      addToast({ type: 'warning', title: 'Name Required', message: 'Please enter the team member\'s name' })
+      return
+    }
     if (!inviteEmail.trim() || !inviteEmail.includes('@')) {
       addToast({ type: 'warning', title: 'Invalid Email', message: 'Please enter a valid email address' })
       return
     }
     setIsInviting(true)
     setTimeout(() => {
+      const newMember: TeamMember = {
+        id: Date.now().toString(),
+        name: inviteName.trim(),
+        email: inviteEmail.trim(),
+        role: inviteRole,
+        avatarColor: avatarColors[members.length % avatarColors.length],
+        isOnline: true,
+        lastActive: 'Now',
+        permissions: [...invitePermissions],
+      }
+      setMembers(prev => [...prev, newMember])
+
+      const newActivity: ActivityEntry = {
+        id: Date.now().toString(),
+        type: 'member_added',
+        memberName: inviteName.trim(),
+        detail: `Added as ${roleConfig[inviteRole].label}`,
+        timestamp: 'Just now',
+        color: '#22c55e',
+      }
+      setActivityLog(prev => [newActivity, ...prev])
+
       setIsInviting(false)
       setShowInviteModal(false)
       setInviteEmail('')
+      setInviteName('')
       setInvitePermissions(['Campaigns', 'Contacts'])
       addToast({
         type: 'success',
-        title: 'Invitation Sent!',
-        message: `Invite sent to ${inviteEmail} as ${roleConfig[inviteRole].label}`,
+        title: 'Member Added!',
+        message: `${inviteName} has been added as ${roleConfig[inviteRole].label}`,
         duration: 4000,
       })
     }, 1500)
-  }, [inviteEmail, inviteRole, addToast])
+  }, [inviteName, inviteEmail, inviteRole, invitePermissions, members.length, addToast])
+
+  const handleRemoveMember = useCallback((member: TeamMember) => {
+    setMembers(prev => prev.filter(m => m.id !== member.id))
+    const newActivity: ActivityEntry = {
+      id: Date.now().toString(),
+      type: 'member_removed',
+      memberName: member.name,
+      detail: 'Removed from team',
+      timestamp: 'Just now',
+      color: '#ef4444',
+    }
+    setActivityLog(prev => [newActivity, ...prev])
+    addToast({ type: 'info', title: 'Member Removed', message: `${member.name} has been removed from the team` })
+  }, [addToast])
 
   const filterTabs: { key: Role | 'all'; label: string; count: number }[] = [
-    { key: 'all', label: 'All', count: mockMembers.length },
+    { key: 'all', label: 'All', count: members.length },
     { key: 'admin', label: 'Admin', count: roleCounts['admin'] || 0 },
     { key: 'manager', label: 'Manager', count: roleCounts['manager'] || 0 },
     { key: 'agent', label: 'Agent', count: roleCounts['agent'] || 0 },
@@ -270,13 +244,15 @@ export function TeamManagementPage() {
           <div className="w-7 h-7 mx-auto rounded-lg bg-purple-500/10 flex items-center justify-center mb-1.5">
             <Users className="w-3.5 h-3.5 text-purple-400" />
           </div>
-          <p className="text-xl font-extrabold text-white/95">{mockMembers.length}</p>
+          <p className="text-xl font-extrabold text-white/95">{members.length}</p>
           <p className="text-[9px] text-white/50 font-semibold">Members</p>
         </div>
         <div className="glass-card rounded-xl p-3 text-center stat-card-green">
           <div className="w-7 h-7 mx-auto rounded-lg bg-green-500/10 flex items-center justify-center mb-1.5 relative">
             <Activity className="w-3.5 h-3.5 text-green-400" />
-            <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full animate-breathe bg-green-400" style={{ color: '#22c55e' }} />
+            {onlineCount > 0 && (
+              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full animate-breathe bg-green-400" style={{ color: '#22c55e' }} />
+            )}
           </div>
           <p className="text-xl font-extrabold text-white/95">{onlineCount}</p>
           <p className="text-[9px] text-white/50 font-semibold">Online</p>
@@ -330,7 +306,30 @@ export function TeamManagementPage() {
       {/* Team Members List */}
       <div className="glass-card rounded-2xl overflow-hidden divide-y divide-white/[0.04]">
         <AnimatePresence mode="popLayout">
-          {filteredMembers.length === 0 ? (
+          {members.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="py-16 text-center"
+            >
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-purple-500/10 border border-purple-500/15 flex items-center justify-center">
+                <Users className="w-8 h-8 text-purple-400/50" />
+              </div>
+              <p className="text-sm text-white/50 font-semibold mb-1">No team members yet</p>
+              <p className="text-xs text-white/30 mb-4 max-w-[240px] mx-auto">
+                Add team members to collaborate on campaigns, contacts, and more.
+              </p>
+              <motion.button
+                onClick={() => setShowInviteModal(true)}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-500/20 to-purple-500/10 border border-purple-500/25 text-purple-300 font-semibold text-xs hover:from-purple-500/30 hover:to-purple-500/15 transition-all"
+                style={{ boxShadow: '0 0 18px rgba(139,92,246,0.15)' }}
+              >
+                <UserPlus className="w-3.5 h-3.5" /> Add Team Member
+              </motion.button>
+            </motion.div>
+          ) : filteredMembers.length === 0 ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -400,13 +399,19 @@ export function TeamManagementPage() {
                     </div>
                   </div>
 
-                  {/* Status & Time */}
+                  {/* Status & Actions */}
                   <div className="flex flex-col items-end gap-1 flex-shrink-0">
                     <span className="text-[9px] text-white/25 flex items-center gap-1">
                       <Clock className="w-2.5 h-2.5" />
                       {member.lastActive}
                     </span>
-                    <ChevronRight className="w-3.5 h-3.5 text-white/10 group-hover:text-white/30 transition-colors" />
+                    <motion.button
+                      onClick={(e) => { e.stopPropagation(); handleRemoveMember(member) }}
+                      whileTap={{ scale: 0.9 }}
+                      className="text-[9px] text-red-400/40 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      Remove
+                    </motion.button>
                   </div>
                 </motion.div>
               )
@@ -416,15 +421,17 @@ export function TeamManagementPage() {
       </div>
 
       {/* Invite Button */}
-      <motion.button
-        onClick={() => setShowInviteModal(true)}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.97 }}
-        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-purple-500/20 to-purple-500/10 border border-purple-500/25 text-purple-300 font-semibold text-sm hover:from-purple-500/30 hover:to-purple-500/15 transition-all"
-        style={{ boxShadow: '0 0 18px rgba(139,92,246,0.15)' }}
-      >
-        <UserPlus className="w-4 h-4" /> Invite Team Member
-      </motion.button>
+      {members.length > 0 && (
+        <motion.button
+          onClick={() => setShowInviteModal(true)}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.97 }}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-purple-500/20 to-purple-500/10 border border-purple-500/25 text-purple-300 font-semibold text-sm hover:from-purple-500/30 hover:to-purple-500/15 transition-all"
+          style={{ boxShadow: '0 0 18px rgba(139,92,246,0.15)' }}
+        >
+          <UserPlus className="w-4 h-4" /> Invite Team Member
+        </motion.button>
+      )}
 
       {/* Role Definitions */}
       <div>
@@ -475,30 +482,38 @@ export function TeamManagementPage() {
           </div>
           <div className="flex-1 h-px bg-gradient-to-r from-amber-500/20 to-transparent" />
         </div>
-        <div className="glass-card rounded-2xl overflow-hidden divide-y divide-white/[0.04]">
-          {mockActivity.map((entry, i) => (
-            <motion.div
-              key={entry.id}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 + i * 0.04 }}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors"
-            >
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: `${entry.color}12`, border: `1px solid ${entry.color}20` }}
+        {activityLog.length === 0 ? (
+          <div className="glass-card rounded-2xl py-10 text-center">
+            <Activity className="w-8 h-8 text-white/10 mx-auto mb-2" />
+            <p className="text-xs text-white/30 font-medium">No activity yet</p>
+            <p className="text-[10px] text-white/20 mt-1">Team activity will appear here as members are added</p>
+          </div>
+        ) : (
+          <div className="glass-card rounded-2xl overflow-hidden divide-y divide-white/[0.04]">
+            {activityLog.map((entry, i) => (
+              <motion.div
+                key={entry.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 + i * 0.04 }}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors"
               >
-                <div style={{ color: entry.color }}>{activityIcons[entry.type]}</div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] text-white/75 font-medium truncate">
-                  <span className="font-bold text-white/90">{entry.memberName}</span> — {entry.detail}
-                </p>
-                <p className="text-[9px] text-white/30 mt-0.5">{entry.timestamp}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: `${entry.color}12`, border: `1px solid ${entry.color}20` }}
+                >
+                  <div style={{ color: entry.color }}>{activityIcons[entry.type]}</div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] text-white/75 font-medium truncate">
+                    <span className="font-bold text-white/90">{entry.memberName}</span> — {entry.detail}
+                  </p>
+                  <p className="text-[9px] text-white/30 mt-0.5">{entry.timestamp}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Invite Modal */}
@@ -525,8 +540,23 @@ export function TeamManagementPage() {
                   <UserPlus className="w-5 h-5 text-purple-400" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white/95">Invite Team Member</h3>
-                  <p className="text-[10px] text-white/40">Send an invitation to join your team</p>
+                  <h3 className="text-sm font-bold text-white/95">Add Team Member</h3>
+                  <p className="text-[10px] text-white/40">Add a new member to your team</p>
+                </div>
+              </div>
+
+              {/* Name */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] text-white/50 font-medium">Full Name</label>
+                <div className="relative">
+                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                  <input
+                    type="text"
+                    value={inviteName}
+                    onChange={(e) => setInviteName(e.target.value)}
+                    placeholder="Jane Doe"
+                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white/90 placeholder:text-white/20 focus:outline-none focus:border-purple-500/30 transition-all"
+                  />
                 </div>
               </div>
 
@@ -618,11 +648,11 @@ export function TeamManagementPage() {
                 >
                   {isInviting ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" /> Sending...
+                      <Loader2 className="w-4 h-4 animate-spin" /> Adding...
                     </>
                   ) : (
                     <>
-                      <UserPlus className="w-4 h-4" /> Send Invite
+                      <UserPlus className="w-4 h-4" /> Add Member
                     </>
                   )}
                 </motion.button>
