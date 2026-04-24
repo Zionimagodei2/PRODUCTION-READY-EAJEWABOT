@@ -71,8 +71,9 @@ export function ResponseTimePage() {
       try {
         const res = await fetch('/api/conversations')
         if (res.ok) {
-          const data: ConversationMessage[] = await res.json()
-          queueMicrotask(() => setConversations(data))
+          const responseData = await res.json()
+          const conversations: ConversationMessage[] = responseData.conversations || []
+          queueMicrotask(() => setConversations(conversations))
         } else {
           queueMicrotask(() => setError('Failed to load conversations'))
         }

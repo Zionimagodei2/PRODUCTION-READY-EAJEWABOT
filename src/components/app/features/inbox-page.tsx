@@ -100,7 +100,8 @@ export function InboxPage() {
       setError(null)
       const res = await fetch('/api/conversations')
       if (!res.ok) throw new Error('Failed to fetch conversations')
-      const data: ApiConversation[] = await res.json()
+      const responseData = await res.json()
+      const data: ApiConversation[] = responseData.conversations || []
 
       // Group by contactId to create threads
       const threadMap = new Map<string, ApiConversation[]>()

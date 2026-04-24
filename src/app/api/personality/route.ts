@@ -24,11 +24,21 @@ export async function GET() {
       })
     }
 
+    // Get auto-reply enabled setting from the Setting table
+    let autoReplyEnabled = false
+    const setting = await db.setting.findUnique({ where: { key: 'autoReplyEnabled' } })
+    if (setting) {
+      autoReplyEnabled = setting.value === 'true'
+    }
+
     return NextResponse.json({
-      ...profile,
-      lastTrainedAt: profile.lastTrainedAt.toISOString(),
-      createdAt: profile.createdAt.toISOString(),
-      updatedAt: profile.updatedAt.toISOString(),
+      profile: {
+        ...profile,
+        lastTrainedAt: profile.lastTrainedAt.toISOString(),
+        createdAt: profile.createdAt.toISOString(),
+        updatedAt: profile.updatedAt.toISOString(),
+      },
+      autoReplyEnabled,
     })
   } catch (error) {
     console.error('Personality GET error:', error)
@@ -109,10 +119,12 @@ export async function POST(request: Request) {
       }
 
       return NextResponse.json({
-        ...profile,
-        lastTrainedAt: profile.lastTrainedAt.toISOString(),
-        createdAt: profile.createdAt.toISOString(),
-        updatedAt: profile.updatedAt.toISOString(),
+        profile: {
+          ...profile,
+          lastTrainedAt: profile.lastTrainedAt.toISOString(),
+          createdAt: profile.createdAt.toISOString(),
+          updatedAt: profile.updatedAt.toISOString(),
+        },
         trained: true,
         conversationsAnalyzed: conversations.length,
       })
@@ -182,7 +194,50 @@ export async function POST(request: Request) {
       return NextResponse.json({ reply, personalityUsed: profile.tone })
     }
 
-    return NextResponse.json({ error: 'Invalid action. Use "train" or "generate-reply"' }, { status: 400 })
+    if (action === 'toggle-auto-reply') {
+      // Toggle auto-reply on/off
+      const { enabled } = body
+      await db.setting.upsert({
+        where: { key: 'autoReplyEnabled' },
+        update: { value: String(!!enabled) },
+        create: { key: 'autoReplyEnabled', value: String(!!enabled) },
+      })
+      return NextResponse.json({ autoReplyEnabled: !!enabled })
+    }
+
+    if (action === 'import-conversations') {
+      // Parse WhatsApp export text and save as conversations
+      const { conversations } = body
+      if (!conversations || typeof conversations !== 'string') {
+        return NextResponse.json({ error: 'Conversations text is required' }, { status: 400 })
+      }
+
+      // Parse WhatsApp format: "1/15/24, 10:30 AM - Name: Message"
+      const lines = conversations.split('\n').filter((l: string) => l.trim())
+      let count = 0
+
+      for (const line of lines) {
+        // Match pattern: date, time - Name: Message
+        const match = line.match(/^\d{1,2}\/\d{1,2}\/\d{2,4},?\s*\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?\s*-\s*([^:]+):\s*(.+)$/)
+        if (match) {
+          const [, name, content] = match
+          const isOutgoing = name.trim().toLowerCase() === 'you' || name.trim().toLowerCase() === 'vous'
+          
+          await db.conversation.create({
+            data: {
+              contactName: isOutgoing ? 'You' : name.trim(),
+              direction: isOutgoing ? 'outgoing' : 'incoming',
+              content: content.trim(),
+            },
+          })
+          count++
+        }
+      }
+
+      return NextResponse.json({ count, message: `Imported ${count} messages` })
+    }
+
+    return NextResponse.json({ error: 'Invalid action. Use "train", "generate-reply", "toggle-auto-reply", or "import-conversations"' }, { status: 400 })
   } catch (error) {
     console.error('Personality POST error:', error)
     return NextResponse.json({ error: 'Failed to process personality request' }, { status: 500 })

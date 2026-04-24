@@ -233,6 +233,13 @@ export function SchedulerPage() {
           <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Scheduled Messages</span>
           <div className="flex-1 h-px bg-gradient-to-r from-purple-500/20 to-transparent" />
         </div>
+        {messages.length === 0 ? (
+          <div className="glass-card rounded-2xl p-8 text-center">
+            <CalendarIcon className="w-10 h-10 mx-auto text-white/10 mb-3" />
+            <p className="text-sm text-white/40 font-medium">No scheduled messages yet</p>
+            <p className="text-xs text-white/20 mt-1">Schedule a message to send at the perfect time</p>
+          </div>
+        ) : (
         <div className="space-y-2.5">
           {messages.map((msg, i) => {
             const config = statusConfig[msg.status] || statusConfig.pending
@@ -292,6 +299,7 @@ export function SchedulerPage() {
             )
           })}
         </div>
+        )}
       </div>
 
       {/* FAB */}

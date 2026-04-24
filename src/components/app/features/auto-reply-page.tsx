@@ -241,9 +241,16 @@ export function AutoReplyPage() {
       <div className="space-y-2.5">
         <div className="flex items-center gap-2 mb-1">
           <ToggleLeft className="w-4 h-4 text-blue-400/70" />
-          <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Active Rules</span>
+          <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Your Rules</span>
           <div className="flex-1 h-px bg-gradient-to-r from-blue-500/20 to-transparent" />
         </div>
+        {rules.length === 0 ? (
+          <div className="glass-card rounded-2xl p-8 text-center">
+            <MessageSquare className="w-10 h-10 mx-auto text-white/10 mb-3" />
+            <p className="text-sm text-white/40 font-medium">No auto-reply rules yet</p>
+            <p className="text-xs text-white/20 mt-1">Create a rule to automatically respond to messages</p>
+          </div>
+        ) : null}
         {rules.map((rule, i) => (
           <motion.div
             key={rule.id}

@@ -92,8 +92,18 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const body = await request.json()
-    const { id } = body
+    // Support both query param (?id=xxx) and JSON body ({ id: xxx })
+    const { searchParams } = new URL(request.url)
+    let id = searchParams.get('id')
+
+    if (!id) {
+      try {
+        const body = await request.json()
+        id = body.id
+      } catch {
+        // No JSON body
+      }
+    }
 
     if (!id) {
       return NextResponse.json({ error: 'Template ID is required' }, { status: 400 })

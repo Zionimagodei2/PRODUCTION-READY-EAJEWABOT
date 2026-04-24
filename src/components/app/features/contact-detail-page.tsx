@@ -83,8 +83,8 @@ export function ContactDetailPage() {
         // Fetch conversations for this contact
         const convosRes = await fetch(`/api/conversations?contactId=${selectedContactId}`)
         if (convosRes.ok) {
-          const convos = await convosRes.json()
-          setConversations(convos)
+          const data = await convosRes.json()
+          setConversations(data.conversations || [])
         }
       } catch {
         // Silent fail

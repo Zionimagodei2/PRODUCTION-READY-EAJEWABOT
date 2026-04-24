@@ -8,7 +8,7 @@ import {
   ArrowLeft, Wand2, ArrowRight, Check, CheckCheck, ChevronRight,
   Megaphone, MessageSquare, Bell, ClipboardList,
   Type, FileText, Image as ImageIcon, Variable, Calendar, Clock,
-  Repeat, Rocket, Users, Target, Send, Eye
+  Repeat, Rocket, Users, Target, Send, Eye, Trash2
 } from 'lucide-react'
 
 type Step = 1 | 2 | 3 | 4
@@ -633,38 +633,63 @@ export function CampaignWizardPage() {
                 </div>
               </div>
 
-              {/* Media Upload Placeholder */}
+              {/* Media Upload */}
               <div className="space-y-1.5">
                 <label className="text-[11px] font-medium text-white/50 flex items-center gap-1">
                   <ImageIcon className="w-3 h-3" /> Media Attachment
                 </label>
-                <motion.button
-                  onClick={() => {
-                    setMediaFile(mediaFile ? null : 'sample-image.jpg')
-                    addToast({
-                      type: mediaFile ? 'info' : 'success',
-                      title: mediaFile ? 'Media Removed' : 'Media Added',
-                      message: mediaFile ? 'Attachment removed' : 'sample-image.jpg attached',
-                    })
-                  }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="w-full p-4 rounded-xl border-2 border-dashed border-white/10 hover:border-blue-500/30 transition-colors flex flex-col items-center gap-2 bg-white/[0.02]"
+                <motion.div
+                  whileHover={{ scale: 1.01 }}
+                  className="w-full"
                 >
-                  {mediaFile ? (
-                    <>
-                      <ImageIcon className="w-6 h-6 text-blue-400" />
-                      <span className="text-xs text-blue-300 font-medium">{mediaFile}</span>
-                      <span className="text-[10px] text-white/25">Tap to remove</span>
-                    </>
-                  ) : (
-                    <>
-                      <ImageIcon className="w-6 h-6 text-white/20" />
-                      <span className="text-xs text-white/40">Tap to upload image</span>
-                      <span className="text-[10px] text-white/20">JPG, PNG, GIF up to 5MB</span>
-                    </>
-                  )}
-                </motion.button>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        setMediaFile(file.name)
+                        addToast({
+                          type: 'success',
+                          title: 'Media Added',
+                          message: `${file.name} attached`,
+                        })
+                      }
+                    }}
+                    className="hidden"
+                    id="media-upload"
+                  />
+                  <label
+                    htmlFor="media-upload"
+                    className="w-full p-4 rounded-xl border-2 border-dashed border-white/10 hover:border-blue-500/30 transition-colors flex flex-col items-center gap-2 bg-white/[0.02] cursor-pointer"
+                  >
+                    {mediaFile ? (
+                      <>
+                        <ImageIcon className="w-6 h-6 text-blue-400" />
+                        <span className="text-xs text-blue-300 font-medium">{mediaFile}</span>
+                        <span className="text-[10px] text-white/25">Click to change</span>
+                      </>
+                    ) : (
+                      <>
+                        <ImageIcon className="w-6 h-6 text-white/20" />
+                        <span className="text-xs text-white/40">Click to upload image</span>
+                        <span className="text-[10px] text-white/20">JPG, PNG, GIF up to 5MB</span>
+                      </>
+                    )}
+                  </label>
+                </motion.div>
+                {mediaFile && (
+                  <motion.button
+                    onClick={() => {
+                      setMediaFile(null)
+                      addToast({ type: 'info', title: 'Media Removed', message: 'Attachment removed' })
+                    }}
+                    whileTap={{ scale: 0.97 }}
+                    className="text-[10px] text-red-400/60 hover:text-red-400 transition-colors flex items-center gap-1 mt-1"
+                  >
+                    <Trash2 className="w-3 h-3" /> Remove attachment
+                  </motion.button>
+                )}
               </div>
             </div>
           </motion.div>

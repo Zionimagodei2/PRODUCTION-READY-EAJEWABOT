@@ -14,11 +14,16 @@ export async function GET(request: Request) {
       take: 100,
     })
 
-    return NextResponse.json(conversations.map(c => ({
-      ...c,
-      timestamp: c.timestamp.toISOString(),
-      createdAt: c.createdAt.toISOString(),
-    })))
+    const total = await db.conversation.count({ where })
+
+    return NextResponse.json({
+      total,
+      conversations: conversations.map(c => ({
+        ...c,
+        timestamp: c.timestamp.toISOString(),
+        createdAt: c.createdAt.toISOString(),
+      })),
+    })
   } catch (error) {
     console.error('Conversations GET error:', error)
     return NextResponse.json({ error: 'Failed to fetch conversations' }, { status: 500 })

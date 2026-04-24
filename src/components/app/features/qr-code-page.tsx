@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useCallback } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { useToastStore } from '@/store/toast-store'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -20,6 +20,7 @@ interface PastQrCode {
   label: string
   date: string
   value: string
+  dataUrl: string
 }
 
 const qrTypeOptions: { id: QrType; label: string; icon: React.ReactNode }[] = [
@@ -41,60 +42,12 @@ const qrColorOptions: { id: QrColor; label: string; color: string }[] = [
   { id: 'custom', label: 'Custom', color: '#06b6d4' },
 ]
 
-// Past QR codes start empty — generated codes are added to the list dynamically
-
 function getTypeLabel(type: QrType): string {
   switch (type) {
     case 'direct': return 'Direct Message'
     case 'prefilled': return 'Pre-filled Message'
     case 'group': return 'Group Invite'
   }
-}
-
-// Generate a mock QR code grid pattern
-function useQrGrid(size: number, seed: number) {
-  return useMemo(() => {
-    const gridSize = size === 140 ? 21 : size === 180 ? 25 : 29
-    const cellSize = size / gridSize
-    const grid: boolean[][] = []
-
-    // Simple seeded pseudo-random for consistent patterns
-    let s = seed
-    const rand = () => {
-      s = (s * 16807 + 0) % 2147483647
-      return (s - 1) / 2147483646
-    }
-
-    for (let row = 0; row < gridSize; row++) {
-      const rowArr: boolean[] = []
-      for (let col = 0; col < gridSize; col++) {
-        // Corner position markers (3 large squares in corners)
-        const isTopLeft = row < 7 && col < 7
-        const isTopRight = row < 7 && col >= gridSize - 7
-        const isBottomLeft = row >= gridSize - 7 && col < 7
-
-        if (isTopLeft || isTopRight || isBottomLeft) {
-          const r = isTopLeft ? row : isBottomLeft ? row - (gridSize - 7) : row
-          const c = isTopLeft ? col : isTopRight ? col - (gridSize - 7) : col
-          // Outer border
-          if (r === 0 || r === 6 || c === 0 || c === 6) {
-            rowArr.push(true)
-          }
-          // Inner square
-          else if (r >= 2 && r <= 4 && c >= 2 && c <= 4) {
-            rowArr.push(true)
-          } else {
-            rowArr.push(false)
-          }
-        } else {
-          // Random data pattern with ~50% fill
-          rowArr.push(rand() > 0.5)
-        }
-      }
-      grid.push(rowArr)
-    }
-    return { grid, gridSize, cellSize }
-  }, [size, seed])
 }
 
 export function QrCodePage() {
@@ -108,22 +61,49 @@ export function QrCodePage() {
   const [qrSize, setQrSize] = useState<QrSize>('medium')
   const [qrColor, setQrColor] = useState<QrColor>('black')
   const [isGenerated, setIsGenerated] = useState(false)
-  const [seed, setSeed] = useState(42)
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
+  const [isGenerating, setIsGenerating] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [pastQrCodes, setPastQrCodes] = useState<PastQrCode[]>([])
 
   const maxChars = 500
   const selectedSize = qrSizeOptions.find(s => s.id === qrSize)!
   const selectedColor = qrColorOptions.find(c => c.id === qrColor)!
-  const { grid, gridSize, cellSize } = useQrGrid(selectedSize.pixels, seed)
 
-  const handleGenerate = () => {
-    setSeed(Date.now())
-    setIsGenerated(true)
+  const getWhatsAppLink = useCallback(() => {
+    switch (qrType) {
+      case 'direct':
+        return phoneNumber ? `https://wa.me/${phoneNumber.replace(/[^0-9]/g, '')}` : ''
+      case 'prefilled':
+        return phoneNumber ? `https://wa.me/${phoneNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(messageText || prefilledMessage)}` : ''
+      case 'group':
+        return groupLink ? `https://chat.whatsapp.com/${groupLink.replace(/.*\//, '')}` : ''
+    }
+  }, [qrType, phoneNumber, messageText, prefilledMessage, groupLink])
 
-    // Add to past QR codes
+  const handleGenerate = async () => {
     const link = getWhatsAppLink()
-    if (link) {
+    if (!link) {
+      addToast({ type: 'warning', title: 'Missing Info', message: 'Please fill in the required fields' })
+      return
+    }
+
+    setIsGenerating(true)
+    try {
+      const QRCode = (await import('qrcode')).default
+      const dataUrl = await QRCode.toDataURL(link, {
+        width: selectedSize.pixels,
+        margin: 2,
+        color: {
+          dark: selectedColor.color,
+          light: '#ffffff',
+        },
+        errorCorrectionLevel: 'M',
+      })
+      setQrDataUrl(dataUrl)
+      setIsGenerated(true)
+
+      // Add to past QR codes
       const label = qrType === 'direct' ? phoneNumber
         : qrType === 'prefilled' ? (prefilledMessage || 'Pre-filled message')
         : groupLink
@@ -133,15 +113,21 @@ export function QrCodePage() {
         label: label || 'Untitled',
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
         value: link,
+        dataUrl,
       }, ...prev])
-    }
 
-    addToast({
-      type: 'success',
-      title: 'QR Code Generated',
-      message: 'Your WhatsApp QR code is ready',
-      duration: 3000,
-    })
+      addToast({
+        type: 'success',
+        title: 'QR Code Generated',
+        message: 'Your WhatsApp QR code is ready',
+        duration: 3000,
+      })
+    } catch (err) {
+      console.error('QR generation error:', err)
+      addToast({ type: 'error', title: 'Generation Failed', message: 'Could not generate QR code' })
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   const handleCopyToClipboard = (text: string, id?: string) => {
@@ -159,14 +145,40 @@ export function QrCodePage() {
     })
   }
 
-  const getWhatsAppLink = () => {
-    switch (qrType) {
-      case 'direct':
-        return phoneNumber ? `wa.me/${phoneNumber.replace(/[^0-9]/g, '')}` : ''
-      case 'prefilled':
-        return phoneNumber ? `wa.me/${phoneNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(messageText || prefilledMessage)}` : ''
-      case 'group':
-        return groupLink ? `chat.whatsapp.com/${groupLink.replace(/.*\//, '')}` : ''
+  const handleDownloadPng = () => {
+    if (!qrDataUrl) return
+    const link = document.createElement('a')
+    link.download = `whatsapp-qr-${Date.now()}.png`
+    link.href = qrDataUrl
+    link.click()
+    addToast({ type: 'success', title: 'Downloaded', message: 'QR code saved as PNG', duration: 2000 })
+  }
+
+  const handleDownloadSvg = async () => {
+    const waLink = getWhatsAppLink()
+    if (!waLink) return
+    try {
+      const QRCode = (await import('qrcode')).default
+      const svgString = await QRCode.toString(waLink, {
+        type: 'svg',
+        width: selectedSize.pixels,
+        margin: 2,
+        color: {
+          dark: selectedColor.color,
+          light: '#ffffff',
+        },
+        errorCorrectionLevel: 'M',
+      })
+      const blob = new Blob([svgString], { type: 'image/svg+xml' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.download = `whatsapp-qr-${Date.now()}.svg`
+      link.href = url
+      link.click()
+      URL.revokeObjectURL(url)
+      addToast({ type: 'success', title: 'Downloaded', message: 'QR code saved as SVG', duration: 2000 })
+    } catch {
+      addToast({ type: 'error', title: 'Download Failed', message: 'Could not generate SVG' })
     }
   }
 
@@ -339,19 +351,29 @@ export function QrCodePage() {
         <motion.button
           onClick={handleGenerate}
           whileTap={{ scale: 0.97 }}
-          className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500/20 to-cyan-600/20 text-cyan-400 font-bold text-sm border border-cyan-500/30 hover:border-cyan-500/50 transition-all"
+          disabled={isGenerating}
+          className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500/20 to-cyan-600/20 text-cyan-400 font-bold text-sm border border-cyan-500/30 hover:border-cyan-500/50 transition-all disabled:opacity-50"
           style={{ boxShadow: '0 0 20px rgba(6,182,212,0.15), 0 0 40px rgba(6,182,212,0.08)' }}
         >
           <div className="flex items-center justify-center gap-2">
-            <QrCode className="w-4 h-4" />
-            Generate QR Code
+            {isGenerating ? (
+              <>
+                <div className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <QrCode className="w-4 h-4" />
+                Generate QR Code
+              </>
+            )}
           </div>
         </motion.button>
       </motion.div>
 
       {/* QR Code Display */}
       <AnimatePresence>
-        {isGenerated && (
+        {isGenerated && qrDataUrl && (
           <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -365,7 +387,7 @@ export function QrCodePage() {
               <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Generated QR Code</span>
             </div>
 
-            {/* QR Code Visual */}
+            {/* QR Code Image */}
             <div className="flex justify-center mb-4">
               <div
                 className="rounded-2xl p-4 relative overflow-hidden"
@@ -377,41 +399,13 @@ export function QrCodePage() {
                 <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-cyan-400/30 rounded-bl-lg" />
                 <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-cyan-400/30 rounded-br-lg" />
 
-                <svg
+                <img
+                  src={qrDataUrl}
+                  alt="WhatsApp QR Code"
                   width={selectedSize.pixels}
                   height={selectedSize.pixels}
-                  viewBox={`0 0 ${selectedSize.pixels} ${selectedSize.pixels}`}
-                >
-                  {grid.map((row, r) =>
-                    row.map((cell, c) =>
-                      cell ? (
-                        <rect
-                          key={`${r}-${c}`}
-                          x={c * cellSize}
-                          y={r * cellSize}
-                          width={cellSize - 0.5}
-                          height={cellSize - 0.5}
-                          rx={0.5}
-                          fill={selectedColor.color}
-                        />
-                      ) : null
-                    )
-                  )}
-                  {/* Cyan accent dot in center */}
-                  <circle
-                    cx={selectedSize.pixels / 2}
-                    cy={selectedSize.pixels / 2}
-                    r={cellSize * 1.5}
-                    fill="#06b6d4"
-                    opacity={0.8}
-                  />
-                  <circle
-                    cx={selectedSize.pixels / 2}
-                    cy={selectedSize.pixels / 2}
-                    r={cellSize * 0.8}
-                    fill="#ffffff"
-                  />
-                </svg>
+                  className="block"
+                />
               </div>
             </div>
 
@@ -448,7 +442,7 @@ export function QrCodePage() {
             <div className="grid grid-cols-3 gap-2">
               <motion.button
                 whileTap={{ scale: 0.95 }}
-                onClick={() => addToast({ type: 'success', title: 'Downloaded', message: 'QR code saved as PNG', duration: 2000 })}
+                onClick={handleDownloadPng}
                 className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white/50 hover:bg-white/[0.08] hover:text-white/70 transition-all text-[10px] font-semibold"
               >
                 <FileImage className="w-3.5 h-3.5" />
@@ -456,7 +450,7 @@ export function QrCodePage() {
               </motion.button>
               <motion.button
                 whileTap={{ scale: 0.95 }}
-                onClick={() => addToast({ type: 'success', title: 'Downloaded', message: 'QR code saved as SVG', duration: 2000 })}
+                onClick={handleDownloadSvg}
                 className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white/50 hover:bg-white/[0.08] hover:text-white/70 transition-all text-[10px] font-semibold"
               >
                 <FileCode2 className="w-3.5 h-3.5" />
@@ -531,10 +525,14 @@ export function QrCodePage() {
                 className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors"
               >
                 <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.15)' }}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden"
+                  style={{ backgroundColor: '#ffffff', border: '1px solid rgba(6,182,212,0.15)' }}
                 >
-                  <QrCode className="w-4 h-4 text-cyan-400/70" />
+                  {item.dataUrl ? (
+                    <img src={item.dataUrl} alt="QR" width={28} height={28} />
+                  ) : (
+                    <QrCode className="w-4 h-4 text-cyan-400/70" />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">

@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Bot, Plus, Trash2, GripVertical, MessageSquare, ArrowRight, ArrowLeft, Save, Zap, GitBranch } from 'lucide-react'
+import { useToastStore } from '@/store/toast-store'
 
 interface FlowNode {
   id: string
@@ -19,74 +20,109 @@ interface ChatbotFlow {
   nodes: FlowNode[]
   active: boolean
   triggers: number
+  createdAt: string
+  updatedAt: string
 }
 
 export function ChatbotPage() {
   const { goBack } = useAppStore()
-  const [flows, setFlows] = useState<ChatbotFlow[]>([
-    {
-      id: '1',
-      name: 'Welcome Flow',
-      description: 'Greet new customers and collect their needs',
-      active: true,
-      triggers: 234,
-      nodes: [
-        { id: 'n1', type: 'message', content: 'Welcome to our store! How can we help you today?' },
-        { id: 'n2', type: 'condition', content: 'User responds with keyword' },
-        { id: 'n3', type: 'action', content: 'Route to appropriate department' },
-      ]
-    },
-    {
-      id: '2',
-      name: 'FAQ Bot',
-      description: 'Auto-answer frequently asked questions',
-      active: true,
-      triggers: 89,
-      nodes: [
-        { id: 'n1', type: 'message', content: 'Hi! I can help with pricing, hours, or shipping info.' },
-        { id: 'n2', type: 'condition', content: 'Detect intent from response' },
-        { id: 'n3', type: 'message', content: 'Send relevant FAQ answer' },
-      ]
-    },
-    {
-      id: '3',
-      name: 'Order Status',
-      description: 'Check and report order status automatically',
-      active: false,
-      triggers: 0,
-      nodes: [
-        { id: 'n1', type: 'message', content: 'Please share your order number.' },
-        { id: 'n2', type: 'action', content: 'Look up order in database' },
-      ]
-    },
-  ])
-
+  const { addToast } = useToastStore()
+  const [flows, setFlows] = useState<ChatbotFlow[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [selectedFlow, setSelectedFlow] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
 
-  const toggleFlow = (id: string) => {
-    setFlows(flows.map(f => f.id === id ? { ...f, active: !f.active } : f))
+  // Fetch flows from API
+  const fetchFlows = async () => {
+    try {
+      const res = await fetch('/api/chatbot')
+      if (res.ok) {
+        const data = await res.json()
+        setFlows(data)
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Failed to load chatbot flows' })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const deleteFlow = (id: string) => {
+  useEffect(() => {
+    fetchFlows()
+  }, [])
+
+  const toggleFlow = async (id: string) => {
+    const flow = flows.find(f => f.id === id)
+    if (!flow) return
+    // Optimistic update
+    setFlows(flows.map(f => f.id === id ? { ...f, active: !f.active } : f))
+    try {
+      const res = await fetch('/api/chatbot', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, active: !flow.active }),
+      })
+      if (!res.ok) {
+        // Rollback
+        setFlows(flows.map(f => f.id === id ? { ...f, active: flow.active } : f))
+        addToast({ type: 'error', title: 'Failed to toggle flow' })
+      } else {
+        addToast({ type: 'success', title: `Flow ${!flow.active ? 'activated' : 'deactivated'}` })
+      }
+    } catch {
+      // Rollback
+      setFlows(flows.map(f => f.id === id ? { ...f, active: flow.active } : f))
+      addToast({ type: 'error', title: 'Failed to toggle flow' })
+    }
+  }
+
+  const deleteFlow = async (id: string) => {
+    // Optimistic update
+    const previousFlows = flows
     setFlows(flows.filter(f => f.id !== id))
     if (selectedFlow === id) setSelectedFlow(null)
+    try {
+      const res = await fetch(`/api/chatbot?id=${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        setFlows(previousFlows)
+        addToast({ type: 'error', title: 'Failed to delete flow' })
+      } else {
+        addToast({ type: 'success', title: 'Flow deleted' })
+      }
+    } catch {
+      setFlows(previousFlows)
+      addToast({ type: 'error', title: 'Failed to delete flow' })
+    }
   }
 
-  const createFlow = () => {
+  const createFlow = async () => {
     if (!newName.trim()) return
-    setFlows([...flows, {
-      id: Date.now().toString(),
-      name: newName.trim(),
-      description: newDesc.trim() || 'New chatbot flow',
-      active: false,
-      triggers: 0,
-      nodes: [
-        { id: '1', type: 'message', content: 'Hello! How can I assist you?' },
-      ]
-    }])
+    try {
+      const res = await fetch('/api/chatbot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newName.trim(),
+          description: newDesc.trim() || 'New chatbot flow',
+          active: false,
+          triggers: 0,
+          nodes: [
+            { id: '1', type: 'message', content: 'Hello! How can I assist you?' },
+          ],
+        }),
+      })
+      if (res.ok) {
+        const newFlow = await res.json()
+        setFlows([newFlow, ...flows])
+        addToast({ type: 'success', title: 'Flow created' })
+      } else {
+        addToast({ type: 'error', title: 'Failed to create flow' })
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Failed to create flow' })
+    }
     setNewName('')
     setNewDesc('')
     setShowCreate(false)
@@ -97,6 +133,17 @@ export function ChatbotPage() {
     message: { bg: 'bg-blue-500/10', border: 'border-blue-500/20', text: 'text-blue-400', icon: <MessageSquare className="w-3.5 h-3.5" /> },
     condition: { bg: 'bg-amber-500/10', border: 'border-amber-500/20', text: 'text-amber-400', icon: <ArrowRight className="w-3.5 h-3.5" /> },
     action: { bg: 'bg-green-500/10', border: 'border-green-500/20', text: 'text-green-400', icon: <Bot className="w-3.5 h-3.5" /> },
+  }
+
+  if (isLoading) {
+    return (
+      <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-5">
+        <div className="glass-card rounded-2xl p-6 text-center">
+          <div className="skeleton-shimmer h-6 w-36 mx-auto rounded mb-3" />
+          <div className="skeleton-shimmer h-4 w-52 mx-auto rounded" />
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -200,84 +247,93 @@ export function ChatbotPage() {
           <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Your Flows</span>
           <div className="flex-1 h-px bg-gradient-to-r from-purple-500/20 to-transparent" />
         </div>
-        <div className="space-y-2.5">
-          {flows.map((flow, i) => (
-            <motion.div
-              key={flow.id}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.05 }}
-              className={`glass-card rounded-2xl overflow-hidden transition-all card-hover-lift ${selectedFlow === flow.id ? 'border border-purple-500/30' : ''}`}
-              style={selectedFlow === flow.id ? { boxShadow: '0 0 20px rgba(139,92,246,0.1)' } : undefined}
-            >
-              <div
-                className="p-4 cursor-pointer"
-                onClick={() => setSelectedFlow(selectedFlow === flow.id ? null : flow.id)}
+        {flows.length === 0 ? (
+          <div className="glass-card rounded-2xl p-8 text-center">
+            <Bot className="w-10 h-10 mx-auto text-white/10 mb-3" />
+            <p className="text-sm text-white/40 font-medium">No chatbot flows yet</p>
+            <p className="text-xs text-white/20 mt-1">Create your first flow to automate conversations</p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {flows.map((flow, i) => (
+              <motion.div
+                key={flow.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className={`glass-card rounded-2xl overflow-hidden transition-all card-hover-lift ${selectedFlow === flow.id ? 'border border-purple-500/30' : ''}`}
+                style={selectedFlow === flow.id ? { boxShadow: '0 0 20px rgba(139,92,246,0.1)' } : undefined}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-purple-500/10 border border-purple-500/15">
-                      <Bot className="w-4 h-4 text-purple-400" />
+                <div
+                  className="p-4 cursor-pointer"
+                  onClick={() => setSelectedFlow(selectedFlow === flow.id ? null : flow.id)}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-purple-500/10 border border-purple-500/15">
+                        <Bot className="w-4 h-4 text-purple-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-white/90">{flow.name}</h3>
+                        <p className="text-[10px] text-white/35">{Array.isArray(flow.nodes) ? flow.nodes.length : 0} nodes • {flow.triggers} triggers</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-white/90">{flow.name}</h3>
-                      <p className="text-[10px] text-white/35">{flow.nodes.length} nodes • {flow.triggers} triggers</p>
+                    <div className="flex items-center gap-2">
+                      <motion.button
+                        onClick={(e) => { e.stopPropagation(); toggleFlow(flow.id) }}
+                        whileTap={{ scale: 0.9 }}
+                        className={`w-10 h-5.5 rounded-full transition-colors relative ${flow.active ? 'bg-purple-500' : 'bg-white/10'}`}
+                        style={flow.active ? { boxShadow: '0 0 12px rgba(139,92,246,0.3)' } : undefined}
+                      >
+                        <div className="absolute top-0.5 rounded-full bg-white shadow transition-all"
+                          style={{ transform: flow.active ? 'translateX(20px)' : 'translateX(2px)', width: '18px', height: '18px' }}
+                        />
+                      </motion.button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <motion.button
-                      onClick={(e) => { e.stopPropagation(); toggleFlow(flow.id) }}
-                      whileTap={{ scale: 0.9 }}
-                      className={`w-10 h-5.5 rounded-full transition-colors relative ${flow.active ? 'bg-purple-500' : 'bg-white/10'}`}
-                      style={flow.active ? { boxShadow: '0 0 12px rgba(139,92,246,0.3)' } : undefined}
-                    >
-                      <div className="absolute top-0.5 rounded-full bg-white shadow transition-all"
-                        style={{ transform: flow.active ? 'translateX(20px)' : 'translateX(2px)', width: '18px', height: '18px' }}
-                      />
-                    </motion.button>
-                  </div>
+                  <p className="text-[11px] text-white/40">{flow.description}</p>
                 </div>
-                <p className="text-[11px] text-white/40">{flow.description}</p>
-              </div>
 
-              {/* Expanded flow detail */}
-              <AnimatePresence>
-                {selectedFlow === flow.id && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="border-t border-white/[0.04] p-4 space-y-2"
-                  >
-                    {flow.nodes.map((node, ni) => {
-                      const colors = nodeColors[node.type]
-                      return (
-                        <motion.div 
-                          key={node.id} 
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: ni * 0.05 }}
-                          className={`flex items-center gap-2.5 p-3 rounded-xl ${colors.bg} border ${colors.border} transition-all hover:brightness-110`}
-                        >
-                          <GripVertical className="w-3 h-3 text-white/15 cursor-grab" />
-                          <div className={colors.text}>{colors.icon}</div>
-                          <span className="text-[11px] text-white/65 flex-1">{node.content}</span>
-                        </motion.div>
-                      )
-                    })}
-                    <motion.button
-                      onClick={(e) => { e.stopPropagation(); deleteFlow(flow.id) }}
-                      whileTap={{ scale: 0.97 }}
-                      className="flex items-center gap-1.5 text-[10px] text-red-400/60 hover:text-red-400 transition-colors mt-3 ml-1"
+                {/* Expanded flow detail */}
+                <AnimatePresence>
+                  {selectedFlow === flow.id && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="border-t border-white/[0.04] p-4 space-y-2"
                     >
-                      <Trash2 className="w-3 h-3" /> Delete Flow
-                    </motion.button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          ))}
-        </div>
+                      {Array.isArray(flow.nodes) && flow.nodes.map((node, ni) => {
+                        const nodeType = node.type as keyof typeof nodeColors
+                        const colors = nodeColors[nodeType] || nodeColors.message
+                        return (
+                          <motion.div 
+                            key={node.id} 
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: ni * 0.05 }}
+                            className={`flex items-center gap-2.5 p-3 rounded-xl ${colors.bg} border ${colors.border} transition-all hover:brightness-110`}
+                          >
+                            <GripVertical className="w-3 h-3 text-white/15 cursor-grab" />
+                            <div className={colors.text}>{colors.icon}</div>
+                            <span className="text-[11px] text-white/65 flex-1">{node.content}</span>
+                          </motion.div>
+                        )
+                      })}
+                      <motion.button
+                        onClick={(e) => { e.stopPropagation(); deleteFlow(flow.id) }}
+                        whileTap={{ scale: 0.97 }}
+                        className="flex items-center gap-1.5 text-[10px] text-red-400/60 hover:text-red-400 transition-colors mt-3 ml-1"
+                      >
+                        <Trash2 className="w-3 h-3" /> Delete Flow
+                      </motion.button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* FAB */}

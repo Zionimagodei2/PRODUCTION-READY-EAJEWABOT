@@ -328,7 +328,7 @@ export function SettingsPage() {
         </div>
         <div className="flex items-center gap-1.5 text-[10px] text-white/30">
           <Clock className="w-2.5 h-2.5" />
-          <span>Usage resets on {getNextMonthReset()}</span>
+          <span suppressHydrationWarning>Usage resets on {getNextMonthReset()}</span>
         </div>
       </motion.div>
 

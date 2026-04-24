@@ -6,6 +6,7 @@ export async function GET() {
     const flows = await db.chatbotFlow.findMany({ orderBy: { createdAt: 'desc' } })
     return NextResponse.json(flows.map(f => ({
       ...f,
+      nodes: typeof f.nodes === 'string' ? JSON.parse(f.nodes) : f.nodes,
       createdAt: f.createdAt.toISOString(),
       updatedAt: f.updatedAt.toISOString(),
     })))
@@ -35,11 +36,58 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ...flow,
+      nodes: typeof flow.nodes === 'string' ? JSON.parse(flow.nodes) : flow.nodes,
       createdAt: flow.createdAt.toISOString(),
       updatedAt: flow.updatedAt.toISOString(),
     }, { status: 201 })
   } catch (error) {
     console.error('Chatbot POST error:', error)
     return NextResponse.json({ error: 'Failed to create chatbot flow' }, { status: 500 })
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json()
+    const { id, ...data } = body
+
+    if (!id) {
+      return NextResponse.json({ error: 'Flow ID is required' }, { status: 400 })
+    }
+
+    // Serialize nodes if it's an object
+    if (data.nodes && typeof data.nodes === 'object') {
+      data.nodes = JSON.stringify(data.nodes)
+    }
+
+    const flow = await db.chatbotFlow.update({
+      where: { id },
+      data,
+    })
+
+    return NextResponse.json({
+      ...flow,
+      nodes: typeof flow.nodes === 'string' ? JSON.parse(flow.nodes) : flow.nodes,
+      createdAt: flow.createdAt.toISOString(),
+      updatedAt: flow.updatedAt.toISOString(),
+    })
+  } catch (error) {
+    console.error('Chatbot PATCH error:', error)
+    return NextResponse.json({ error: 'Failed to update chatbot flow' }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+    if (!id) {
+      return NextResponse.json({ error: 'Flow ID is required' }, { status: 400 })
+    }
+    await db.chatbotFlow.delete({ where: { id } })
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Chatbot DELETE error:', error)
+    return NextResponse.json({ error: 'Failed to delete chatbot flow' }, { status: 500 })
   }
 }
