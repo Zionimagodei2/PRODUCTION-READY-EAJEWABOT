@@ -65,25 +65,18 @@ export function NotificationCenter() {
       >
         <Bell className="w-3.5 h-3.5 text-white/50" />
         {mounted && unreadCount > 0 && (
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            suppressHydrationWarning
-            className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-500 rounded-full flex items-center justify-center animate-bounce-once badge-pulse"
+          <div
+            className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-500 rounded-full flex items-center justify-center badge-pulse"
           >
             <span className="text-[8px] font-bold text-white">{unreadCount}</span>
-          </motion.div>
+          </div>
         )}
       </button>
 
       {/* Notification Panel */}
       <AnimatePresence>
         {mounted && isOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            suppressHydrationWarning
+          <div
             className="fixed inset-0 z-[100] flex items-end justify-center"
             onClick={close}
           >
@@ -93,7 +86,6 @@ export function NotificationCenter() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              suppressHydrationWarning
               className="relative w-full max-w-lg rounded-t-3xl bg-[#0d0d14] border-t border-white/10 max-h-[80vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
@@ -170,7 +162,7 @@ export function NotificationCenter() {
                 </div>
               )}
             </motion.div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </>

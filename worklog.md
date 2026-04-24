@@ -2564,3 +2564,70 @@ Unresolved Issues / Next Steps:
 - WhatsApp Business API integration for actual message sending
 - Performance optimization for superfast experience
 - More micro-interactions and polish
+
+---
+Task ID: 6
+Agent: Feature Developer
+Task: Fix Send Message, Flow Builder, and Team Management pages to use real DB persistence
+
+Work Log:
+- Read worklog.md for full project context (Tasks 1 through 9-a)
+- Reviewed existing API routes (flows, team, whatsapp, contacts, campaigns) and Prisma schema
+
+Task 1: Send Message Page (send-message-page.tsx)
+- Added WhatsAppGroup interface for real WA group data
+- Added waGroups state and loadingGroups state
+- Added waConnected from useAppStore
+- Added useEffect to fetch WhatsApp groups from POST /api/whatsapp (action: get-groups) when connected
+- Replaced group dropdown: now shows real WhatsApp groups when WA is connected, loading state during fetch, empty state when disconnected or no groups
+- Updated recipient count calculation for group mode to use waGroups member count
+- Fixed JSX parsing error (missing } in conditional rendering)
+- Kept existing contact list dropdown (already using real data from /api/contacts with tag grouping)
+
+Task 2: Flow Builder Page (flow-builder-page.tsx)
+- Removed hardcoded initialFlows array (was 3 mock flows: Welcome, Support, Sales)
+- Changed initial state from initialFlows to empty array []
+- Added loading state with skeleton UI
+- Added useEffect to fetch flows from GET /api/flows on mount
+- Added empty state with "Create Flow" button when no flows exist
+- Added createFlow() function: POST /api/flows with default "New Flow" name + trigger node
+- Added saveFlowToDb() helper: PUT /api/flows for persistence on every change
+- Updated addNode(): persists new node to DB via saveFlowToDb()
+- Updated deleteNode(): persists deletion to DB via saveFlowToDb()
+- Updated toggleFlowActive(): persists active state toggle to DB
+- Updated duplicateFlow(): creates new flow via POST /api/flows with copied data
+- Updated saveEdit(): persists node title/content edits to DB
+- Updated toggleNodeActive(): persists node active state to DB
+- Added "New Flow" button in flow selector section header
+- Added saving state with Loader2 spinner on create/duplicate buttons
+- Imported useToastStore for success/error notifications
+- Added toast notifications for all CRUD operations
+
+Task 3: Team Management Page (team-management-page.tsx)
+- Added useEffect import from react
+- Added loading state with Loader2 spinner
+- Added useEffect to fetch team members from GET /api/team on mount
+- Maps API response (data.members) to local TeamMember interface with proper type casting
+- Replaced setTimeout mock in handleInvite with real POST /api/team call
+- Handles duplicate email error (409) with specific toast message
+- Uses API response data (member.id from DB) instead of Date.now() mock IDs
+- Changed handleRemoveMember from sync to async
+- Added DELETE /api/team call to persist removal to DB
+- Uses optimistic update pattern (UI updates immediately, API call follows)
+- Added loading state in team members list (Loader2 spinner while fetching)
+
+Lint Results:
+- Fixed JSX parsing error in send-message-page.tsx (missing closing brace)
+- Removed unused eslint-disable directives from all three files
+- All lint checks pass (only pre-existing whatsapp-service error remains, unrelated to these changes)
+- Dev server compiles cleanly with no errors
+
+Stage Summary:
+- 3 feature pages now fully connected to backend APIs with DB persistence
+- Send Message: Real contact tag groups + WhatsApp groups from API
+- Flow Builder: Full CRUD via /api/flows (GET/POST/PUT/DELETE) with real-time DB persistence
+- Team Management: Real team data via /api/team (GET/POST/DELETE) with optimistic updates
+- All dark neon glassmorphism UI preserved exactly
+- Toast notifications for all async operations
+- Loading and empty states properly handled
+- Zero new lint errors, zero runtime errors

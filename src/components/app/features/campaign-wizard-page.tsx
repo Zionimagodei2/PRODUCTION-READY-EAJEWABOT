@@ -20,26 +20,16 @@ const campaignTypes = [
   { value: 'survey', label: 'Survey', icon: <ClipboardList className="w-4 h-4" />, color: '#8b5cf6' },
 ]
 
-const defaultAudiences = [
-  { value: 'all', label: 'All Contacts', count: 0 },
-  { value: 'vip', label: 'VIP', count: 0 },
-  { value: 'customers', label: 'Customers', count: 0 },
-  { value: 'leads', label: 'Leads', count: 0 },
-]
+interface AudienceOption {
+  value: string
+  label: string
+  count: number
+}
 
-const messageTemplates = [
-  { value: '', label: 'Write your own...' },
-  { value: 'welcome', label: 'Welcome Message' },
-  { value: 'promotion', label: 'Flash Sale Alert' },
-  { value: 'followup', label: 'Follow-up Reminder' },
-  { value: 'feedback', label: 'Feedback Request' },
-]
-
-const templateContents: Record<string, string> = {
-  welcome: 'Hello {name}! Welcome to {company}. We\'re thrilled to have you on board! 🎉',
-  promotion: '🔥 Flash Sale! {name}, get 50% off on all products. Offer ends {date}. Don\'t miss out!',
-  followup: 'Hi {name}, just checking in! We noticed you were interested in our products. Any questions we can help with?',
-  feedback: 'Hey {name}, we\'d love to hear your feedback! How was your experience with {company}? Reply with 1-5 ⭐',
+interface TemplateOption {
+  value: string
+  label: string
+  content: string
 }
 
 const recurrenceOptions = [
@@ -80,12 +70,19 @@ export function CampaignWizardPage() {
   const [campaignName, setCampaignName] = useState('')
   const [campaignType, setCampaignType] = useState('promotional')
   const [audience, setAudience] = useState('all')
-  const [audiences, setAudiences] = useState(defaultAudiences)
+  const [audiences, setAudiences] = useState<AudienceOption[]>([
+    { value: 'all', label: 'All Contacts', count: 0 },
+  ])
+  const [audiencesLoading, setAudiencesLoading] = useState(true)
 
   // Step 2
   const [message, setMessage] = useState('')
   const [selectedTemplate, setSelectedTemplate] = useState('')
   const [mediaFile, setMediaFile] = useState<string | null>(null)
+  const [templateOptions, setTemplateOptions] = useState<TemplateOption[]>([
+    { value: '', label: 'Write your own...', content: '' },
+  ])
+  const [templatesLoading, setTemplatesLoading] = useState(true)
 
   // Step 3
   const [sendNow, setSendNow] = useState(true)
@@ -105,25 +102,81 @@ export function CampaignWizardPage() {
     return () => clearTimeout(timer)
   }, [])
 
-  // Fetch real audience stats from the database
+  // Fetch real audience segments from contacts API
   useEffect(() => {
-    const fetchAudienceStats = async () => {
+    const fetchAudiences = async () => {
       try {
-        const res = await fetch('/api/audience-stats')
+        const res = await fetch('/api/contacts')
         if (res.ok) {
-          const data = await res.json()
-          setAudiences([
-            { value: 'all', label: 'All Contacts', count: data.all },
-            { value: 'vip', label: 'VIP', count: data.vip },
-            { value: 'customers', label: 'Customers', count: data.customers },
-            { value: 'leads', label: 'Leads', count: data.leads },
-          ])
+          const contacts: { id: string; tags: string }[] = await res.json()
+          const totalCount = contacts.length
+
+          // Build audience segments from actual contact tags
+          const tagMap = new Map<string, number>()
+          contacts.forEach((c) => {
+            if (c.tags) {
+              const tags = c.tags.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean)
+              tags.forEach((tag) => {
+                tagMap.set(tag, (tagMap.get(tag) || 0) + 1)
+              })
+            }
+          })
+
+          // Build audiences: "All Contacts" + unique tag groups
+          const audienceList: AudienceOption[] = [
+            { value: 'all', label: 'All Contacts', count: totalCount },
+          ]
+
+          Array.from(tagMap.entries())
+            .sort((a, b) => b[1] - a[1])
+            .forEach(([tag, count]) => {
+              audienceList.push({
+                value: tag,
+                label: tag.charAt(0).toUpperCase() + tag.slice(1),
+                count,
+              })
+            })
+
+          setAudiences(audienceList)
         }
       } catch {
-        // Keep default (0 counts) on failure
+        // Keep default on failure
+      } finally {
+        setAudiencesLoading(false)
       }
     }
-    fetchAudienceStats()
+    fetchAudiences()
+  }, [])
+
+  // Fetch real templates from the API
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const res = await fetch('/api/templates')
+        if (res.ok) {
+          const templates: { id: string; name: string; content: string; category: string }[] = await res.json()
+
+          const options: TemplateOption[] = [
+            { value: '', label: 'Write your own...', content: '' },
+          ]
+
+          templates.forEach((t) => {
+            options.push({
+              value: t.id,
+              label: t.name,
+              content: t.content,
+            })
+          })
+
+          setTemplateOptions(options)
+        }
+      } catch {
+        // Keep default on failure
+      } finally {
+        setTemplatesLoading(false)
+      }
+    }
+    fetchTemplates()
   }, [])
 
   const insertVariable = useCallback((variable: string) => {
@@ -132,10 +185,13 @@ export function CampaignWizardPage() {
 
   const handleTemplateChange = useCallback((value: string) => {
     setSelectedTemplate(value)
-    if (value && templateContents[value]) {
-      setMessage(templateContents[value])
+    if (value) {
+      const template = templateOptions.find((t) => t.value === value)
+      if (template?.content) {
+        setMessage(template.content)
+      }
     }
-  }, [])
+  }, [templateOptions])
 
   const handleNext = useCallback(() => {
     if (currentStep === 1 && !campaignName.trim()) {
@@ -210,7 +266,7 @@ export function CampaignWizardPage() {
     return 'upcoming'
   }
 
-  const selectedAudience = audiences.find((a) => a.value === audience) ?? defaultAudiences[0]
+  const selectedAudience = audiences.find((a) => a.value === audience) ?? audiences[0]
   const selectedType = campaignTypes.find((t) => t.value === campaignType)
 
   const slideVariants = {
@@ -501,44 +557,52 @@ export function CampaignWizardPage() {
                 </div>
               </div>
 
-              {/* Target Audience */}
+              {/* Target Audience - built from real DB data */}
               <div className="space-y-1.5">
                 <label className="text-[11px] font-medium text-white/50">Target Audience</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {audiences.map((aud) => (
-                    <motion.button
-                      key={aud.value}
-                      onClick={() => setAudience(aud.value)}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className={`flex items-center gap-2 p-3 rounded-xl border text-left transition-all duration-200 ${
-                        audience === aud.value
-                          ? 'border-blue-500/30 bg-blue-500/10'
-                          : 'border-white/8 bg-white/[0.02] hover:bg-white/[0.04]'
-                      }`}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <span
-                          className={`text-xs font-medium block ${
-                            audience === aud.value ? 'text-white/90' : 'text-white/50'
-                          }`}
-                        >
-                          {aud.label}
-                        </span>
-                        <span className="text-[9px] text-white/25">{aud.count} contacts</span>
-                      </div>
-                      {audience === aud.value && (
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ type: 'spring', stiffness: 400 }}
-                        >
-                          <Check className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
-                        </motion.div>
-                      )}
-                    </motion.button>
-                  ))}
-                </div>
+                {audiencesLoading ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div key={i} className="h-14 rounded-xl bg-white/[0.03] border border-white/6 animate-pulse" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {audiences.map((aud) => (
+                      <motion.button
+                        key={aud.value}
+                        onClick={() => setAudience(aud.value)}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className={`flex items-center gap-2 p-3 rounded-xl border text-left transition-all duration-200 ${
+                          audience === aud.value
+                            ? 'border-blue-500/30 bg-blue-500/10'
+                            : 'border-white/8 bg-white/[0.02] hover:bg-white/[0.04]'
+                        }`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <span
+                            className={`text-xs font-medium block ${
+                              audience === aud.value ? 'text-white/90' : 'text-white/50'
+                            }`}
+                          >
+                            {aud.label}
+                          </span>
+                          <span className="text-[9px] text-white/25">{aud.count} contacts</span>
+                        </div>
+                        {audience === aud.value && (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: 'spring', stiffness: 400 }}
+                          >
+                            <Check className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+                          </motion.div>
+                        )}
+                      </motion.button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>
@@ -561,21 +625,25 @@ export function CampaignWizardPage() {
                 <FileText className="w-3.5 h-3.5 text-neon-blue" /> Compose Message
               </h3>
 
-              {/* Template Selector */}
+              {/* Template Selector - uses real templates from DB */}
               <div className="space-y-1.5">
                 <label className="text-[11px] font-medium text-white/50">Template</label>
-                <select
-                  value={selectedTemplate}
-                  onChange={(e) => handleTemplateChange(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white/80 focus:outline-none focus:border-blue-500/40 transition-colors appearance-none cursor-pointer"
-                  style={{ backgroundImage: 'none' }}
-                >
-                  {messageTemplates.map((t) => (
-                    <option key={t.value} value={t.value} className="bg-[#14141f] text-white/80">
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
+                {templatesLoading ? (
+                  <div className="h-10 rounded-xl bg-white/[0.03] border border-white/6 animate-pulse" />
+                ) : (
+                  <select
+                    value={selectedTemplate}
+                    onChange={(e) => handleTemplateChange(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white/80 focus:outline-none focus:border-blue-500/40 transition-colors appearance-none cursor-pointer"
+                    style={{ backgroundImage: 'none' }}
+                  >
+                    {templateOptions.map((t) => (
+                      <option key={t.value} value={t.value} className="bg-[#14141f] text-white/80">
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               {/* Message Text Area - Floating Label */}

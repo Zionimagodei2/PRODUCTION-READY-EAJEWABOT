@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppStore } from '@/store/app-store'
+import { useToastStore } from '@/store/toast-store'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, GitBranch, Play, Copy, Download, Power, PowerOff,
   Plus, Zap, MessageSquare, GitMerge, MousePointerClick, Square,
-  X, Pencil, Trash2, Check, ChevronRight, Clock, Activity, Workflow
+  X, Pencil, Trash2, Check, ChevronRight, Clock, Activity, Workflow,
+  Loader2
 } from 'lucide-react'
 
 // Node type definitions
@@ -90,65 +92,120 @@ const nodeTypeConfig: Record<NodeType, {
   },
 }
 
-// Pre-built flows
-const initialFlows: Flow[] = [
-  {
-    id: 'welcome',
-    name: 'Welcome Flow',
-    description: 'New user onboarding',
-    active: true,
-    nodes: [
-      { id: 'w1', type: 'trigger', title: 'New User Joins', content: 'Triggered when a new contact sends their first message', active: true },
-      { id: 'w2', type: 'message', title: 'Welcome Message', content: 'Hi {name}! 👋 Welcome to our WhatsApp channel. We\'re glad to have you!', active: true },
-      { id: 'w3', type: 'condition', title: 'Has Interest?', content: 'Check if user selects a product category from the menu', active: true },
-      { id: 'w4', type: 'action', title: 'Assign to Team', content: 'Route to the appropriate sales team based on selected category', active: true },
-      { id: 'w5', type: 'end', title: 'Flow Complete', content: 'End onboarding flow and add to drip campaign', active: false },
-    ],
-  },
-  {
-    id: 'support',
-    name: 'Support Flow',
-    description: 'Customer support routing',
-    active: true,
-    nodes: [
-      { id: 's1', type: 'trigger', title: 'Support Request', content: 'Triggered when user types "help" or sends a support keyword', active: true },
-      { id: 's2', type: 'message', title: 'Support Menu', content: 'Please select:\n1️⃣ Billing\n2️⃣ Technical\n3️⃣ General Inquiry', active: true },
-      { id: 's3', type: 'condition', title: 'Route Category', content: 'Check selected option and route to appropriate department', active: true },
-      { id: 's4', type: 'action', title: 'Create Ticket', content: 'Create a support ticket with category and auto-assign agent', active: true },
-    ],
-  },
-  {
-    id: 'sales',
-    name: 'Sales Flow',
-    description: 'Sales inquiry handling',
-    active: false,
-    nodes: [
-      { id: 'sa1', type: 'trigger', title: 'Product Inquiry', content: 'Triggered when user asks about pricing or products', active: true },
-      { id: 'sa2', type: 'message', title: 'Product Catalog', content: 'Here are our popular products! 🛍️ Which one interests you?', active: true },
-      { id: 'sa3', type: 'end', title: 'Handoff to Sales', content: 'Connect with live sales agent for personalized quote', active: false },
-    ],
-  },
-]
-
 export function FlowBuilderPage() {
   const { goBack } = useAppStore()
-  const [flows, setFlows] = useState<Flow[]>(initialFlows)
-  const [activeFlowId, setActiveFlowId] = useState('welcome')
+  const { addToast } = useToastStore()
+  const [flows, setFlows] = useState<Flow[]>([])
+  const [activeFlowId, setActiveFlowId] = useState<string | null>(null)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [showNodePicker, setShowNodePicker] = useState(false)
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
   const [editContent, setEditContent] = useState('')
   const [editTitle, setEditTitle] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
 
-  const activeFlow = flows.find(f => f.id === activeFlowId)!
+  const activeFlow = flows.find(f => f.id === activeFlowId) ?? null
   const selectedNode = activeFlow?.nodes.find(n => n.id === selectedNodeId) ?? null
 
   const totalNodes = flows.reduce((sum, f) => sum + f.nodes.length, 0)
   const activeFlows = flows.filter(f => f.active).length
   const avgResponseTime = '1.2s'
 
+  // Fetch flows from DB on mount
+  useEffect(() => {
+    const fetchFlows = async () => {
+      try {
+        const res = await fetch('/api/flows')
+        if (res.ok) {
+          const data = await res.json()
+          const fetchedFlows: Flow[] = (data.flows || []).map((f: { id: string; name: string; description: string; nodes: FlowNode[]; active: boolean }) => ({
+            id: f.id,
+            name: f.name,
+            description: f.description || '',
+            nodes: Array.isArray(f.nodes) ? f.nodes : [],
+            active: f.active || false,
+          }))
+          setFlows(fetchedFlows)
+          if (fetchedFlows.length > 0) {
+            setActiveFlowId(fetchedFlows[0].id)
+          }
+        }
+      } catch {
+        addToast({ type: 'error', title: 'Failed to load flows', message: 'Could not fetch flow data' })
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchFlows()
+  }, [])
+
+  // Create a new flow via API
+  const createFlow = async () => {
+    setSaving(true)
+    try {
+      const defaultNode: FlowNode = {
+        id: `node-${Date.now()}`,
+        type: 'trigger',
+        title: 'New Trigger',
+        content: 'Define what starts this flow',
+        active: true,
+      }
+      const res = await fetch('/api/flows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'New Flow',
+          description: '',
+          nodes: [defaultNode],
+          active: false,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const newFlow: Flow = {
+          id: data.flow.id,
+          name: data.flow.name,
+          description: data.flow.description,
+          nodes: data.flow.nodes,
+          active: data.flow.active,
+        }
+        setFlows(prev => [...prev, newFlow])
+        setActiveFlowId(newFlow.id)
+        setSelectedNodeId(null)
+        addToast({ type: 'success', title: 'Flow Created!', message: 'New flow has been created' })
+      } else {
+        throw new Error('Failed to create flow')
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Create Failed', message: 'Could not create flow. Please try again.' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Save flow changes to DB
+  const saveFlowToDb = async (flow: Flow) => {
+    try {
+      await fetch('/api/flows', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: flow.id,
+          name: flow.name,
+          description: flow.description,
+          nodes: flow.nodes,
+          active: flow.active,
+        }),
+      })
+    } catch {
+      addToast({ type: 'error', title: 'Save Failed', message: 'Could not save changes to database' })
+    }
+  }
+
   // Add node to current flow
   const addNode = (type: NodeType) => {
+    if (!activeFlow) return
     const config = nodeTypeConfig[type]
     const newNode: FlowNode = {
       id: `node-${Date.now()}`,
@@ -157,51 +214,79 @@ export function FlowBuilderPage() {
       content: '',
       active: false,
     }
-    setFlows(flows.map(f =>
-      f.id === activeFlowId
-        ? { ...f, nodes: [...f.nodes, newNode] }
-        : f
-    ))
+    const updatedFlow = {
+      ...activeFlow,
+      nodes: [...activeFlow.nodes, newNode],
+    }
+    setFlows(flows.map(f => f.id === activeFlowId ? updatedFlow : f))
     setShowNodePicker(false)
     setSelectedNodeId(newNode.id)
+    saveFlowToDb(updatedFlow)
   }
 
   // Delete node
   const deleteNode = (nodeId: string) => {
-    setFlows(flows.map(f =>
-      f.id === activeFlowId
-        ? { ...f, nodes: f.nodes.filter(n => n.id !== nodeId) }
-        : f
-    ))
+    if (!activeFlow) return
+    const updatedFlow = {
+      ...activeFlow,
+      nodes: activeFlow.nodes.filter(n => n.id !== nodeId),
+    }
+    setFlows(flows.map(f => f.id === activeFlowId ? updatedFlow : f))
     if (selectedNodeId === nodeId) {
       setSelectedNodeId(null)
       setEditingNodeId(null)
     }
+    saveFlowToDb(updatedFlow)
   }
 
   // Toggle flow active
   const toggleFlowActive = () => {
-    setFlows(flows.map(f =>
-      f.id === activeFlowId ? { ...f, active: !f.active } : f
-    ))
+    if (!activeFlow) return
+    const updatedFlow = { ...activeFlow, active: !activeFlow.active }
+    setFlows(flows.map(f => f.id === activeFlowId ? updatedFlow : f))
+    saveFlowToDb(updatedFlow)
   }
 
   // Duplicate flow
-  const duplicateFlow = () => {
-    const original = activeFlow
-    const newFlow: Flow = {
-      ...original,
-      id: `flow-${Date.now()}`,
-      name: `${original.name} (Copy)`,
-      active: false,
-      nodes: original.nodes.map(n => ({ ...n, id: `node-${Date.now()}-${n.id}` })),
+  const duplicateFlow = async () => {
+    if (!activeFlow) return
+    setSaving(true)
+    try {
+      const res = await fetch('/api/flows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `${activeFlow.name} (Copy)`,
+          description: activeFlow.description,
+          nodes: activeFlow.nodes.map(n => ({ ...n, id: `node-${Date.now()}-${n.id}` })),
+          active: false,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const newFlow: Flow = {
+          id: data.flow.id,
+          name: data.flow.name,
+          description: data.flow.description,
+          nodes: data.flow.nodes,
+          active: data.flow.active,
+        }
+        setFlows(prev => [...prev, newFlow])
+        setActiveFlowId(newFlow.id)
+        addToast({ type: 'success', title: 'Flow Duplicated!', message: `"${activeFlow.name}" has been copied` })
+      } else {
+        throw new Error('Failed to duplicate flow')
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Duplicate Failed', message: 'Could not duplicate flow' })
+    } finally {
+      setSaving(false)
     }
-    setFlows([...flows, newFlow])
-    setActiveFlowId(newFlow.id)
   }
 
   // Export flow
   const exportFlow = () => {
+    if (!activeFlow) return
     const blob = new Blob([JSON.stringify(activeFlow, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -220,29 +305,114 @@ export function FlowBuilderPage() {
 
   // Save edit
   const saveEdit = () => {
-    if (!editingNodeId) return
-    setFlows(flows.map(f =>
-      f.id === activeFlowId
-        ? {
-            ...f,
-            nodes: f.nodes.map(n =>
-              n.id === editingNodeId
-                ? { ...n, title: editTitle, content: editContent }
-                : n
-            ),
-          }
-        : f
-    ))
+    if (!editingNodeId || !activeFlow) return
+    const updatedFlow = {
+      ...activeFlow,
+      nodes: activeFlow.nodes.map(n =>
+        n.id === editingNodeId
+          ? { ...n, title: editTitle, content: editContent }
+          : n
+      ),
+    }
+    setFlows(flows.map(f => f.id === activeFlowId ? updatedFlow : f))
     setEditingNodeId(null)
+    saveFlowToDb(updatedFlow)
   }
 
   // Toggle node active
   const toggleNodeActive = (nodeId: string) => {
-    setFlows(flows.map(f =>
-      f.id === activeFlowId
-        ? { ...f, nodes: f.nodes.map(n => n.id === nodeId ? { ...n, active: !n.active } : n) }
-        : f
-    ))
+    if (!activeFlow) return
+    const updatedFlow = {
+      ...activeFlow,
+      nodes: activeFlow.nodes.map(n => n.id === nodeId ? { ...n, active: !n.active } : n),
+    }
+    setFlows(flows.map(f => f.id === activeFlowId ? updatedFlow : f))
+    saveFlowToDb(updatedFlow)
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-5">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.08]" />
+          <div className="flex-1">
+            <div className="h-5 w-32 rounded-lg bg-white/[0.04] animate-pulse" />
+            <div className="h-3 w-48 rounded bg-white/[0.03] animate-pulse mt-1" />
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="glass-card rounded-xl p-3 text-center animate-pulse">
+              <div className="w-7 h-7 mx-auto rounded-lg bg-white/[0.05] mb-1.5" />
+              <div className="h-6 w-8 mx-auto rounded bg-white/[0.05] mb-1" />
+              <div className="h-3 w-16 mx-auto rounded bg-white/[0.03]" />
+            </div>
+          ))}
+        </div>
+        <div className="glass-card rounded-2xl p-8 text-center animate-pulse">
+          <div className="h-20 w-20 mx-auto rounded-2xl bg-white/[0.05] mb-4" />
+          <div className="h-4 w-32 mx-auto rounded bg-white/[0.05] mb-2" />
+          <div className="h-3 w-48 mx-auto rounded bg-white/[0.03]" />
+        </div>
+      </div>
+    )
+  }
+
+  // Empty state - no flows
+  if (flows.length === 0) {
+    return (
+      <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-5">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <motion.button
+            onClick={goBack}
+            whileTap={{ scale: 0.9 }}
+            className="p-2 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 text-white/70" />
+          </motion.button>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <GitBranch
+                className="w-5 h-5 text-cyan-400"
+                style={{ filter: 'drop-shadow(0 0 8px rgba(6,182,212,0.5))' }}
+              />
+              <h2 className="text-lg font-extrabold text-white/95 tracking-tight">Flow Builder</h2>
+            </div>
+            <p className="text-[11px] text-white/40 mt-0.5">Design conversation flows</p>
+          </div>
+        </div>
+
+        {/* Empty State */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card rounded-2xl p-8 text-center"
+        >
+          <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/15 flex items-center justify-center">
+            <GitBranch className="w-10 h-10 text-cyan-400/50" />
+          </div>
+          <h3 className="text-sm font-bold text-white/70 mb-2">No Flows Yet</h3>
+          <p className="text-xs text-white/35 mb-6 max-w-[240px] mx-auto">
+            Create your first conversation flow to automate WhatsApp interactions.
+          </p>
+          <motion.button
+            onClick={createFlow}
+            disabled={saving}
+            whileTap={{ scale: 0.97 }}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+            style={{ boxShadow: '0 0 20px rgba(6,182,212,0.25)' }}
+          >
+            {saving ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Creating...</>
+            ) : (
+              <><Plus className="w-4 h-4" /> Create Flow</>
+            )}
+          </motion.button>
+        </motion.div>
+      </div>
+    )
   }
 
   return (
@@ -266,9 +436,11 @@ export function FlowBuilderPage() {
           </div>
           <p className="text-[11px] text-white/40 mt-0.5">Design conversation flows</p>
         </div>
-        <div className={`px-2 py-1 rounded-lg text-[9px] font-bold ${activeFlow.active ? 'bg-green-500/15 text-green-400 border border-green-500/20' : 'bg-white/5 text-white/30 border border-white/10'}`}>
-          {activeFlow.active ? 'ACTIVE' : 'DRAFT'}
-        </div>
+        {activeFlow && (
+          <div className={`px-2 py-1 rounded-lg text-[9px] font-bold ${activeFlow.active ? 'bg-green-500/15 text-green-400 border border-green-500/20' : 'bg-white/5 text-white/30 border border-white/10'}`}>
+            {activeFlow.active ? 'ACTIVE' : 'DRAFT'}
+          </div>
+        )}
       </div>
 
       {/* Stats Bar */}
@@ -299,7 +471,7 @@ export function FlowBuilderPage() {
       {/* Gradient Divider */}
       <div className="gradient-divider" />
 
-      {/* Flow Selector Tabs */}
+      {/* Flow Selector Tabs + Create Button */}
       <div>
         <div className="flex items-center gap-2 mb-3">
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/15">
@@ -307,20 +479,28 @@ export function FlowBuilderPage() {
             <span className="text-[11px] font-bold text-cyan-400/90 uppercase tracking-wider">Flows</span>
           </div>
           <div className="flex-1 h-px bg-gradient-to-r from-cyan-500/20 to-transparent" />
+          <motion.button
+            onClick={createFlow}
+            disabled={saving}
+            whileTap={{ scale: 0.9 }}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-bold hover:bg-cyan-500/15 transition-colors disabled:opacity-50"
+          >
+            <Plus className="w-3 h-3" /> New
+          </motion.button>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
           {flows.map((flow) => (
             <motion.button
               key={flow.id}
               onClick={() => { setActiveFlowId(flow.id); setSelectedNodeId(null); setEditingNodeId(null) }}
               whileTap={{ scale: 0.95 }}
-              className={`flex-1 px-3 py-2.5 rounded-xl text-center transition-all border ${
+              className={`flex-shrink-0 px-3 py-2.5 rounded-xl text-center transition-all border ${
                 activeFlowId === flow.id
                   ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 neon-glow-cyan'
                   : 'bg-white/[0.03] border-white/[0.06] text-white/50 hover:bg-white/[0.05]'
               }`}
             >
-              <p className="text-[11px] font-bold truncate">{flow.name}</p>
+              <p className="text-[11px] font-bold truncate max-w-[100px]">{flow.name}</p>
               <p className="text-[9px] text-white/30 mt-0.5">{flow.nodes.length} nodes</p>
             </motion.button>
           ))}
@@ -328,115 +508,117 @@ export function FlowBuilderPage() {
       </div>
 
       {/* Visual Flow Builder */}
-      <div className="glass-card rounded-2xl p-4 relative overflow-hidden">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-sm font-bold text-white/90">{activeFlow.name}</h3>
-            <p className="text-[10px] text-white/40">{activeFlow.description}</p>
+      {activeFlow && (
+        <div className="glass-card rounded-2xl p-4 relative overflow-hidden">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-bold text-white/90">{activeFlow.name}</h3>
+              <p className="text-[10px] text-white/40">{activeFlow.description || 'No description'}</p>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className={`w-2 h-2 rounded-full ${activeFlow.active ? 'bg-green-400 animate-pulse-dot' : 'bg-white/20'}`} />
+              <span className="text-[9px] text-white/30">{activeFlow.nodes.length} steps</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <span className={`w-2 h-2 rounded-full ${activeFlow.active ? 'bg-green-400 animate-pulse-dot' : 'bg-white/20'}`} />
-            <span className="text-[9px] text-white/30">{activeFlow.nodes.length} steps</span>
-          </div>
-        </div>
 
-        {/* Node Chain */}
-        <div className="relative pl-4">
-          {activeFlow.nodes.map((node, index) => {
-            const config = nodeTypeConfig[node.type]
-            const Icon = config.icon
-            const isSelected = selectedNodeId === node.id
-            const isLast = index === activeFlow.nodes.length - 1
+          {/* Node Chain */}
+          <div className="relative pl-4">
+            {activeFlow.nodes.map((node, index) => {
+              const config = nodeTypeConfig[node.type]
+              const Icon = config.icon
+              const isSelected = selectedNodeId === node.id
+              const isLast = index === activeFlow.nodes.length - 1
 
-            return (
-              <motion.div
-                key={node.id}
-                initial={{ opacity: 0, x: -15 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.08, duration: 0.3 }}
-              >
-                {/* Connection Line */}
-                {!isLast && (
+              return (
+                <motion.div
+                  key={node.id}
+                  initial={{ opacity: 0, x: -15 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.08, duration: 0.3 }}
+                >
+                  {/* Connection Line */}
+                  {!isLast && (
+                    <div
+                      className="absolute left-0 w-0.5"
+                      style={{
+                        top: `${index * 88 + 44}px`,
+                        height: '44px',
+                        background: `linear-gradient(to bottom, ${config.color}60, ${nodeTypeConfig[activeFlow.nodes[index + 1]?.type]?.color || config.color}60)`,
+                      }}
+                    />
+                  )}
+
+                  {/* Node dot on the line */}
                   <div
-                    className="absolute left-0 w-0.5"
+                    className="absolute left-[-3px] w-2.5 h-2.5 rounded-full border-2 z-10"
                     style={{
-                      top: `${index * 88 + 44}px`,
-                      height: '44px',
-                      background: `linear-gradient(to bottom, ${config.color}60, ${nodeTypeConfig[activeFlow.nodes[index + 1]?.type]?.color || config.color}60)`,
+                      top: `${index * 88 + 18}px`,
+                      backgroundColor: node.active ? config.color : 'rgba(255,255,255,0.1)',
+                      borderColor: node.active ? config.color : 'rgba(255,255,255,0.15)',
+                      boxShadow: node.active ? `0 0 8px ${config.glowColor}` : 'none',
                     }}
                   />
-                )}
 
-                {/* Node dot on the line */}
-                <div
-                  className="absolute left-[-3px] w-2.5 h-2.5 rounded-full border-2 z-10"
-                  style={{
-                    top: `${index * 88 + 18}px`,
-                    backgroundColor: node.active ? config.color : 'rgba(255,255,255,0.1)',
-                    borderColor: node.active ? config.color : 'rgba(255,255,255,0.15)',
-                    boxShadow: node.active ? `0 0 8px ${config.glowColor}` : 'none',
-                  }}
-                />
-
-                {/* Node Card */}
-                <motion.button
-                  onClick={() => {
-                    setSelectedNodeId(isSelected ? null : node.id)
-                    setEditingNodeId(null)
-                  }}
-                  whileTap={{ scale: 0.97 }}
-                  className={`w-full mb-3 p-3 rounded-xl border text-left transition-all ${
-                    isSelected
-                      ? 'ring-2 ring-cyan-500/30 border-white/10'
-                      : 'border-white/[0.06] hover:border-white/10'
-                  } ${config.bgClass}`}
-                  style={{
-                    boxShadow: isSelected
-                      ? `0 0 20px ${config.glowColor}, 0 0 40px ${config.glowColor}`
-                      : 'none',
-                  }}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div
-                      className={`w-8 h-8 rounded-lg ${config.bgClass} flex items-center justify-center flex-shrink-0`}
-                      style={{ border: `1px solid ${config.color}30` }}
-                    >
-                      <Icon className="w-4 h-4" style={{ color: config.color }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-[12px] font-bold text-white/90 truncate">{node.title}</p>
-                        <span
-                          className={`text-[7px] px-1.5 py-0.5 rounded-md font-bold ${config.bgClass} ${config.textClass} border ${config.borderClass}`}
-                        >
-                          {config.label}
-                        </span>
+                  {/* Node Card */}
+                  <motion.button
+                    onClick={() => {
+                      setSelectedNodeId(isSelected ? null : node.id)
+                      setEditingNodeId(null)
+                    }}
+                    whileTap={{ scale: 0.97 }}
+                    className={`w-full mb-3 p-3 rounded-xl border text-left transition-all ${
+                      isSelected
+                        ? 'ring-2 ring-cyan-500/30 border-white/10'
+                        : 'border-white/[0.06] hover:border-white/10'
+                    } ${config.bgClass}`}
+                    style={{
+                      boxShadow: isSelected
+                        ? `0 0 20px ${config.glowColor}, 0 0 40px ${config.glowColor}`
+                        : 'none',
+                    }}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className={`w-8 h-8 rounded-lg ${config.bgClass} flex items-center justify-center flex-shrink-0`}
+                        style={{ border: `1px solid ${config.color}30` }}
+                      >
+                        <Icon className="w-4 h-4" style={{ color: config.color }} />
                       </div>
-                      {node.content && (
-                        <p className="text-[10px] text-white/35 mt-0.5 truncate">{node.content.split('\n')[0]}</p>
-                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-[12px] font-bold text-white/90 truncate">{node.title}</p>
+                          <span
+                            className={`text-[7px] px-1.5 py-0.5 rounded-md font-bold ${config.bgClass} ${config.textClass} border ${config.borderClass}`}
+                          >
+                            {config.label}
+                          </span>
+                        </div>
+                        {node.content && (
+                          <p className="text-[10px] text-white/35 mt-0.5 truncate">{node.content.split('\n')[0]}</p>
+                        )}
+                      </div>
+                      <ChevronRight className="w-3.5 h-3.5 text-white/15 flex-shrink-0" />
                     </div>
-                    <ChevronRight className="w-3.5 h-3.5 text-white/15 flex-shrink-0" />
-                  </div>
-                </motion.button>
-              </motion.div>
-            )
-          })}
-        </div>
-
-        {/* Empty state */}
-        {activeFlow.nodes.length === 0 && (
-          <div className="text-center py-8">
-            <GitBranch className="w-10 h-10 mx-auto text-white/10 mb-2" />
-            <p className="text-sm text-white/25">No nodes in this flow</p>
-            <p className="text-[11px] text-white/15 mt-1">Tap the + button to add a node</p>
+                  </motion.button>
+                </motion.div>
+              )
+            })}
           </div>
-        )}
-      </div>
+
+          {/* Empty state */}
+          {activeFlow.nodes.length === 0 && (
+            <div className="text-center py-8">
+              <GitBranch className="w-10 h-10 mx-auto text-white/10 mb-2" />
+              <p className="text-sm text-white/25">No nodes in this flow</p>
+              <p className="text-[11px] text-white/15 mt-1">Tap the + button to add a node</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Selected Node Detail Panel */}
       <AnimatePresence>
-        {selectedNode && (
+        {selectedNode && activeFlow && (
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
@@ -600,24 +782,25 @@ export function FlowBuilderPage() {
             onClick={toggleFlowActive}
             whileTap={{ scale: 0.95 }}
             className={`flex flex-col items-center gap-1.5 py-3 rounded-xl border transition-colors ${
-              activeFlow.active
+              activeFlow?.active
                 ? 'bg-amber-500/10 border-amber-500/15 hover:bg-amber-500/15'
                 : 'bg-cyan-500/10 border-cyan-500/15 hover:bg-cyan-500/15'
             }`}
           >
-            {activeFlow.active ? (
+            {activeFlow?.active ? (
               <PowerOff className="w-4 h-4 text-amber-400" />
             ) : (
               <Power className="w-4 h-4 text-cyan-400" />
             )}
-            <span className={`text-[8px] font-bold ${activeFlow.active ? 'text-amber-400' : 'text-cyan-400'}`}>
-              {activeFlow.active ? 'Deactivate' : 'Activate'}
+            <span className={`text-[8px] font-bold ${activeFlow?.active ? 'text-amber-400' : 'text-cyan-400'}`}>
+              {activeFlow?.active ? 'Deactivate' : 'Activate'}
             </span>
           </motion.button>
           <motion.button
             onClick={duplicateFlow}
+            disabled={saving}
             whileTap={{ scale: 0.95 }}
-            className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-purple-500/10 border border-purple-500/15 hover:bg-purple-500/15 transition-colors"
+            className="flex flex-col items-center gap-1.5 py-3 rounded-xl bg-purple-500/10 border border-purple-500/15 hover:bg-purple-500/15 transition-colors disabled:opacity-50"
           >
             <Copy className="w-4 h-4 text-purple-400" />
             <span className="text-[8px] font-bold text-purple-400">Duplicate</span>
@@ -703,7 +886,7 @@ export function FlowBuilderPage() {
       </AnimatePresence>
 
       {/* FAB - Add Node */}
-      {!showNodePicker && (
+      {!showNodePicker && activeFlow && (
         <motion.button
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}

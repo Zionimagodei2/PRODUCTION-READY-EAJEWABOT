@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { useToastStore } from '@/store/toast-store'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -112,6 +112,37 @@ export function TeamManagementPage() {
   const [inviteRole, setInviteRole] = useState<Role>('agent')
   const [invitePermissions, setInvitePermissions] = useState<string[]>(['Campaigns', 'Contacts'])
   const [isInviting, setIsInviting] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  // Fetch team members from DB on mount
+  useEffect(() => {
+    const fetchMembers = async () => {
+      try {
+        const res = await fetch('/api/team')
+        if (res.ok) {
+          const data = await res.json()
+          if (data.members && Array.isArray(data.members)) {
+            const fetched: TeamMember[] = data.members.map((m: { id: string; name: string; email: string; role: string; permissions: string[]; avatarColor: string; isOnline: boolean; lastActive: string }) => ({
+              id: m.id,
+              name: m.name,
+              email: m.email,
+              role: (m.role || 'agent') as Role,
+              avatarColor: m.avatarColor || '#8b5cf6',
+              isOnline: m.isOnline || false,
+              lastActive: m.lastActive || 'Never',
+              permissions: Array.isArray(m.permissions) ? m.permissions : [],
+            }))
+            setMembers(fetched)
+          }
+        }
+      } catch {
+        addToast({ type: 'error', title: 'Failed to load team', message: 'Could not fetch team members' })
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchMembers()
+  }, [])
 
   const onlineCount = members.filter(m => m.isOnline).length
   const roleCounts: Record<string, number> = {}
@@ -145,7 +176,7 @@ export function TeamManagementPage() {
     )
   }, [])
 
-  const handleInvite = useCallback(() => {
+  const handleInvite = useCallback(async () => {
     if (!inviteName.trim()) {
       addToast({ type: 'warning', title: 'Name Required', message: 'Please enter the team member\'s name' })
       return
@@ -155,16 +186,39 @@ export function TeamManagementPage() {
       return
     }
     setIsInviting(true)
-    setTimeout(() => {
+    try {
+      const avatarColor = avatarColors[members.length % avatarColors.length]
+      const res = await fetch('/api/team', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: inviteName.trim(),
+          email: inviteEmail.trim(),
+          role: inviteRole,
+          permissions: [...invitePermissions],
+          avatarColor,
+        }),
+      })
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null)
+        if (errorData?.error?.includes('already exists')) {
+          addToast({ type: 'error', title: 'Duplicate Email', message: 'A member with this email already exists' })
+        } else {
+          throw new Error('Failed to add member')
+        }
+        setIsInviting(false)
+        return
+      }
+      const data = await res.json()
       const newMember: TeamMember = {
-        id: Date.now().toString(),
-        name: inviteName.trim(),
-        email: inviteEmail.trim(),
-        role: inviteRole,
-        avatarColor: avatarColors[members.length % avatarColors.length],
-        isOnline: true,
-        lastActive: 'Now',
-        permissions: [...invitePermissions],
+        id: data.member.id,
+        name: data.member.name,
+        email: data.member.email,
+        role: (data.member.role || 'agent') as Role,
+        avatarColor: data.member.avatarColor || avatarColor,
+        isOnline: data.member.isOnline ?? true,
+        lastActive: data.member.lastActive || 'Now',
+        permissions: Array.isArray(data.member.permissions) ? data.member.permissions : [],
       }
       setMembers(prev => [...prev, newMember])
 
@@ -178,7 +232,6 @@ export function TeamManagementPage() {
       }
       setActivityLog(prev => [newActivity, ...prev])
 
-      setIsInviting(false)
       setShowInviteModal(false)
       setInviteEmail('')
       setInviteName('')
@@ -189,10 +242,15 @@ export function TeamManagementPage() {
         message: `${inviteName} has been added as ${roleConfig[inviteRole].label}`,
         duration: 4000,
       })
-    }, 1500)
+    } catch {
+      addToast({ type: 'error', title: 'Add Failed', message: 'Could not add team member. Please try again.' })
+    } finally {
+      setIsInviting(false)
+    }
   }, [inviteName, inviteEmail, inviteRole, invitePermissions, members.length, addToast])
 
-  const handleRemoveMember = useCallback((member: TeamMember) => {
+  const handleRemoveMember = useCallback(async (member: TeamMember) => {
+    // Optimistic update
     setMembers(prev => prev.filter(m => m.id !== member.id))
     const newActivity: ActivityEntry = {
       id: Date.now().toString(),
@@ -204,6 +262,17 @@ export function TeamManagementPage() {
     }
     setActivityLog(prev => [newActivity, ...prev])
     addToast({ type: 'info', title: 'Member Removed', message: `${member.name} has been removed from the team` })
+
+    // Persist removal to DB
+    try {
+      await fetch('/api/team', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: member.id }),
+      })
+    } catch {
+      addToast({ type: 'warning', title: 'Sync Issue', message: 'Removal may not have persisted. Please refresh.' })
+    }
   }, [addToast])
 
   const filterTabs: { key: Role | 'all'; label: string; count: number }[] = [
@@ -306,7 +375,16 @@ export function TeamManagementPage() {
       {/* Team Members List */}
       <div className="glass-card rounded-2xl overflow-hidden divide-y divide-white/[0.04]">
         <AnimatePresence mode="popLayout">
-          {members.length === 0 ? (
+          {loading ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="py-16 text-center"
+            >
+              <Loader2 className="w-8 h-8 mx-auto text-purple-400/40 animate-spin mb-3" />
+              <p className="text-xs text-white/30">Loading team members...</p>
+            </motion.div>
+          ) : members.length === 0 ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
