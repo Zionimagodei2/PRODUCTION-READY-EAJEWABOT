@@ -7,7 +7,9 @@ import {
   Search, Send, MessageSquare, Bot, Calendar, Users,
   BarChart3, FileText, FileCode, Sparkles, Radio,
   Link2, Settings, Database, Megaphone, ArrowRight,
-  UserPlus, Clock, TrendingUp, Activity, Phone, Brain
+  UserPlus, Clock, TrendingUp, Activity, Phone, Brain,
+  ShieldCheck, Upload, QrCode, Timer, MessageCircle,
+  GitBranch, Webhook
 } from 'lucide-react'
 
 interface SearchItem {
@@ -20,105 +22,111 @@ interface SearchItem {
   action: () => void
 }
 
-const popularItems: SearchItem[] = [
-  {
-    id: 'pop-send-message',
-    icon: <Send className="w-4 h-4" />,
-    title: 'Send Message',
-    subtitle: 'Bulk campaigns & schedules',
-    category: 'Features',
-    categoryColor: '#3b82f6',
-    action: () => {},
-  },
-  {
-    id: 'pop-auto-reply',
-    icon: <MessageSquare className="w-4 h-4" />,
-    title: 'Auto Reply',
-    subtitle: 'Smart responses',
-    category: 'Features',
-    categoryColor: '#3b82f6',
-    action: () => {},
-  },
-  {
-    id: 'pop-ai-chat',
-    icon: <Sparkles className="w-4 h-4" />,
-    title: 'AI Assistant',
-    subtitle: 'Smart automation helper',
-    category: 'Features',
-    categoryColor: '#f59e0b',
-    action: () => {},
-  },
-  {
-    id: 'pop-campaign-reports',
-    icon: <FileText className="w-4 h-4" />,
-    title: 'Campaign Reports',
-    subtitle: 'Detailed delivery reports',
-    category: 'Features',
-    categoryColor: '#ef4444',
-    action: () => {},
-  },
-  {
-    id: 'pop-analytics',
-    icon: <BarChart3 className="w-4 h-4" />,
-    title: 'Analytics',
-    subtitle: 'Track performance & metrics',
-    category: 'Features',
-    categoryColor: '#ec4899',
-    action: () => {},
-  },
-  {
-    id: 'pop-data-export',
-    icon: <Database className="w-4 h-4" />,
-    title: 'Data Export',
-    subtitle: 'Export your data in various formats',
-    category: 'Features',
-    categoryColor: '#06b6d4',
-    action: () => {},
-  },
+// Static feature items (these are app features, not user data)
+const featureItems: Omit<SearchItem, 'action'>[] = [
+  { id: 'feat-inbox', icon: <MessageCircle className="w-4 h-4" />, title: 'Inbox', subtitle: 'All conversations', category: 'Features', categoryColor: '#22c55e' },
+  { id: 'feat-send-message', icon: <Send className="w-4 h-4" />, title: 'Send Message', subtitle: 'Bulk campaigns & schedules', category: 'Features', categoryColor: '#3b82f6' },
+  { id: 'feat-auto-reply', icon: <MessageSquare className="w-4 h-4" />, title: 'Auto Reply', subtitle: 'Smart responses', category: 'Features', categoryColor: '#3b82f6' },
+  { id: 'feat-chatbot', icon: <Bot className="w-4 h-4" />, title: 'Chatbot', subtitle: 'AI-powered conversations', category: 'Features', categoryColor: '#8b5cf6' },
+  { id: 'feat-scheduler', icon: <Calendar className="w-4 h-4" />, title: 'Scheduler', subtitle: 'Plan messages ahead', category: 'Features', categoryColor: '#8b5cf6' },
+  { id: 'feat-group-extractor', icon: <Users className="w-4 h-4" />, title: 'Group Extractor', subtitle: 'Extract contacts from groups', category: 'Features', categoryColor: '#22c55e' },
+  { id: 'feat-lead-scraper', icon: <Search className="w-4 h-4" />, title: 'Lead Scraper', subtitle: 'Find new prospects', category: 'Features', categoryColor: '#22c55e' },
+  { id: 'feat-number-validator', icon: <ShieldCheck className="w-4 h-4" />, title: 'Number Validator', subtitle: 'Verify WhatsApp numbers', category: 'Features', categoryColor: '#22c55e' },
+  { id: 'feat-link-generator', icon: <Link2 className="w-4 h-4" />, title: 'Link Generator', subtitle: 'Create WhatsApp links', category: 'Features', categoryColor: '#f97316' },
+  { id: 'feat-analytics', icon: <BarChart3 className="w-4 h-4" />, title: 'Analytics', subtitle: 'Track performance & metrics', category: 'Features', categoryColor: '#ec4899' },
+  { id: 'feat-campaign-reports', icon: <FileText className="w-4 h-4" />, title: 'Campaign Reports', subtitle: 'Detailed delivery reports', category: 'Features', categoryColor: '#ef4444' },
+  { id: 'feat-templates', icon: <FileCode className="w-4 h-4" />, title: 'Templates', subtitle: 'Reusable message templates', category: 'Features', categoryColor: '#06b6d4' },
+  { id: 'feat-ai-chat', icon: <Sparkles className="w-4 h-4" />, title: 'AI Assistant', subtitle: 'Smart automation helper', category: 'Features', categoryColor: '#f59e0b' },
+  { id: 'feat-personality-agent', icon: <Brain className="w-4 h-4" />, title: 'AI Twin', subtitle: 'Auto-reply in your style', category: 'Features', categoryColor: '#f97316' },
+  { id: 'feat-broadcast-lists', icon: <Radio className="w-4 h-4" />, title: 'Broadcast Lists', subtitle: 'Targeted group messaging', category: 'Features', categoryColor: '#06b6d4' },
+  { id: 'feat-data-export', icon: <Database className="w-4 h-4" />, title: 'Data Export', subtitle: 'Export your data in various formats', category: 'Features', categoryColor: '#06b6d4' },
+  { id: 'feat-campaign-wizard', icon: <Sparkles className="w-4 h-4" />, title: 'Campaign Wizard', subtitle: 'Step-by-step campaign builder', category: 'Features', categoryColor: '#3b82f6' },
+  { id: 'feat-contact-import', icon: <Upload className="w-4 h-4" />, title: 'Contact Import', subtitle: 'Import contacts from CSV', category: 'Features', categoryColor: '#06b6d4' },
+  { id: 'feat-qr-code', icon: <QrCode className="w-4 h-4" />, title: 'QR Code', subtitle: 'Generate WhatsApp QR codes', category: 'Features', categoryColor: '#06b6d4' },
+  { id: 'feat-response-time', icon: <Timer className="w-4 h-4" />, title: 'Response Time', subtitle: 'Track response performance', category: 'Features', categoryColor: '#8b5cf6' },
+  { id: 'feat-flow-builder', icon: <GitBranch className="w-4 h-4" />, title: 'Flow Builder', subtitle: 'Design conversation flows', category: 'Features', categoryColor: '#06b6d4' },
+  { id: 'feat-webhook-manager', icon: <Webhook className="w-4 h-4" />, title: 'Webhook Manager', subtitle: 'Manage API webhooks & events', category: 'Features', categoryColor: '#f97316' },
 ]
 
-const allSearchItems: SearchItem[] = [
-  // Features
-  { id: 'feat-send-message', icon: <Send className="w-4 h-4" />, title: 'Send Message', subtitle: 'Bulk campaigns & schedules', category: 'Features', categoryColor: '#3b82f6', action: () => {} },
-  { id: 'feat-auto-reply', icon: <MessageSquare className="w-4 h-4" />, title: 'Auto Reply', subtitle: 'Smart responses', category: 'Features', categoryColor: '#3b82f6', action: () => {} },
-  { id: 'feat-chatbot', icon: <Bot className="w-4 h-4" />, title: 'Chatbot', subtitle: 'AI-powered conversations', category: 'Features', categoryColor: '#8b5cf6', action: () => {} },
-  { id: 'feat-scheduler', icon: <Calendar className="w-4 h-4" />, title: 'Scheduler', subtitle: 'Plan messages ahead', category: 'Features', categoryColor: '#8b5cf6', action: () => {} },
-  { id: 'feat-group-extractor', icon: <Users className="w-4 h-4" />, title: 'Group Extractor', subtitle: 'Extract contacts from groups', category: 'Features', categoryColor: '#22c55e', action: () => {} },
-  { id: 'feat-lead-scraper', icon: <Search className="w-4 h-4" />, title: 'Lead Scraper', subtitle: 'Find new prospects', category: 'Features', categoryColor: '#22c55e', action: () => {} },
-  { id: 'feat-link-generator', icon: <Link2 className="w-4 h-4" />, title: 'Link Generator', subtitle: 'Create WhatsApp links', category: 'Features', categoryColor: '#f97316', action: () => {} },
-  { id: 'feat-analytics', icon: <BarChart3 className="w-4 h-4" />, title: 'Analytics', subtitle: 'Track performance & metrics', category: 'Features', categoryColor: '#ec4899', action: () => {} },
-  { id: 'feat-campaign-reports', icon: <FileText className="w-4 h-4" />, title: 'Campaign Reports', subtitle: 'Detailed delivery reports', category: 'Features', categoryColor: '#ef4444', action: () => {} },
-  { id: 'feat-templates', icon: <FileCode className="w-4 h-4" />, title: 'Templates', subtitle: 'Reusable message templates', category: 'Features', categoryColor: '#06b6d4', action: () => {} },
-  { id: 'feat-ai-chat', icon: <Sparkles className="w-4 h-4" />, title: 'AI Assistant', subtitle: 'Smart automation helper', category: 'Features', categoryColor: '#f59e0b', action: () => {} },
-  { id: 'feat-personality-agent', icon: <Brain className="w-4 h-4" />, title: 'AI Twin', subtitle: 'Auto-reply in your style', category: 'Features', categoryColor: '#f97316', action: () => {} },
-  { id: 'feat-broadcast-lists', icon: <Radio className="w-4 h-4" />, title: 'Broadcast Lists', subtitle: 'Targeted group messaging', category: 'Features', categoryColor: '#06b6d4', action: () => {} },
-  { id: 'feat-data-export', icon: <Database className="w-4 h-4" />, title: 'Data Export', subtitle: 'Export your data in various formats', category: 'Features', categoryColor: '#06b6d4', action: () => {} },
-  // Campaigns
-  { id: 'camp-product-launch', icon: <Megaphone className="w-4 h-4" />, title: 'Product Launch Promo', subtitle: '452 sent · 89% delivery rate', category: 'Campaigns', categoryColor: '#3b82f6', action: () => {} },
-  { id: 'camp-flash-sale', icon: <Megaphone className="w-4 h-4" />, title: 'Flash Sale Alert', subtitle: '1,247 sent · 92% delivery rate', category: 'Campaigns', categoryColor: '#3b82f6', action: () => {} },
-  { id: 'camp-welcome-series', icon: <Megaphone className="w-4 h-4" />, title: 'Welcome Series', subtitle: '312 sent · 95% delivery rate', category: 'Campaigns', categoryColor: '#3b82f6', action: () => {} },
-  { id: 'camp-monthly-digest', icon: <Megaphone className="w-4 h-4" />, title: 'Monthly Digest', subtitle: '856 sent · 87% delivery rate', category: 'Campaigns', categoryColor: '#3b82f6', action: () => {} },
-  // Contacts
-  { id: 'cont-john', icon: <UserPlus className="w-4 h-4" />, title: 'John Doe', subtitle: '+1 234 567 890 · VIP Customer', category: 'Contacts', categoryColor: '#22c55e', action: () => {} },
-  { id: 'cont-sarah', icon: <UserPlus className="w-4 h-4" />, title: 'Sarah Miller', subtitle: '+44 7911 123456 · Active Lead', category: 'Contacts', categoryColor: '#22c55e', action: () => {} },
-  { id: 'cont-mike', icon: <UserPlus className="w-4 h-4" />, title: 'Mike Johnson', subtitle: '+1 555 123 4567 · New Contact', category: 'Contacts', categoryColor: '#22c55e', action: () => {} },
-  { id: 'cont-emma', icon: <Phone className="w-4 h-4" />, title: 'Emma Wilson', subtitle: '+61 412 345 678 · Prospect', category: 'Contacts', categoryColor: '#22c55e', action: () => {} },
-  // Settings
-  { id: 'set-profile', icon: <Users className="w-4 h-4" />, title: 'Profile Settings', subtitle: 'Manage your account', category: 'Settings', categoryColor: '#64748b', action: () => {} },
-  { id: 'set-notifications', icon: <Activity className="w-4 h-4" />, title: 'Notification Preferences', subtitle: 'Configure alerts', category: 'Settings', categoryColor: '#64748b', action: () => {} },
-  { id: 'set-schedule', icon: <Clock className="w-4 h-4" />, title: 'Schedule Settings', subtitle: 'Time zone & defaults', category: 'Settings', categoryColor: '#64748b', action: () => {} },
-  { id: 'set-billing', icon: <TrendingUp className="w-4 h-4" />, title: 'Billing & Plan', subtitle: 'Manage subscription', category: 'Settings', categoryColor: '#64748b', action: () => {} },
-  { id: 'set-general', icon: <Settings className="w-4 h-4" />, title: 'General Settings', subtitle: 'App preferences', category: 'Settings', categoryColor: '#64748b', action: () => {} },
+// Static settings items
+const settingsItems: Omit<SearchItem, 'action'>[] = [
+  { id: 'set-profile', icon: <Users className="w-4 h-4" />, title: 'Profile Settings', subtitle: 'Manage your account', category: 'Settings', categoryColor: '#64748b' },
+  { id: 'set-notifications', icon: <Activity className="w-4 h-4" />, title: 'Notification Preferences', subtitle: 'Configure alerts', category: 'Settings', categoryColor: '#64748b' },
+  { id: 'set-schedule', icon: <Clock className="w-4 h-4" />, title: 'Schedule Settings', subtitle: 'Time zone & defaults', category: 'Settings', categoryColor: '#64748b' },
+  { id: 'set-billing', icon: <TrendingUp className="w-4 h-4" />, title: 'Billing & Plan', subtitle: 'Manage subscription', category: 'Settings', categoryColor: '#64748b' },
+  { id: 'set-general', icon: <Settings className="w-4 h-4" />, title: 'General Settings', subtitle: 'App preferences', category: 'Settings', categoryColor: '#64748b' },
 ]
 
 export function QuickSearchModal() {
-  const { searchOpen, setSearchOpen, setActiveFeature, setActiveTab } = useAppStore()
+  const { searchOpen, setSearchOpen, setActiveFeature, setActiveTab, setSelectedCampaignId, setSelectedContactId } = useAppStore()
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const [dynamicItems, setDynamicItems] = useState<Omit<SearchItem, 'action'>[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
 
-  // Close on Escape
+  // Fetch real campaigns and contacts from API when modal opens
+  useEffect(() => {
+    if (!searchOpen) return
+    
+    async function fetchDynamicData() {
+      const items: Omit<SearchItem, 'action'>[] = []
+      
+      try {
+        const [campRes, contRes] = await Promise.all([
+          fetch('/api/campaigns'),
+          fetch('/api/contacts'),
+        ])
+        
+        if (campRes.ok) {
+          const campaigns = await campRes.json()
+          for (const c of campaigns) {
+            items.push({
+              id: `camp-${c.id}`,
+              icon: <Megaphone className="w-4 h-4" />,
+              title: c.name,
+              subtitle: `${c.sent} sent · ${c.status}`,
+              category: 'Campaigns',
+              categoryColor: '#3b82f6',
+            })
+          }
+        }
+        
+        if (contRes.ok) {
+          const contacts = await contRes.json()
+          for (const c of contacts) {
+            const tags = c.tags ? c.tags.split(',').filter(Boolean) : []
+            const tagStr = tags.length > 0 ? ` · ${tags[0]}` : ''
+            items.push({
+              id: `cont-${c.id}`,
+              icon: <UserPlus className="w-4 h-4" />,
+              title: c.name,
+              subtitle: `${c.phone}${tagStr}`,
+              category: 'Contacts',
+              categoryColor: '#22c55e',
+            })
+          }
+        }
+      } catch {
+        // Failed to fetch dynamic data, keep static items only
+      }
+      
+      setDynamicItems(items)
+    }
+    
+    fetchDynamicData()
+  }, [searchOpen])
+
+  // Build full search item list
+  const allSearchItems: Omit<SearchItem, 'action'>[] = [
+    ...featureItems,
+    ...dynamicItems,
+    ...settingsItems,
+  ]
+
+  // Popular items shown when query is empty (features only, no user data)
+  const popularItems = featureItems.slice(0, 6)
+
   const handleClose = useCallback(() => {
     setSearchOpen(false)
     setQuery('')
@@ -132,7 +140,6 @@ export function QuickSearchModal() {
         setQuery('')
         setSelectedIndex(0)
       })
-      // Auto-focus with a small delay for animation
       const timer = setTimeout(() => {
         inputRef.current?.focus()
       }, 100)
@@ -153,14 +160,16 @@ export function QuickSearchModal() {
   }, [searchOpen])
 
   // Get navigation action for a search item
-  const getNavAction = useCallback((item: SearchItem): (() => void) => {
+  const getNavAction = useCallback((itemId: string): (() => void) => {
     const featureMap: Record<string, FeaturePage> = {
+      'feat-inbox': 'inbox',
       'feat-send-message': 'send-message',
       'feat-auto-reply': 'auto-reply',
       'feat-chatbot': 'chatbot',
       'feat-scheduler': 'scheduler',
       'feat-group-extractor': 'group-extractor',
       'feat-lead-scraper': 'lead-scraper',
+      'feat-number-validator': 'number-validator',
       'feat-link-generator': 'link-generator',
       'feat-analytics': 'analytics',
       'feat-campaign-reports': 'campaign-reports',
@@ -169,6 +178,12 @@ export function QuickSearchModal() {
       'feat-personality-agent': 'personality-agent',
       'feat-broadcast-lists': 'broadcast-lists',
       'feat-data-export': 'data-export',
+      'feat-campaign-wizard': 'campaign-wizard',
+      'feat-contact-import': 'contact-import',
+      'feat-qr-code': 'qr-code',
+      'feat-response-time': 'response-time',
+      'feat-flow-builder': 'flow-builder',
+      'feat-webhook-manager': 'webhook-manager',
     }
 
     const tabMap: Record<string, TabId> = {
@@ -179,44 +194,36 @@ export function QuickSearchModal() {
       'set-general': 'settings',
     }
 
-    const campaignMap: Record<string, { feature: FeaturePage; id: string }> = {
-      'camp-product-launch': { feature: 'campaign-detail', id: '1' },
-      'camp-flash-sale': { feature: 'campaign-detail', id: '2' },
-      'camp-welcome-series': { feature: 'campaign-detail', id: '3' },
-      'camp-monthly-digest': { feature: 'campaign-detail', id: '4' },
+    // Feature navigation
+    if (featureMap[itemId]) {
+      return () => setActiveFeature(featureMap[itemId])
     }
 
-    if (featureMap[item.id]) {
-      return () => setActiveFeature(featureMap[item.id])
+    // Settings navigation
+    if (tabMap[itemId]) {
+      return () => setActiveTab(tabMap[itemId])
     }
-    if (tabMap[item.id]) {
-      return () => setActiveTab(tabMap[item.id])
-    }
-    if (campaignMap[item.id]) {
+
+    // Campaign navigation (dynamic items with camp-{id})
+    if (itemId.startsWith('camp-')) {
+      const campaignId = itemId.replace('camp-', '')
       return () => {
-        const { feature } = campaignMap[item.id]
-        setActiveFeature(feature)
+        setSelectedCampaignId(campaignId)
+        setActiveFeature('campaign-detail')
       }
     }
-    // For contact items and popular items, try to resolve
-    if (item.id.startsWith('cont-')) {
-      return () => setActiveFeature('contact-detail')
-    }
-    if (item.id.startsWith('pop-')) {
-      const popToFeature: Record<string, FeaturePage> = {
-        'pop-send-message': 'send-message',
-        'pop-auto-reply': 'auto-reply',
-        'pop-ai-chat': 'ai-chat',
-        'pop-campaign-reports': 'campaign-reports',
-        'pop-analytics': 'analytics',
-        'pop-data-export': 'data-export',
-      }
-      if (popToFeature[item.id]) {
-        return () => setActiveFeature(popToFeature[item.id])
+
+    // Contact navigation (dynamic items with cont-{id})
+    if (itemId.startsWith('cont-')) {
+      const contactId = itemId.replace('cont-', '')
+      return () => {
+        setSelectedContactId(contactId)
+        setActiveFeature('contact-detail')
       }
     }
+
     return () => {}
-  }, [setActiveFeature, setActiveTab])
+  }, [setActiveFeature, setActiveTab, setSelectedCampaignId, setSelectedContactId])
 
   // Filter search results
   const filteredResults = query.trim()
@@ -229,7 +236,7 @@ export function QuickSearchModal() {
     : popularItems
 
   // Group results by category
-  const groupedResults = filteredResults.reduce<Record<string, SearchItem[]>>((acc, item) => {
+  const groupedResults = filteredResults.reduce<Record<string, Omit<SearchItem, 'action'>[]>>((acc, item) => {
     if (!acc[item.category]) acc[item.category] = []
     acc[item.category].push(item)
     return acc
@@ -258,7 +265,7 @@ export function QuickSearchModal() {
       e.preventDefault()
       const item = flatResults[selectedIndex]
       if (item) {
-        const action = getNavAction(item)
+        const action = getNavAction(item.id)
         action()
         handleClose()
       }
@@ -349,7 +356,7 @@ export function QuickSearchModal() {
                     {items.map((item) => {
                       const globalIndex = flatResults.indexOf(item)
                       const isSelected = globalIndex === selectedIndex
-                      const navAction = getNavAction(item)
+                      const navAction = getNavAction(item.id)
 
                       return (
                         <motion.button

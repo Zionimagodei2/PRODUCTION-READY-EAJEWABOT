@@ -67,7 +67,7 @@ export const useAppStore = create<AppState>((set) => ({
   activeTab: 'dashboard',
   activeFeature: null,
   sidebarOpen: false,
-  waConnected: true,
+  waConnected: false,
   selectedCampaignId: null,
   selectedContactId: null,
   searchOpen: false,
