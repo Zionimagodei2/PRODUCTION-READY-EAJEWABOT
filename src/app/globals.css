@@ -1153,3 +1153,183 @@ html {
 .campaign-preview-pulse {
   animation: previewPulse 2s ease-in-out infinite;
 }
+
+/* ============================================
+   Task 11-b: Feature Page Styling Enhancement
+   ============================================ */
+
+/* Typing indicator for inbox - 3 dots with staggered bounce */
+@keyframes typingDot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-3px); opacity: 1; }
+}
+
+.inbox-typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.inbox-typing-dots span {
+  display: block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #22c55e;
+  animation: typingDot 1.4s ease-in-out infinite;
+}
+
+.inbox-typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.inbox-typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* Conversation card hover glow - subtle green glow on hover */
+.conversation-card-glow {
+  transition: box-shadow 0.3s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.conversation-card-glow:hover {
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.08), 0 0 40px rgba(34, 197, 94, 0.04);
+}
+
+/* Personality trait badge animation */
+@keyframes traitBadgeShimmer {
+  0% { background-position: -100% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.trait-badge-animated {
+  position: relative;
+  overflow: hidden;
+}
+
+.trait-badge-animated::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  background-size: 200% 100%;
+  animation: traitBadgeShimmer 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Personality score ring */
+@keyframes scoreReveal {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: var(--score-offset, 0); }
+}
+
+.personality-score-ring {
+  transform: rotate(-90deg);
+  transform-origin: center;
+}
+
+.personality-score-ring circle {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.personality-score-bg {
+  stroke: rgba(255, 255, 255, 0.06);
+}
+
+.personality-score-fill {
+  animation: scoreReveal 1.2s ease-out forwards;
+}
+
+/* Flow connection line animation - CSS-based animated dashes */
+@keyframes flowDash {
+  to { stroke-dashoffset: -12; }
+}
+
+.flow-connection-line {
+  stroke-dasharray: 6 6;
+  animation: flowDash 0.8s linear infinite;
+}
+
+/* Flow node hover glow */
+.flow-node-card {
+  transition: box-shadow 0.25s ease, border-color 0.25s ease, transform 0.15s ease;
+}
+
+.flow-node-card:hover {
+  transform: translateY(-1px);
+}
+
+/* Flow status indicator */
+@keyframes flowActivePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(34, 197, 94, 0); }
+}
+
+.flow-status-active {
+  animation: flowActivePulse 2s ease-in-out infinite;
+}
+
+.flow-status-draft {
+  opacity: 0.6;
+}
+
+.flow-status-inactive {
+  opacity: 0.4;
+}
+
+/* Webhook animated ping - radar ping for active endpoints */
+@keyframes webhookPing {
+  0% { transform: scale(1); opacity: 0.8; }
+  70% { transform: scale(2.2); opacity: 0; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+.webhook-ping {
+  position: relative;
+}
+
+.webhook-ping::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 1.5px solid #22c55e;
+  animation: webhookPing 2s ease-out infinite;
+}
+
+/* Webhook health score visual */
+@keyframes healthScoreReveal {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: var(--health-offset, 0); }
+}
+
+.health-score-ring {
+  transform: rotate(-90deg);
+  transform-origin: center;
+}
+
+.health-score-ring circle {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.health-score-fill {
+  animation: healthScoreReveal 1s ease-out forwards;
+}
+
+/* Delivery rate bar with animated fill */
+@keyframes deliveryFill {
+  from { width: 0%; }
+}
+
+.delivery-bar-animated {
+  animation: deliveryFill 1s ease-out forwards;
+}
+
+/* Enhanced node type selector glow on hover */
+.node-type-btn {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.node-type-btn:hover {
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+}

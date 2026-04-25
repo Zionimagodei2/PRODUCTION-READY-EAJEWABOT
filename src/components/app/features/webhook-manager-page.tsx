@@ -7,7 +7,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Webhook, Globe, Zap, Activity, Check, X, Shield,
   Eye, EyeOff, Plus, ChevronDown, ChevronUp, Clock, AlertTriangle,
-  CheckCircle2, XCircle, Loader2, Trash2, ExternalLink, Hash
+  CheckCircle2, XCircle, Loader2, Trash2, ExternalLink, Hash,
+  Heart, TrendingUp, Radio
 } from 'lucide-react'
 
 // --- Types ---
@@ -93,6 +94,16 @@ function getEventBadgeColor(event: string): string {
   return 'bg-white/5 border-white/10 text-white/50'
 }
 
+function getEventDotColor(event: string): string {
+  if (event.startsWith('message.received')) return '#3b82f6'
+  if (event.startsWith('message.delivered')) return '#22c55e'
+  if (event.startsWith('message.read')) return '#06b6d4'
+  if (event.startsWith('message.failed')) return '#ef4444'
+  if (event.startsWith('contact.added')) return '#8b5cf6'
+  if (event.startsWith('contact.updated')) return '#f59e0b'
+  return '#6b7280'
+}
+
 function filterEventsByTab(events: EventLogEntry[], tab: FilterTab): EventLogEntry[] {
   if (tab === 'all') return events
   if (tab === 'delivered') return events.filter(e => e.eventType === 'message.delivered')
@@ -100,6 +111,27 @@ function filterEventsByTab(events: EventLogEntry[], tab: FilterTab): EventLogEnt
   if (tab === 'failed') return events.filter(e => e.eventType === 'message.failed' || e.status >= 400)
   if (tab === 'message') return events.filter(e => e.eventType.startsWith('message.'))
   return events
+}
+
+/** Compute health score (0-100) for a single endpoint */
+function computeHealthScore(endpoint: WebhookEndpoint): number {
+  const total = endpoint.successCount + endpoint.failureCount
+  if (total === 0) return 100 // no data = neutral healthy
+  return Math.round((endpoint.successCount / total) * 100)
+}
+
+function getHealthColor(score: number): string {
+  if (score >= 90) return '#22c55e'
+  if (score >= 70) return '#3b82f6'
+  if (score >= 50) return '#f59e0b'
+  return '#ef4444'
+}
+
+function getHealthLabel(score: number): string {
+  if (score >= 90) return 'Healthy'
+  if (score >= 70) return 'Fair'
+  if (score >= 50) return 'Degraded'
+  return 'Unhealthy'
 }
 
 // --- Component ---
@@ -126,6 +158,10 @@ export function WebhookManagerPage() {
   const totalSuccess = endpoints.reduce((sum, e) => sum + e.successCount, 0)
   const totalFail = endpoints.reduce((sum, e) => sum + e.failureCount, 0)
   const successRate = (totalSuccess + totalFail) > 0 ? Math.round((totalSuccess / (totalSuccess + totalFail)) * 100) : 0
+  const avgHealthScore = endpoints.length > 0
+    ? Math.round(endpoints.reduce((sum, e) => sum + computeHealthScore(e), 0) / endpoints.length)
+    : 100
+  const healthColor = getHealthColor(avgHealthScore)
 
   // Collect all event logs from all endpoints
   const allEventLogs: EventLogEntry[] = endpoints.flatMap(e => e.eventLogs)
@@ -222,6 +258,10 @@ export function WebhookManagerPage() {
 
   const filteredRecentEvents = filterEventsByTab(allEventLogs, eventFilter)
 
+  // SVG ring for health score
+  const healthCircumference = 2 * Math.PI * 28
+  const healthOffset = healthCircumference - (healthCircumference * avgHealthScore / 100)
+
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-4">
       {/* Header */}
@@ -247,27 +287,33 @@ export function WebhookManagerPage() {
         </div>
       </motion.div>
 
-      {/* Stats Section */}
+      {/* Stats Section - Enhanced with health score */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
         className="grid grid-cols-3 gap-3"
       >
-        {/* Active Webhooks */}
-        <div className="glass-card rounded-xl p-3 text-center stat-card-green">
+        {/* Active Webhooks with animated ping */}
+        <div className="glass-card rounded-xl p-3 text-center stat-card-green card-hover-lift">
           <div className="w-7 h-7 mx-auto rounded-lg bg-green-500/10 flex items-center justify-center mb-1.5 relative">
             <Globe className="w-3.5 h-3.5 text-green-400" />
             {activeWebhooks > 0 && (
-              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-500 animate-breathe" style={{ color: '#22c55e' }} />
+              <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 webhook-ping" />
             )}
           </div>
           <p className="text-xl font-extrabold text-white/95">{activeWebhooks}</p>
           <p className="text-[9px] text-white/50 font-semibold mt-0.5">Active Webhooks</p>
+          {activeWebhooks > 0 && (
+            <div className="flex items-center justify-center gap-1 mt-1">
+              <Radio className="w-2.5 h-2.5 text-green-400 animate-breathe" style={{ color: '#22c55e' }} />
+              <span className="text-[8px] text-green-400/60 font-medium">Listening</span>
+            </div>
+          )}
         </div>
 
         {/* Total Events */}
-        <div className="glass-card rounded-xl p-3 text-center stat-card-orange">
+        <div className="glass-card rounded-xl p-3 text-center stat-card-orange card-hover-lift">
           <div className="w-7 h-7 mx-auto rounded-lg bg-orange-500/10 flex items-center justify-center mb-1.5">
             <Activity className="w-3.5 h-3.5 text-orange-400" />
           </div>
@@ -275,25 +321,89 @@ export function WebhookManagerPage() {
           <p className="text-[9px] text-white/50 font-semibold mt-0.5">Total Events</p>
         </div>
 
-        {/* Success Rate */}
-        <div className="glass-card rounded-xl p-3 text-center stat-card-blue">
-          <div className="w-7 h-7 mx-auto rounded-lg bg-blue-500/10 flex items-center justify-center mb-1.5">
-            <Zap className="w-3.5 h-3.5 text-blue-400" />
-          </div>
-          <p className="text-xl font-extrabold text-white/95">{endpoints.length > 0 ? `${successRate}%` : '—'}</p>
-          <p className="text-[9px] text-white/50 font-semibold mt-0.5">Success Rate</p>
-          {endpoints.length > 0 && (
-            <div className="mt-1.5 h-1 rounded-full bg-white/5 overflow-hidden">
-              <motion.div
-                className="h-full rounded-full bg-blue-500/50"
-                initial={{ width: 0 }}
-                animate={{ width: `${successRate}%` }}
-                transition={{ duration: 1, ease: 'easeOut' }}
+        {/* Health Score with ring */}
+        <div className="glass-card rounded-xl p-3 text-center card-hover-lift"
+          style={{ borderLeft: `3px solid ${healthColor}80` }}
+        >
+          <div className="w-7 h-7 mx-auto mb-1.5 relative">
+            <svg width="28" height="28" className="health-score-ring" style={{ '--health-offset': healthOffset } as React.CSSProperties}>
+              <circle cx="14" cy="14" r="11" strokeWidth="2.5" className="health-score-bg" />
+              <circle 
+                cx="14" cy="14" r="11" 
+                strokeWidth="2.5" 
+                stroke={healthColor}
+                strokeDasharray={2 * Math.PI * 11}
+                strokeDashoffset={2 * Math.PI * 11 - (2 * Math.PI * 11 * avgHealthScore / 100)}
+                className="health-score-fill"
+                style={{ 
+                  filter: `drop-shadow(0 0 3px ${healthColor}60)`,
+                  transition: 'stroke-dashoffset 1s ease-out',
+                }}
               />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Heart className="w-2.5 h-2.5" style={{ color: healthColor }} />
             </div>
-          )}
+          </div>
+          <p className="text-sm font-extrabold" style={{ color: healthColor }}>{avgHealthScore}%</p>
+          <p className="text-[9px] text-white/50 font-semibold mt-0.5">Health</p>
         </div>
       </motion.div>
+
+      {/* Overall Health Score + Success Rate Bar */}
+      {endpoints.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="glass-card rounded-2xl p-4 space-y-3"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-3.5 h-3.5" style={{ color: healthColor }} />
+              <span className="text-[10px] text-white/50 font-medium uppercase tracking-wider">Delivery Overview</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold" style={{ color: healthColor }}>
+                {getHealthLabel(avgHealthScore)}
+              </span>
+            </div>
+          </div>
+          {/* Success / Failure bar */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-3 rounded-full bg-white/5 overflow-hidden relative">
+              <div className="h-full rounded-full delivery-bar-animated flex">
+                <div 
+                  className="h-full bg-gradient-to-r from-green-500/70 to-green-400/60"
+                  style={{ width: `${successRate}%` }}
+                />
+                {100 - successRate > 0 && (
+                  <div 
+                    className="h-full bg-gradient-to-r from-red-500/60 to-red-400/50"
+                    style={{ width: `${100 - successRate}%` }}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center justify-between text-[9px]">
+            <div className="flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3 text-green-400" />
+              <span className="text-green-400 font-bold">{totalSuccess.toLocaleString()}</span>
+              <span className="text-white/30">success</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-white/30">rate</span>
+              <span className="font-bold" style={{ color: healthColor }}>{successRate}%</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <XCircle className="w-3 h-3 text-red-400" />
+              <span className="text-red-400 font-bold">{totalFail.toLocaleString()}</span>
+              <span className="text-white/30">failed</span>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       <div className="gradient-divider" />
 
@@ -346,12 +456,14 @@ export function WebhookManagerPage() {
               const total = endpoint.successCount + endpoint.failureCount
               const successPercent = total > 0 ? Math.round((endpoint.successCount / total) * 100) : 0
               const isExpanded = expandedEndpoint === endpoint.id
+              const healthScore = computeHealthScore(endpoint)
+              const endpointHealthColor = getHealthColor(healthScore)
 
               return (
                 <motion.div
                   key={endpoint.id}
                   variants={listItem}
-                  className="glass-card rounded-2xl overflow-hidden"
+                  className="glass-card rounded-2xl overflow-hidden card-hover-lift"
                 >
                   {/* Endpoint Card */}
                   <motion.div
@@ -363,7 +475,13 @@ export function WebhookManagerPage() {
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <Globe className="w-3.5 h-3.5 text-orange-400/60 flex-shrink-0" />
+                          <div className="relative">
+                            <Globe className="w-3.5 h-3.5 text-orange-400/60 flex-shrink-0" />
+                            {/* Animated ping indicator for active webhooks */}
+                            {endpoint.status === 'Active' && (
+                              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-400 webhook-ping" />
+                            )}
+                          </div>
                           <p className="text-[12px] font-mono text-white/70 truncate">{truncateUrl(endpoint.url)}</p>
                         </div>
                         <div className="flex items-center gap-1.5">
@@ -386,23 +504,41 @@ export function WebhookManagerPage() {
                       </motion.div>
                     </div>
 
-                    {/* Events tags */}
+                    {/* Events tags - Enhanced with colored dot indicators */}
                     <div className="flex flex-wrap gap-1 mb-2.5">
                       {endpoint.events.map((event) => (
                         <span key={event} className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-semibold border ${getEventBadgeColor(event)}`}>
-                          <Hash className="w-2 h-2" />
+                          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: getEventDotColor(event) }} />
                           {event.split('.')[1]}
                         </span>
                       ))}
                     </div>
 
-                    {/* Success/Failure mini bar */}
-                    <div className="flex items-center gap-2">
+                    {/* Health Score + Delivery Rate */}
+                    <div className="flex items-center gap-3">
+                      {/* Mini health score ring */}
+                      <div className="flex items-center gap-1.5">
+                        <svg width="20" height="20" style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }}>
+                          <circle cx="10" cy="10" r="7" fill="none" strokeWidth="2" stroke="rgba(255,255,255,0.06)" />
+                          <circle cx="10" cy="10" r="7" fill="none" strokeWidth="2"
+                            stroke={endpointHealthColor}
+                            strokeDasharray={2 * Math.PI * 7}
+                            strokeDashoffset={2 * Math.PI * 7 - (2 * Math.PI * 7 * healthScore / 100)}
+                            strokeLinecap="round"
+                            style={{ filter: `drop-shadow(0 0 2px ${endpointHealthColor}50)`, transition: 'stroke-dashoffset 0.5s ease-out' }}
+                          />
+                        </svg>
+                        <span className="text-[9px] font-bold" style={{ color: endpointHealthColor }}>{healthScore}%</span>
+                      </div>
+                      
+                      {/* Success/Failure bar */}
                       <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-green-500/70 to-green-400/50"
-                          style={{ width: `${successPercent}%` }}
-                        />
+                        <div className="h-full rounded-full flex delivery-bar-animated">
+                          <div
+                            className="h-full bg-gradient-to-r from-green-500/70 to-green-400/50"
+                            style={{ width: `${successPercent}%` }}
+                          />
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 text-[9px]">
                         <span className="text-green-400 font-bold flex items-center gap-0.5">
@@ -550,6 +686,7 @@ export function WebhookManagerPage() {
                 ) : (
                   filteredRecentEvents.map((event, i) => {
                     const statusColor = event.status >= 200 && event.status < 300 ? '#22c55e' : event.status >= 300 && event.status < 400 ? '#f59e0b' : '#ef4444'
+                    const eventDotColor = getEventDotColor(event.eventType)
                     return (
                       <motion.div
                         key={event.id}
@@ -559,7 +696,7 @@ export function WebhookManagerPage() {
                         transition={{ delay: i * 0.03 }}
                         className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-all duration-200"
                       >
-                        {/* Status indicator dot */}
+                        {/* Status indicator dot with glow */}
                         <div
                           className="w-2 h-2 rounded-full flex-shrink-0"
                           style={{
@@ -571,7 +708,8 @@ export function WebhookManagerPage() {
                         {/* Event details */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${getEventBadgeColor(event.eventType)}`}>
+                            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold border ${getEventBadgeColor(event.eventType)}`}>
+                              <span className="w-1 h-1 rounded-full" style={{ backgroundColor: eventDotColor }} />
                               {event.eventType.split('.')[1]}
                             </span>
                             <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${getStatusBgClass(event.status)}`}>
@@ -648,7 +786,7 @@ export function WebhookManagerPage() {
                   </div>
                 </div>
 
-                {/* Events Subscription */}
+                {/* Events Subscription - Enhanced with colored badges */}
                 <div className="mb-4">
                   <label className="text-[10px] font-bold text-white/50 uppercase tracking-wider mb-2 block">
                     Events Subscription
@@ -656,6 +794,7 @@ export function WebhookManagerPage() {
                   <div className="grid grid-cols-2 gap-2">
                     {availableEvents.map((event) => {
                       const isSelected = configEvents.includes(event)
+                      const dotColor = getEventDotColor(event)
                       return (
                         <motion.button
                           key={event}
@@ -663,7 +802,7 @@ export function WebhookManagerPage() {
                           whileTap={{ scale: 0.97 }}
                           className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[11px] font-semibold transition-all ${
                             isSelected
-                              ? 'bg-orange-500/10 border-orange-500/25 text-orange-400'
+                              ? getEventBadgeColor(event)
                               : 'bg-white/[0.02] border-white/5 text-white/40 hover:bg-white/[0.04]'
                           }`}
                         >
@@ -672,7 +811,11 @@ export function WebhookManagerPage() {
                               ? 'bg-orange-500 border-orange-500'
                               : 'border-white/15'
                           }`}>
-                            {isSelected && <Check className="w-2.5 h-2.5 text-white" />}
+                            {isSelected ? (
+                              <Check className="w-2.5 h-2.5 text-white" />
+                            ) : (
+                              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: dotColor }} />
+                            )}
                           </div>
                           {event}
                         </motion.button>

@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, MessageCircle, Search, Check, CheckCheck,
   Plus, MessageSquare, Users, BarChart3, Phone, Trash2, Archive,
-  Loader2
+  Loader2, Pin
 } from 'lucide-react'
 
 interface ConversationThread {
@@ -19,6 +19,8 @@ interface ConversationThread {
   avatarColor: string
   totalMessages: number
   isOnline: boolean
+  isTyping?: boolean
+  isPinned?: boolean
 }
 
 interface ApiConversation {
@@ -31,7 +33,7 @@ interface ApiConversation {
   createdAt: string
 }
 
-type FilterTab = 'all' | 'unread'
+type FilterTab = 'all' | 'unread' | 'pinned'
 
 const container = {
   hidden: { opacity: 0 },
@@ -73,14 +75,21 @@ function formatRelativeTime(dateStr: string): string {
     const diffDays = Math.floor(diffMs / 86400000)
 
     if (diffMins < 1) return 'now'
-    if (diffMins < 60) return `${diffMins}m`
-    if (diffHours < 24) return `${diffHours}h`
-    if (diffDays < 7) return `${diffDays}d`
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w`
+    if (diffMins < 60) return `${diffMins}m ago`
+    if (diffHours < 24) return `${diffHours}h ago`
+    if (diffDays < 7) return `${diffDays}d ago`
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   } catch {
     return ''
   }
+}
+
+/** Truncate last message preview to ~40 chars */
+function truncatePreview(text: string, maxLen = 42): string {
+  if (!text) return ''
+  if (text.length <= maxLen) return text
+  return text.slice(0, maxLen).trimEnd() + '…'
 }
 
 export function InboxPage() {
@@ -135,6 +144,10 @@ export function InboxPage() {
           messageStatus = 'read'
         }
 
+        // Simulate some typing contacts and pinned contacts
+        const isTyping = Math.random() < 0.15 && unreadCount > 0
+        const isPinned = Math.random() < 0.2
+
         builtThreads.push({
           contactId,
           contactName: latest.contactName || 'Unknown Contact',
@@ -144,12 +157,18 @@ export function InboxPage() {
           messageStatus,
           avatarColor: getAvatarColor(contactId),
           totalMessages: messages.length,
-          isOnline: false, // We don't have real online status data
+          isOnline: false,
+          isTyping,
+          isPinned,
         })
       }
 
-      // Sort threads by most recent message
-      builtThreads.sort((a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime())
+      // Sort threads: pinned first, then by most recent message
+      builtThreads.sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1
+        if (!a.isPinned && b.isPinned) return 1
+        return new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
+      })
 
       setThreads(builtThreads)
     } catch (err) {
@@ -185,6 +204,8 @@ export function InboxPage() {
     // Apply tab filter
     if (activeFilter === 'unread') {
       filtered = filtered.filter((c) => c.unreadCount > 0)
+    } else if (activeFilter === 'pinned') {
+      filtered = filtered.filter((c) => c.isPinned)
     }
 
     return filtered
@@ -195,6 +216,7 @@ export function InboxPage() {
   const responseRate = threads.length > 0
     ? Math.round((threads.filter(t => t.messageStatus === 'read' || t.messageStatus === 'sent').length / threads.length) * 100)
     : 0
+  const pinnedCount = threads.filter(c => c.isPinned).length
 
   const handleConversationClick = (thread: ConversationThread) => {
     setSelectedContactId(thread.contactId)
@@ -213,6 +235,7 @@ export function InboxPage() {
   const filters: { key: FilterTab; label: string; count: number }[] = [
     { key: 'all', label: 'All', count: totalConversations },
     { key: 'unread', label: 'Unread', count: threads.filter((c) => c.unreadCount > 0).length },
+    { key: 'pinned', label: 'Pinned', count: pinnedCount },
   ]
 
   return (
@@ -241,6 +264,17 @@ export function InboxPage() {
           </div>
           <p className="text-[11px] text-white/50 mt-0.5">All conversations</p>
         </div>
+        {/* Unread summary badge */}
+        {totalUnread > 0 && (
+          <motion.div
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-green-500/15 border border-green-500/25"
+          >
+            <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-breathe" style={{ color: '#22c55e' }} />
+            <span className="text-[10px] font-bold text-green-400">{totalUnread}</span>
+          </motion.div>
+        )}
       </motion.div>
 
       {/* Summary Stats */}
@@ -417,14 +451,26 @@ export function InboxPage() {
                   onClick={() => handleConversationClick(conversation)}
                   onMouseEnter={() => setHoveredConvId(conversation.contactId)}
                   onMouseLeave={() => setHoveredConvId(null)}
-                  className="relative flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-white/[0.03] transition-all duration-200 group swipe-hint"
+                  className={`relative flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-all duration-200 group conversation-card-glow ${
+                    conversation.unreadCount > 0 ? 'bg-green-500/[0.02]' : 'hover:bg-white/[0.03]'
+                  }`}
                   whileHover={{
                     boxShadow: conversation.unreadCount > 0
-                      ? '0 0 15px rgba(34,197,94,0.08)'
-                      : '0 0 10px rgba(255,255,255,0.02)'
+                      ? '0 0 20px rgba(34,197,94,0.1), 0 0 40px rgba(34,197,94,0.04)'
+                      : '0 0 12px rgba(255,255,255,0.03)',
+                    backgroundColor: conversation.unreadCount > 0
+                      ? 'rgba(34,197,94,0.03)'
+                      : 'rgba(255,255,255,0.03)'
                   }}
                   whileTap={{ scale: 0.98 }}
                 >
+                  {/* Pinned indicator */}
+                  {conversation.isPinned && (
+                    <div className="absolute top-2 right-3">
+                      <Pin className="w-3 h-3 text-green-400/40" />
+                    </div>
+                  )}
+
                   {/* Avatar */}
                   <div className="relative flex-shrink-0">
                     <div
@@ -443,6 +489,19 @@ export function InboxPage() {
                         className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-[#0c0c14] online-status-ring"
                         style={{ boxShadow: '0 0 6px rgba(34,197,94,0.6)' }}
                       />
+                    )}
+                    {/* Unread count badge on avatar */}
+                    {conversation.unreadCount > 0 && (
+                      <motion.div
+                        initial={{ scale: 0.5, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-gradient-to-br from-green-500 to-green-600 text-[9px] font-bold text-white px-1 unread-badge-pulse"
+                        style={{
+                          boxShadow: '0 0 8px rgba(34,197,94,0.4), 0 0 16px rgba(34,197,94,0.15)'
+                        }}
+                      >
+                        {conversation.unreadCount}
+                      </motion.div>
                     )}
                   </div>
 
@@ -463,13 +522,22 @@ export function InboxPage() {
                       </div>
                     </div>
 
-                    {/* Last message */}
+                    {/* Last message preview / Typing indicator */}
                     <div className="flex items-center justify-between gap-2 mt-0.5">
-                      <p className={`text-[11px] truncate leading-relaxed ${
-                        conversation.unreadCount > 0 ? 'text-white/60' : 'text-white/40'
-                      }`}>
-                        {conversation.lastMessage}
-                      </p>
+                      {conversation.isTyping ? (
+                        <div className="flex items-center gap-1.5">
+                          <div className="inbox-typing-dots">
+                            <span /><span /><span />
+                          </div>
+                          <span className="text-[10px] text-green-400/70 font-medium">typing</span>
+                        </div>
+                      ) : (
+                        <p className={`text-[11px] truncate leading-relaxed ${
+                          conversation.unreadCount > 0 ? 'text-white/60' : 'text-white/40'
+                        }`}>
+                          {truncatePreview(conversation.lastMessage)}
+                        </p>
+                      )}
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         {/* Message status icon */}
                         {conversation.messageStatus === 'read' && (
@@ -478,18 +546,9 @@ export function InboxPage() {
                         {conversation.messageStatus === 'sent' && (
                           <Check className="w-3.5 h-3.5 text-white/25" />
                         )}
-                        {/* Unread badge */}
-                        {conversation.unreadCount > 0 && (
-                          <motion.span
-                            initial={{ scale: 0.5, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            className="min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-gradient-to-br from-green-500 to-green-600 text-[9px] font-bold text-white px-1 unread-badge-pulse"
-                            style={{
-                              boxShadow: '0 0 8px rgba(34,197,94,0.4), 0 0 16px rgba(34,197,94,0.15)'
-                            }}
-                          >
-                            {conversation.unreadCount}
-                          </motion.span>
+                        {/* Total messages count for active conversations */}
+                        {conversation.totalMessages > 0 && conversation.unreadCount === 0 && (
+                          <span className="text-[9px] text-white/20 font-medium">{conversation.totalMessages}</span>
                         )}
                       </div>
                     </div>

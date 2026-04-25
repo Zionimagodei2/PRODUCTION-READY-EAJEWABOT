@@ -8,11 +8,12 @@ import {
   ArrowLeft, GitBranch, Play, Copy, Download, Power, PowerOff,
   Plus, Zap, MessageSquare, GitMerge, MousePointerClick, Square,
   X, Pencil, Trash2, Check, ChevronRight, Clock, Activity, Workflow,
-  Loader2
+  Loader2, CircleDot, FileEdit, AlertCircle, Sparkles
 } from 'lucide-react'
 
 // Node type definitions
 type NodeType = 'trigger' | 'message' | 'condition' | 'action' | 'end'
+type FlowStatus = 'active' | 'inactive' | 'draft'
 
 interface FlowNode {
   id: string
@@ -39,6 +40,8 @@ const nodeTypeConfig: Record<NodeType, {
   textClass: string
   glowColor: string
   description: string
+  gradientFrom: string
+  gradientTo: string
 }> = {
   trigger: {
     icon: Zap,
@@ -49,6 +52,8 @@ const nodeTypeConfig: Record<NodeType, {
     textClass: 'text-green-400',
     glowColor: 'rgba(34, 197, 94, 0.2)',
     description: 'Start the flow when an event occurs',
+    gradientFrom: 'rgba(34,197,94,0.15)',
+    gradientTo: 'rgba(34,197,94,0.05)',
   },
   message: {
     icon: MessageSquare,
@@ -59,6 +64,8 @@ const nodeTypeConfig: Record<NodeType, {
     textClass: 'text-blue-400',
     glowColor: 'rgba(59, 130, 246, 0.2)',
     description: 'Send a message to the user',
+    gradientFrom: 'rgba(59,130,246,0.15)',
+    gradientTo: 'rgba(59,130,246,0.05)',
   },
   condition: {
     icon: GitMerge,
@@ -69,6 +76,8 @@ const nodeTypeConfig: Record<NodeType, {
     textClass: 'text-purple-400',
     glowColor: 'rgba(139, 92, 246, 0.2)',
     description: 'Branch based on a condition',
+    gradientFrom: 'rgba(139,92,246,0.15)',
+    gradientTo: 'rgba(139,92,246,0.05)',
   },
   action: {
     icon: MousePointerClick,
@@ -79,6 +88,8 @@ const nodeTypeConfig: Record<NodeType, {
     textClass: 'text-orange-400',
     glowColor: 'rgba(249, 115, 22, 0.2)',
     description: 'Perform an action or integration',
+    gradientFrom: 'rgba(249,115,22,0.15)',
+    gradientTo: 'rgba(249,115,22,0.05)',
   },
   end: {
     icon: Square,
@@ -89,7 +100,26 @@ const nodeTypeConfig: Record<NodeType, {
     textClass: 'text-red-400',
     glowColor: 'rgba(239, 68, 68, 0.2)',
     description: 'End the conversation flow',
+    gradientFrom: 'rgba(239,68,68,0.15)',
+    gradientTo: 'rgba(239,68,68,0.05)',
   },
+}
+
+function getFlowStatus(flow: Flow): FlowStatus {
+  if (flow.active) return 'active'
+  if (flow.nodes.length > 0) return 'inactive'
+  return 'draft'
+}
+
+function getStatusConfig(status: FlowStatus): { label: string; color: string; bg: string; border: string; dot: string; glowClass: string } {
+  switch (status) {
+    case 'active':
+      return { label: 'Active', color: '#22c55e', bg: 'bg-green-500/10', border: 'border-green-500/20', dot: 'bg-green-400', glowClass: 'flow-status-active' }
+    case 'inactive':
+      return { label: 'Inactive', color: '#f59e0b', bg: 'bg-amber-500/10', border: 'border-amber-500/20', dot: 'bg-amber-400', glowClass: 'flow-status-inactive' }
+    case 'draft':
+      return { label: 'Draft', color: '#6b7280', bg: 'bg-white/5', border: 'border-white/10', dot: 'bg-white/30', glowClass: 'flow-status-draft' }
+  }
 }
 
 export function FlowBuilderPage() {
@@ -104,6 +134,7 @@ export function FlowBuilderPage() {
   const [editTitle, setEditTitle] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
 
   const activeFlow = flows.find(f => f.id === activeFlowId) ?? null
   const selectedNode = activeFlow?.nodes.find(n => n.id === selectedNodeId) ?? null
@@ -436,30 +467,37 @@ export function FlowBuilderPage() {
           </div>
           <p className="text-[11px] text-white/40 mt-0.5">Design conversation flows</p>
         </div>
-        {activeFlow && (
-          <div className={`px-2 py-1 rounded-lg text-[9px] font-bold ${activeFlow.active ? 'bg-green-500/15 text-green-400 border border-green-500/20' : 'bg-white/5 text-white/30 border border-white/10'}`}>
-            {activeFlow.active ? 'ACTIVE' : 'DRAFT'}
-          </div>
-        )}
+        {activeFlow && (() => {
+          const status = getFlowStatus(activeFlow)
+          const statusConfig = getStatusConfig(status)
+          return (
+            <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-bold ${statusConfig.bg} ${statusConfig.border} border ${statusConfig.glowClass}`}
+              style={{ color: statusConfig.color }}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} style={status === 'active' ? { boxShadow: `0 0 4px ${statusConfig.color}` } : undefined} />
+              {statusConfig.label.toUpperCase()}
+            </div>
+          )
+        })()}
       </div>
 
       {/* Stats Bar */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="glass-card rounded-xl p-3 text-center stat-card-cyan">
+        <div className="glass-card rounded-xl p-3 text-center stat-card-cyan card-hover-lift">
           <div className="w-7 h-7 mx-auto rounded-lg bg-cyan-500/10 flex items-center justify-center mb-1.5">
             <Workflow className="w-3.5 h-3.5 text-cyan-400" />
           </div>
           <p className="text-lg font-bold text-cyan-400">{activeFlows}</p>
           <p className="text-[10px] text-white/40">Active Flows</p>
         </div>
-        <div className="glass-card rounded-xl p-3 text-center stat-card-blue">
+        <div className="glass-card rounded-xl p-3 text-center stat-card-blue card-hover-lift">
           <div className="w-7 h-7 mx-auto rounded-lg bg-blue-500/10 flex items-center justify-center mb-1.5">
             <GitBranch className="w-3.5 h-3.5 text-blue-400" />
           </div>
           <p className="text-lg font-bold text-blue-400">{totalNodes}</p>
           <p className="text-[10px] text-white/40">Total Nodes</p>
         </div>
-        <div className="glass-card rounded-xl p-3 text-center stat-card-green">
+        <div className="glass-card rounded-xl p-3 text-center stat-card-green card-hover-lift">
           <div className="w-7 h-7 mx-auto rounded-lg bg-green-500/10 flex items-center justify-center mb-1.5">
             <Clock className="w-3.5 h-3.5 text-green-400" />
           </div>
@@ -489,21 +527,28 @@ export function FlowBuilderPage() {
           </motion.button>
         </div>
         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-          {flows.map((flow) => (
-            <motion.button
-              key={flow.id}
-              onClick={() => { setActiveFlowId(flow.id); setSelectedNodeId(null); setEditingNodeId(null) }}
-              whileTap={{ scale: 0.95 }}
-              className={`flex-shrink-0 px-3 py-2.5 rounded-xl text-center transition-all border ${
-                activeFlowId === flow.id
-                  ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 neon-glow-cyan'
-                  : 'bg-white/[0.03] border-white/[0.06] text-white/50 hover:bg-white/[0.05]'
-              }`}
-            >
-              <p className="text-[11px] font-bold truncate max-w-[100px]">{flow.name}</p>
-              <p className="text-[9px] text-white/30 mt-0.5">{flow.nodes.length} nodes</p>
-            </motion.button>
-          ))}
+          {flows.map((flow) => {
+            const flowStatus = getFlowStatus(flow)
+            const flowStatusConfig = getStatusConfig(flowStatus)
+            return (
+              <motion.button
+                key={flow.id}
+                onClick={() => { setActiveFlowId(flow.id); setSelectedNodeId(null); setEditingNodeId(null) }}
+                whileTap={{ scale: 0.95 }}
+                className={`flex-shrink-0 px-3 py-2.5 rounded-xl text-center transition-all border relative ${
+                  activeFlowId === flow.id
+                    ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 neon-glow-cyan'
+                    : 'bg-white/[0.03] border-white/[0.06] text-white/50 hover:bg-white/[0.05]'
+                }`}
+              >
+                <p className="text-[11px] font-bold truncate max-w-[100px]">{flow.name}</p>
+                <div className="flex items-center justify-center gap-1 mt-0.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${flowStatusConfig.dot}`} />
+                  <p className="text-[9px] text-white/30">{flow.nodes.length} nodes • {flowStatusConfig.label}</p>
+                </div>
+              </motion.button>
+            )
+          })}
         </div>
       </div>
 
@@ -521,12 +566,13 @@ export function FlowBuilderPage() {
             </div>
           </div>
 
-          {/* Node Chain */}
+          {/* Node Chain with SVG animated connection lines */}
           <div className="relative pl-4">
             {activeFlow.nodes.map((node, index) => {
               const config = nodeTypeConfig[node.type]
               const Icon = config.icon
               const isSelected = selectedNodeId === node.id
+              const isHovered = hoveredNodeId === node.id
               const isLast = index === activeFlow.nodes.length - 1
 
               return (
@@ -536,45 +582,68 @@ export function FlowBuilderPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.08, duration: 0.3 }}
                 >
-                  {/* Connection Line */}
-                  {!isLast && (
-                    <div
-                      className="absolute left-0 w-0.5"
-                      style={{
-                        top: `${index * 88 + 44}px`,
-                        height: '44px',
-                        background: `linear-gradient(to bottom, ${config.color}60, ${nodeTypeConfig[activeFlow.nodes[index + 1]?.type]?.color || config.color}60)`,
-                      }}
-                    />
-                  )}
+                  {/* Animated SVG Connection Line */}
+                  {!isLast && (() => {
+                    const nextConfig = nodeTypeConfig[activeFlow.nodes[index + 1]?.type]
+                    return (
+                      <svg
+                        className="absolute left-0"
+                        style={{ top: `${index * 92 + 50}px`, height: '42px', width: '16px', overflow: 'visible' }}
+                      >
+                        <line
+                          x1="8" y1="0" x2="8" y2="42"
+                          className="flow-connection-line"
+                          strokeWidth="2"
+                          stroke={`url(#lineGrad-${node.id})`}
+                        />
+                        <defs>
+                          <linearGradient id={`lineGrad-${node.id}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={config.color} stopOpacity="0.6" />
+                            <stop offset="100%" stopColor={nextConfig.color} stopOpacity="0.6" />
+                          </linearGradient>
+                        </defs>
+                      </svg>
+                    )
+                  })()}
 
                   {/* Node dot on the line */}
                   <div
                     className="absolute left-[-3px] w-2.5 h-2.5 rounded-full border-2 z-10"
                     style={{
-                      top: `${index * 88 + 18}px`,
+                      top: `${index * 92 + 22}px`,
                       backgroundColor: node.active ? config.color : 'rgba(255,255,255,0.1)',
                       borderColor: node.active ? config.color : 'rgba(255,255,255,0.15)',
                       boxShadow: node.active ? `0 0 8px ${config.glowColor}` : 'none',
+                      animation: node.active ? 'breathe 2.5s ease-in-out infinite' : 'none',
+                      color: node.active ? config.color : undefined,
                     }}
                   />
 
-                  {/* Node Card */}
+                  {/* Node Card with hover glow */}
                   <motion.button
                     onClick={() => {
                       setSelectedNodeId(isSelected ? null : node.id)
                       setEditingNodeId(null)
                     }}
+                    onMouseEnter={() => setHoveredNodeId(node.id)}
+                    onMouseLeave={() => setHoveredNodeId(null)}
                     whileTap={{ scale: 0.97 }}
-                    className={`w-full mb-3 p-3 rounded-xl border text-left transition-all ${
+                    className={`w-full mb-3 p-3 rounded-xl border text-left transition-all duration-200 flow-node-card ${
                       isSelected
                         ? 'ring-2 ring-cyan-500/30 border-white/10'
                         : 'border-white/[0.06] hover:border-white/10'
-                    } ${config.bgClass}`}
+                    }`}
                     style={{
+                      background: isSelected
+                        ? `linear-gradient(135deg, ${config.gradientFrom}, ${config.gradientTo})`
+                        : isHovered
+                          ? `linear-gradient(135deg, ${config.gradientFrom}, ${config.gradientTo})`
+                          : undefined,
                       boxShadow: isSelected
                         ? `0 0 20px ${config.glowColor}, 0 0 40px ${config.glowColor}`
-                        : 'none',
+                        : isHovered
+                          ? `0 0 12px ${config.glowColor}, 0 0 24px ${config.glowColor}`
+                          : 'none',
                     }}
                   >
                     <div className="flex items-center gap-2.5">
@@ -592,6 +661,8 @@ export function FlowBuilderPage() {
                           >
                             {config.label}
                           </span>
+                          {/* Node active/inactive indicator */}
+                          <span className={`w-1.5 h-1.5 rounded-full ${node.active ? 'bg-green-400' : 'bg-white/20'}`} />
                         </div>
                         {node.content && (
                           <p className="text-[10px] text-white/35 mt-0.5 truncate">{node.content.split('\n')[0]}</p>
@@ -816,7 +887,7 @@ export function FlowBuilderPage() {
         </div>
       </div>
 
-      {/* Node Type Picker Modal */}
+      {/* Node Type Picker Modal - Enhanced with icons and descriptions */}
       <AnimatePresence>
         {showNodePicker && (
           <motion.div
@@ -838,7 +909,7 @@ export function FlowBuilderPage() {
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Plus className="w-4 h-4 text-cyan-400" />
+                  <Sparkles className="w-4 h-4 text-cyan-400" />
                   <h3 className="text-sm font-bold text-white/90">Add Node</h3>
                 </div>
                 <motion.button
@@ -850,7 +921,7 @@ export function FlowBuilderPage() {
                 </motion.button>
               </div>
 
-              {/* Node Types */}
+              {/* Node Types - Enhanced with icons, gradient, glow */}
               <div className="space-y-2">
                 {(Object.keys(nodeTypeConfig) as NodeType[]).map((type, i) => {
                   const config = nodeTypeConfig[type]
@@ -863,16 +934,23 @@ export function FlowBuilderPage() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.06 }}
                       whileTap={{ scale: 0.97 }}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl border border-white/[0.06] hover:border-white/10 transition-all hover:bg-white/[0.03]"
+                      whileHover={{ boxShadow: `0 0 12px ${config.glowColor}` }}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl border border-white/[0.06] hover:border-white/10 transition-all node-type-btn"
+                      style={{ background: `linear-gradient(135deg, ${config.gradientFrom}, ${config.gradientTo})` }}
                     >
                       <div
                         className={`w-10 h-10 rounded-xl ${config.bgClass} flex items-center justify-center flex-shrink-0`}
-                        style={{ border: `1px solid ${config.color}25` }}
+                        style={{ border: `1px solid ${config.color}30`, boxShadow: `0 0 8px ${config.glowColor}` }}
                       >
                         <Icon className="w-5 h-5" style={{ color: config.color }} />
                       </div>
                       <div className="text-left flex-1">
-                        <p className="text-[12px] font-bold text-white/90">{config.label}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-[12px] font-bold text-white/90">{config.label}</p>
+                          <span className={`text-[7px] px-1.5 py-0.5 rounded-md font-bold ${config.bgClass} ${config.textClass} border ${config.borderClass}`}>
+                            NODE
+                          </span>
+                        </div>
                         <p className="text-[10px] text-white/35">{config.description}</p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-white/15 flex-shrink-0" />

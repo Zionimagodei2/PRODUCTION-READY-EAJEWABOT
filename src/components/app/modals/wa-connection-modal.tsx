@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '@/store/app-store'
-import { X, Wifi, WifiOff, RefreshCw, CheckCircle2, AlertCircle, Smartphone, QrCode, Phone, Copy, Loader2 } from 'lucide-react'
+import { X, Wifi, WifiOff, CheckCircle2, AlertCircle, Smartphone, QrCode, Phone, Copy, Loader2 } from 'lucide-react'
 
 type Step = 'disconnected' | 'loading' | 'qr' | 'pairing-code' | 'connected'
 

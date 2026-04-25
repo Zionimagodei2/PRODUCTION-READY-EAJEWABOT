@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Database, Users, Megaphone, MessageSquare,
   BarChart3, Download, FileText, FileJson, FileSpreadsheet,
-  Calendar, Clock, CheckCircle2, Loader2, HardDrive
+  Calendar, Clock, CheckCircle2, Loader2, HardDrive, AlertCircle
 } from 'lucide-react'
 
 type DateRange = '7d' | '30d' | '90d' | 'all'
@@ -30,6 +30,20 @@ interface ExportHistoryItem {
   date: string
   size: string
   status: 'completed' | 'failed'
+}
+
+interface RecordCounts {
+  contacts: number
+  campaigns: number
+  messages: number
+  analytics: number
+  stats?: {
+    totalSent: number
+    totalDelivered: number
+    totalReplies: number
+    deliveryRate: number
+    replyRate: number
+  }
 }
 
 const defaultExportOptions: ExportOption[] = [
@@ -85,15 +99,35 @@ const formatConfig: Record<ExportFormat, { icon: React.ReactNode; label: string;
   pdf: { icon: <FileText className="w-3.5 h-3.5" />, label: 'PDF', color: '#ef4444' },
 }
 
+// Map export type + format to file extension
+function getFileExtension(type: string, format: ExportFormat): string {
+  if (format === 'vcard') return 'vcf'
+  if (format === 'pdf') return 'txt'
+  if (format === 'csv') return 'csv'
+  if (format === 'json') return 'json'
+  return format
+}
+
+// Map export format to MIME type for the blob
+function getMimeType(format: ExportFormat, responseType: string): string {
+  if (format === 'csv') return 'text/csv'
+  if (format === 'json') return 'application/json'
+  if (format === 'vcard') return 'text/vcard'
+  if (format === 'pdf') return 'text/plain'
+  return responseType
+}
+
 export function DataExportPage() {
   const { goBack } = useAppStore()
   const { addToast } = useToastStore()
   const [dateRange, setDateRange] = useState<DateRange>('30d')
   const [exportingId, setExportingId] = useState<string | null>(null)
+  const [exportFormat, setExportFormat] = useState<ExportFormat | null>(null)
   const [exportProgress, setExportProgress] = useState(0)
   const [exportOptions, setExportOptions] = useState<ExportOption[]>(defaultExportOptions)
   const [exportHistory, setExportHistory] = useState<ExportHistoryItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [countsError, setCountsError] = useState(false)
 
   // Fetch real record counts from the API
   useEffect(() => {
@@ -101,16 +135,18 @@ export function DataExportPage() {
       try {
         const res = await fetch('/api/export')
         if (res.ok) {
-          const data = await res.json()
+          const data: RecordCounts = await res.json()
           queueMicrotask(() => {
             setExportOptions(prev => prev.map(opt => ({
               ...opt,
-              recordCount: data[opt.id as keyof typeof data] ?? 0,
+              recordCount: data[opt.id as keyof RecordCounts] as number ?? 0,
             })))
           })
+        } else {
+          queueMicrotask(() => setCountsError(true))
         }
-      } catch (error) {
-        console.error('Failed to fetch export counts:', error)
+      } catch {
+        queueMicrotask(() => setCountsError(true))
       } finally {
         queueMicrotask(() => setLoading(false))
       }
@@ -118,142 +154,122 @@ export function DataExportPage() {
     fetchCounts()
   }, [])
 
+  // Refresh counts when date range changes (counts always reflect total, but we show a note)
+  useEffect(() => {
+    async function refreshCounts() {
+      try {
+        const res = await fetch('/api/export')
+        if (res.ok) {
+          const data: RecordCounts = await res.json()
+          queueMicrotask(() => {
+            setExportOptions(prev => prev.map(opt => ({
+              ...opt,
+              recordCount: data[opt.id as keyof RecordCounts] as number ?? 0,
+            })))
+          })
+        }
+      } catch {
+        // Keep existing counts on refresh failure
+      }
+    }
+    if (!loading) {
+      refreshCounts()
+    }
+  }, [dateRange, loading])
+
   const handleExport = useCallback(
     async (option: ExportOption, format: ExportFormat) => {
       setExportingId(option.id)
+      setExportFormat(format)
       setExportProgress(0)
 
       // Show progress animation
       const progressInterval = setInterval(() => {
         setExportProgress((prev) => {
-          if (prev >= 90) {
+          if (prev >= 85) {
             clearInterval(progressInterval)
-            return 90
+            return 85
           }
-          return prev + Math.random() * 25
+          return prev + Math.random() * 20
         })
       }, 200)
 
       try {
-        if (format === 'vcard') {
-          // vCard: fetch contacts and generate vCard locally
-          const contactsRes = await fetch('/api/contacts')
-          if (contactsRes.ok) {
-            const contacts = await contactsRes.json()
-            const vcardContent = contacts.map((c: { name: string; phone: string; email: string; company: string }) =>
-              `BEGIN:VCARD\nVERSION:3.0\nFN:${c.name}\nTEL:${c.phone}\nEMAIL:${c.email}\nORG:${c.company}\nEND:VCARD`
-            ).join('\n')
+        // Call the server API for all export types
+        const res = await fetch('/api/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: option.id,
+            format,
+            dateRange,
+          }),
+        })
 
-            clearInterval(progressInterval)
-            setExportProgress(100)
+        clearInterval(progressInterval)
+        setExportProgress(100)
 
-            const blob = new Blob([vcardContent], { type: 'text/vcard' })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = `eaje-contacts-${new Date().toISOString().slice(0, 10)}.vcf`
-            document.body.appendChild(a)
-            a.click()
-            document.body.removeChild(a)
-            URL.revokeObjectURL(url)
+        if (res.ok) {
+          const content = await res.text()
+          const mimeType = getMimeType(format, res.headers.get('content-type') || 'text/plain')
+          const extension = getFileExtension(option.id, format)
 
-            addToHistory(option.title, 'vCard', vcardContent.length)
-          }
-        } else if (format === 'pdf') {
-          // PDF: generate a simple text report since we can't generate real PDF client-side
-          clearInterval(progressInterval)
-          setExportProgress(100)
-
-          const res = await fetch('/api/stats')
-          let reportContent = `EAJE WhatsBot - ${option.title} Report\nGenerated: ${new Date().toLocaleString()}\nDate Range: ${dateRangeOptions.find(d => d.id === dateRange)?.label}\n\n`
-          if (res.ok) {
-            const stats = await res.json()
-            reportContent += `Summary Statistics:\n`
-            reportContent += `Total Sent: ${stats.totalSent}\n`
-            reportContent += `Total Delivered: ${stats.totalDelivered}\n`
-            reportContent += `Total Replies: ${stats.totalReplies}\n`
-            reportContent += `Delivery Rate: ${stats.deliveryRate}%\n`
-            reportContent += `Reply Rate: ${stats.replyRate}%\n`
-            reportContent += `Total Contacts: ${stats.totalContacts}\n`
-            reportContent += `Total Campaigns: ${stats.totalCampaigns}\n`
-          }
-
-          const blob = new Blob([reportContent], { type: 'text/plain' })
+          const blob = new Blob([content], { type: mimeType })
           const url = URL.createObjectURL(blob)
           const a = document.createElement('a')
           a.href = url
-          a.download = `eaje-${option.id}-${new Date().toISOString().slice(0, 10)}.txt`
+          a.download = `eaje-${option.id}-${new Date().toISOString().slice(0, 10)}.${extension}`
           document.body.appendChild(a)
           a.click()
           document.body.removeChild(a)
           URL.revokeObjectURL(url)
 
-          addToHistory(option.title, 'PDF', reportContent.length)
-        } else {
-          // CSV/JSON: call the real export API
-          const res = await fetch('/api/export', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: option.id, format }),
+          addToHistory(option.title, format.toUpperCase(), content.length)
+
+          addToast({
+            type: 'success',
+            title: 'Export Complete',
+            message: `${option.title} exported as ${format.toUpperCase()} successfully`,
+            duration: 3000,
           })
-
-          clearInterval(progressInterval)
-          setExportProgress(100)
-
-          if (res.ok) {
-            const content = await res.text()
-            const mimeType = format === 'csv' ? 'text/csv' : 'application/json'
-            const extension = format === 'csv' ? 'csv' : 'json'
-
-            const blob = new Blob([content], { type: mimeType })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = `eaje-${option.id}-${new Date().toISOString().slice(0, 10)}.${extension}`
-            document.body.appendChild(a)
-            a.click()
-            document.body.removeChild(a)
-            URL.revokeObjectURL(url)
-
-            addToHistory(option.title, format.toUpperCase(), content.length)
-          } else {
-            addToast({
-              type: 'error',
-              title: 'Export Failed',
-              message: `Failed to export ${option.title} as ${format.toUpperCase()}`,
-              duration: 3000,
-            })
-          }
+        } else {
+          const errorData = await res.json().catch(() => ({ error: 'Export failed' }))
+          addToHistory(option.title, format.toUpperCase(), 0, true)
+          addToast({
+            type: 'error',
+            title: 'Export Failed',
+            message: errorData.error || `Failed to export ${option.title} as ${format.toUpperCase()}`,
+            duration: 3000,
+          })
         }
-
-        addToast({
-          type: 'success',
-          title: 'Export Complete',
-          message: `${option.title} exported as ${format.toUpperCase()} successfully`,
-          duration: 3000,
-        })
       } catch (error) {
         console.error('Export error:', error)
+        addToHistory(option.title, format.toUpperCase(), 0, true)
         addToast({
           type: 'error',
           title: 'Export Failed',
-          message: `Failed to export ${option.title}`,
+          message: `Failed to export ${option.title}. Please try again.`,
           duration: 3000,
         })
       } finally {
-        setExportingId(null)
-        setExportProgress(0)
+        setTimeout(() => {
+          setExportingId(null)
+          setExportFormat(null)
+          setExportProgress(0)
+        }, 500)
       }
     },
     [dateRange, addToast]
   )
 
-  function addToHistory(title: string, format: string, byteSize: number) {
-    const sizeStr = byteSize > 1024 * 1024
-      ? `${(byteSize / (1024 * 1024)).toFixed(1)} MB`
-      : byteSize > 1024
-        ? `${(byteSize / 1024).toFixed(1)} KB`
-        : `${byteSize} B`
+  function addToHistory(title: string, format: string, byteSize: number, failed = false) {
+    const sizeStr = failed
+      ? '—'
+      : byteSize > 1024 * 1024
+        ? `${(byteSize / (1024 * 1024)).toFixed(1)} MB`
+        : byteSize > 1024
+          ? `${(byteSize / 1024).toFixed(1)} KB`
+          : `${byteSize} B`
 
     const newItem: ExportHistoryItem = {
       id: Date.now().toString(),
@@ -261,7 +277,7 @@ export function DataExportPage() {
       format,
       date: new Date().toLocaleString(),
       size: sizeStr,
-      status: 'completed',
+      status: failed ? 'failed' : 'completed',
     }
     setExportHistory(prev => [newItem, ...prev].slice(0, 10))
   }
@@ -296,6 +312,9 @@ export function DataExportPage() {
         <div className="flex items-center gap-2 mb-3">
           <Calendar className="w-4 h-4 text-cyan-400/70" />
           <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Date Range</span>
+          {dateRange !== 'all' && (
+            <span className="text-[9px] text-cyan-400/60 ml-auto">Filtering applied on export</span>
+          )}
         </div>
         <div className="grid grid-cols-4 gap-2">
           {dateRangeOptions.map((range) => (
@@ -319,6 +338,21 @@ export function DataExportPage() {
           ))}
         </div>
       </motion.div>
+
+      {/* Error state */}
+      {countsError && (
+        <motion.div
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card rounded-2xl p-4 border-red-500/20 flex items-center gap-3"
+        >
+          <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+          <div>
+            <p className="text-[12px] text-red-300/80 font-medium">Failed to load record counts</p>
+            <p className="text-[10px] text-white/30 mt-0.5">Exports will still work, but counts may be inaccurate</p>
+          </div>
+        </motion.div>
+      )}
 
       {/* Export Options */}
       <div className="space-y-3">
@@ -368,11 +402,13 @@ export function DataExportPage() {
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
-                      className="mt-3"
+                      className="mt-3 overflow-hidden"
                     >
                       <div className="flex items-center gap-2 mb-1.5">
                         <Loader2 className="w-3 h-3 text-cyan-400 animate-spin" />
-                        <span className="text-[10px] text-cyan-400/80 font-medium">Exporting... {Math.round(exportProgress)}%</span>
+                        <span className="text-[10px] text-cyan-400/80 font-medium">
+                          Exporting {exportFormat?.toUpperCase()}... {Math.round(exportProgress)}%
+                        </span>
                       </div>
                       <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
                         <motion.div
