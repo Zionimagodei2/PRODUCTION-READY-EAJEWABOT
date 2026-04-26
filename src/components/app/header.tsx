@@ -79,21 +79,30 @@ export function Header() {
           <button
             ref={searchRef}
             onClick={() => setSearchOpen(true)}
-            className={`w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center hover:bg-white/[0.08] hover:border-white/[0.12] transition-all duration-200 ${searchPulsed ? 'animate-pulse-once' : ''}`}
+            className={`w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center hover:bg-white/[0.08] hover:border-white/[0.12] hover:scale-[1.02] active:scale-[0.97] transition-all duration-200 ${searchPulsed ? 'animate-pulse-once' : ''}`}
             title="Search (⌘K)"
             aria-label="Search"
           >
-            <Search className="w-3.5 h-3.5 text-white/50" />
+            <Search className="w-4 h-4 text-white/50" />
           </button>
           <WaConnectionModal />
           <NotificationCenter />
           <ProfileModal />
-          {waConnected && (
-            <div className={`hidden sm:flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 ${celebrating ? 'animate-celebrate' : ''}`}>
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse-dot" />
-              <span className="text-[9px] font-semibold text-emerald-400">Connected</span>
-            </div>
-          )}
+          {/* Connection status indicator - visible on all screen sizes */}
+          <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-300 ${
+            waConnected
+              ? `bg-emerald-500/10 border border-emerald-500/20 ${celebrating ? 'animate-celebrate' : ''}`
+              : 'bg-amber-500/8 border border-amber-500/15'
+          }`}>
+            <div className={`w-2 h-2 rounded-full transition-colors duration-300 ${
+              waConnected ? 'bg-emerald-400 animate-pulse-dot' : 'bg-amber-400'
+            }`} />
+            <span className={`text-[10px] font-semibold transition-colors duration-300 ${
+              waConnected ? 'text-emerald-400' : 'text-amber-400/80'
+            }`}>
+              {waConnected ? 'Live' : 'Offline'}
+            </span>
+          </div>
         </div>
       </div>
       {/* Animated shimmer line below header */}

@@ -294,7 +294,8 @@ export function WaConnectionModal() {
       {/* Connection Status Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-bold transition-all ${
+        title={waConnected ? 'WhatsApp Connected — Click to manage' : 'WhatsApp Disconnected — Click to connect'}
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-bold transition-all duration-200 hover:scale-[1.02] active:scale-[0.97] ${
           waConnected
             ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/15'
             : 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/15'

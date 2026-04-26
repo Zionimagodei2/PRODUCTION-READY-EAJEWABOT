@@ -86,7 +86,7 @@ export function GroupExtractor() {
         <div className="space-y-3">
           <div>
             <label className="text-[10px] text-white/40 mb-1 block">Select Group</label>
-            <select className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/70 focus:outline-none focus:border-neon-blue/40">
+            <select className="w-full bg-white/5 border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white/70 focus:outline-none focus:border-neon-blue/40 transition-all duration-200">
               <option>All WhatsApp Groups</option>
               <option>Contacts by Tag</option>
             </select>
@@ -235,7 +235,7 @@ export function LeadScraper() {
               onChange={(e) => setKeyword(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') startScrape() }}
               placeholder="e.g. Restaurant, Gym, Salon..."
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-neon-green/40"
+              className="w-full bg-white/5 border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-neon-green/40 transition-all duration-200"
             />
           </div>
           <div>
@@ -245,7 +245,7 @@ export function LeadScraper() {
               onChange={(e) => setLocation(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') startScrape() }}
               placeholder="City or area..."
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-neon-green/40"
+              className="w-full bg-white/5 border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-neon-green/40 transition-all duration-200"
             />
           </div>
           <button
@@ -343,7 +343,7 @@ export function LinkGenerator() {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+1 555 123 4567"
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-neon-orange/40"
+              className="w-full bg-white/5 border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-neon-orange/40 transition-all duration-200"
             />
           </div>
           <div>
@@ -353,7 +353,7 @@ export function LinkGenerator() {
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Hi, I'd like to know more about..."
               rows={3}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-neon-orange/40 resize-none"
+              className="w-full bg-white/5 border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-neon-orange/40 resize-none transition-all duration-200"
             />
           </div>
           <button
@@ -403,18 +403,76 @@ export function ToolsPage() {
   const { setActiveFeature } = useAppStore()
 
   const quickAccessItems = [
-    { title: 'WhatsApp Link', icon: <Link2 className="w-4 h-4" />, accentColor: '#06b6d4', accentBg: 'bg-cyan-500/10', accentText: 'text-cyan-400', feature: 'link-generator' as const },
-    { title: 'Validate Numbers', icon: <ShieldCheck className="w-4 h-4" />, accentColor: '#22c55e', accentBg: 'bg-green-500/10', accentText: 'text-green-400', feature: 'number-validator' as const },
-    { title: 'QR Code', icon: <QrCode className="w-4 h-4" />, accentColor: '#06b6d4', accentBg: 'bg-cyan-500/10', accentText: 'text-cyan-400', feature: 'qr-code' as const },
+    { title: 'WhatsApp Link', description: 'Create wa.me links', icon: <Link2 className="w-4 h-4" />, accentColor: '#06b6d4', accentBg: 'bg-cyan-500/10', accentText: 'text-cyan-400', feature: 'link-generator' as const },
+    { title: 'Validate Numbers', description: 'Verify WA numbers', icon: <ShieldCheck className="w-4 h-4" />, accentColor: '#22c55e', accentBg: 'bg-green-500/10', accentText: 'text-green-400', feature: 'number-validator' as const },
+    { title: 'QR Code', description: 'Generate QR codes', icon: <QrCode className="w-4 h-4" />, accentColor: '#06b6d4', accentBg: 'bg-cyan-500/10', accentText: 'text-cyan-400', feature: 'qr-code' as const },
   ]
 
   const tools = [
-    { id: 'extractor' as const, label: 'Group Extractor', color: 'neon-green', orbColor: 'rgba(34,197,94,0.15)' },
-    { id: 'scraper' as const, label: 'Lead Scraper', color: 'neon-green', orbColor: 'rgba(139,92,246,0.15)' },
-    { id: 'generator' as const, label: 'Link Generator', color: 'neon-orange', orbColor: 'rgba(249,115,22,0.15)' },
+    { 
+      id: 'extractor' as const, 
+      label: 'Group Extractor', 
+      icon: <Users className="w-4 h-4" />,
+      description: 'Pull contacts from WhatsApp groups',
+      color: '#22c55e',
+      orbColor: 'rgba(34,197,94,0.15)',
+      bgClass: 'from-green-500/[0.06]',
+      borderClass: 'border-green-500/20',
+    },
+    { 
+      id: 'scraper' as const, 
+      label: 'Lead Scraper', 
+      icon: <Search className="w-4 h-4" />,
+      description: 'Find leads from multiple sources',
+      color: '#8b5cf6',
+      orbColor: 'rgba(139,92,246,0.15)',
+      bgClass: 'from-purple-500/[0.06]',
+      borderClass: 'border-purple-500/20',
+    },
+    { 
+      id: 'generator' as const, 
+      label: 'Link Generator', 
+      icon: <Link2 className="w-4 h-4" />,
+      description: 'Create click-to-chat links',
+      color: '#f97316',
+      orbColor: 'rgba(249,115,22,0.15)',
+      bgClass: 'from-orange-500/[0.06]',
+      borderClass: 'border-orange-500/20',
+    },
   ]
 
   const activeToolData = tools.find(t => t.id === activeTool)
+
+  // Tool preview cards - shown when no tool is active or as visual entry points
+  const toolPreviewCards = [
+    {
+      id: 'extractor' as const,
+      title: 'Group Extractor',
+      description: 'Extract contacts from WhatsApp groups you belong to. Export as CSV or JSON for your CRM.',
+      icon: <Users className="w-6 h-6" />,
+      color: '#22c55e',
+      features: ['Search Groups Online', 'Bulk Extract', 'CSV Export'],
+      badge: 'NEW',
+    },
+    {
+      id: 'scraper' as const,
+      title: 'Lead Scraper',
+      description: 'Find business leads from Google, Yelp, YellowPages and more. Deep scan for WhatsApp numbers.',
+      icon: <Search className="w-6 h-6" />,
+      color: '#8b5cf6',
+      features: ['Multi-Source', 'Deep Scan', 'WhatsApp Detection'],
+      badge: 'PRO',
+    },
+    {
+      id: 'generator' as const,
+      title: 'Link Generator',
+      description: 'Generate WhatsApp click-to-chat links with pre-filled messages. Perfect for marketing campaigns.',
+      icon: <Link2 className="w-6 h-6" />,
+      color: '#f97316',
+      features: ['Custom Messages', 'QR Codes', 'Copy & Share'],
+      badge: null,
+    },
+  ]
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-4">
@@ -426,7 +484,7 @@ export function ToolsPage() {
       >
         <div className="flex items-center gap-2 mb-2">
           <Zap className="w-3 h-3 text-cyan-400" />
-          <span className="text-[10px] font-bold text-white/30 uppercase tracking-wider">Quick Access</span>
+          <span className="text-xs font-bold text-white/30 uppercase tracking-wider">Quick Access</span>
         </div>
         <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
           {quickAccessItems.map((item) => (
@@ -435,14 +493,15 @@ export function ToolsPage() {
               onClick={() => setActiveFeature(item.feature)}
               whileTap={{ scale: 0.95 }}
               whileHover={{ scale: 1.03 }}
-              className="glass-card flex-shrink-0 flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl hover:bg-white/[0.06] transition-all border border-white/[0.06] min-w-[140px]"
+              className="glass-card flex-shrink-0 flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl hover:bg-white/[0.06] transition-all duration-200 border border-white/[0.08] min-w-[140px]"
               style={{ boxShadow: `0 0 12px ${item.accentColor}08` }}
             >
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.accentBg}`}>
                 <div className={item.accentText}>{item.icon}</div>
               </div>
               <div className="flex-1 text-left">
-                <p className="text-[11px] font-semibold text-white/80">{item.title}</p>
+                <p className="text-xs font-semibold text-white/80">{item.title}</p>
+                <p className="text-[9px] text-white/30">{item.description}</p>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-white/15" />
             </motion.button>
@@ -452,25 +511,92 @@ export function ToolsPage() {
 
       <div className="gradient-divider" />
 
-      {/* Tool Tabs */}
+      {/* Tool Preview Cards - Visual cards for each tool */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <Sparkles className="w-3 h-3 text-orange-400" />
+          <span className="text-xs font-bold text-white/30 uppercase tracking-wider">Power Tools</span>
+        </div>
+        {toolPreviewCards.map((card, i) => (
+          <motion.button
+            key={card.id}
+            onClick={() => setActiveTool(card.id)}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.08, type: 'spring', stiffness: 280, damping: 22 }}
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.98 }}
+            className={`w-full glass-card rounded-2xl p-4 text-left transition-all duration-200 border hover:shadow-lg group ${
+              activeTool === card.id ? `${card.borderClass} hover:shadow-lg` : 'border-white/[0.08] hover:border-white/[0.12]'
+            }`}
+            style={activeTool === card.id ? { 
+              boxShadow: `0 0 20px ${card.color}15`,
+              borderColor: `${card.color}30`,
+            } : {}}
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ 
+                  background: `linear-gradient(135deg, ${card.color}20, ${card.color}08)`,
+                  boxShadow: `0 0 16px ${card.color}15`
+                }}
+              >
+                <div style={{ color: card.color, filter: `drop-shadow(0 0 4px ${card.color}40)` }}>{card.icon}</div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-white/90">{card.title}</h3>
+                  {card.badge && (
+                    <span className={`text-[7px] font-extrabold px-1.5 py-0.5 rounded-md ${
+                      card.badge === 'NEW' 
+                        ? 'bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white badge-pulse' 
+                        : 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
+                    }`}>
+                      {card.badge}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-white/45 mt-0.5 leading-snug">{card.description}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  {card.features.map((feature) => (
+                    <span key={feature} className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.04] text-white/30 border border-white/[0.06]">
+                      {feature}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-white/15 flex-shrink-0 mt-1 group-hover:text-white/40 group-hover:translate-x-0.5 transition-all duration-200" />
+            </div>
+          </motion.button>
+        ))}
+      </div>
+
+      <div className="gradient-divider" />
+
+      {/* Tool Tabs - Enhanced with icons */}
       <div className="flex gap-2">
         {tools.map((tool) => (
           <motion.button
             key={tool.id}
             onClick={() => setActiveTool(tool.id)}
             whileTap={{ scale: 0.95 }}
-            className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all duration-200 border ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-medium transition-all duration-300 border ${
               activeTool === tool.id
-                ? `bg-${tool.color}/15 text-${tool.color} border-${tool.color}/25`
-                : 'bg-white/5 text-white/40 border-white/5 hover:bg-white/10'
+                ? 'hover:scale-[1.02]'
+                : 'bg-white/5 text-white/40 border-white/[0.06] hover:bg-white/[0.08] hover:border-white/[0.1]'
             }`}
             style={activeTool === tool.id ? {
-              backgroundColor: tool.color === 'neon-green' ? 'rgba(34,197,94,0.15)' : 'rgba(249,115,22,0.15)',
-              color: tool.color === 'neon-green' ? '#22c55e' : '#f97316',
-              borderColor: tool.color === 'neon-green' ? 'rgba(34,197,94,0.25)' : 'rgba(249,115,22,0.25)',
-              boxShadow: tool.color === 'neon-green' ? '0 0 12px rgba(34,197,94,0.1)' : '0 0 12px rgba(249,115,22,0.1)',
+              backgroundColor: `${tool.color}18`,
+              color: tool.color,
+              borderColor: `${tool.color}30`,
+              boxShadow: `0 0 16px ${tool.color}12`,
             } : {}}
           >
+            <div className="transition-transform duration-200" style={{
+              transform: activeTool === tool.id ? 'scale(1.1)' : 'scale(1)',
+            }}>
+              {tool.icon}
+            </div>
             {tool.label}
           </motion.button>
         ))}
@@ -480,10 +606,10 @@ export function ToolsPage() {
       <AnimatePresence mode="wait">
         <motion.div
           key={activeTool}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.2 }}
+          initial={{ opacity: 0, y: 12, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -12, scale: 0.98 }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
           className="relative"
         >
           {/* Animated gradient orb background */}

@@ -86,9 +86,17 @@ model Conversation {
   id          String   @id @default(cuid())
   contactId   String   @default("")
   contactName String   @default("")
+  contactPhone String  @default("")
   direction   String   @default("incoming")
   content     String
+  status      String   @default("sent")
+  isRead      Boolean  @default(false)
+  isPinned    Boolean  @default(false)
+  isArchived  Boolean  @default(false)
+  mediaType   String   @default("")
+  mediaUrl    String   @default("")
   timestamp   DateTime @default(now())
+  readAt      DateTime?
   createdAt   DateTime @default(now())
 }
 

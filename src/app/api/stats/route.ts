@@ -31,8 +31,45 @@ function computeTrend(current: number, previous: number): { direction: 'up' | 'd
   return { direction: 'neutral', percentage: 0 }
 }
 
-export async function GET() {
+function getStartDate(period: string, customStart?: string, customEnd?: string): Date {
+  const now = new Date()
+  switch (period) {
+    case '7d':
+      now.setDate(now.getDate() - 7)
+      return now
+    case '30d':
+      now.setDate(now.getDate() - 30)
+      return now
+    case '90d':
+      now.setDate(now.getDate() - 90)
+      return now
+    case 'custom':
+      return customStart ? new Date(customStart) : new Date(now.getFullYear(), 0, 1)
+    case 'all':
+    default:
+      return new Date(2020, 0, 1) // Far enough back
+  }
+}
+
+function getEndDate(customEnd?: string): Date {
+  if (customEnd) {
+    const d = new Date(customEnd)
+    d.setHours(23, 59, 59, 999)
+    return d
+  }
+  return new Date()
+}
+
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url)
+    const period = searchParams.get('period') || '7d'
+    const customStart = searchParams.get('start') || undefined
+    const customEnd = searchParams.get('end') || undefined
+
+    const startDate = getStartDate(period, customStart, customEnd)
+    const endDate = getEndDate(customEnd)
+
     // Get all contacts
     const contacts = await db.contact.findMany()
     const totalContacts = contacts.length
@@ -51,19 +88,35 @@ export async function GET() {
       return d >= twoWeeksAgo && d < oneWeekAgo
     }).length
 
-    // Get all campaigns
-    const campaigns = await db.campaign.findMany()
-    const totalCampaigns = campaigns.length
-    const activeCampaigns = campaigns.filter(c => c.status === 'active' || c.status === 'sending').length
+    // Get campaigns within the date range
+    const allCampaigns = await db.campaign.findMany()
+    const campaigns = allCampaigns.filter(c => {
+      const d = new Date(c.createdAt)
+      return d >= startDate && d <= endDate
+    })
+    const totalCampaigns = allCampaigns.length
+    const activeCampaigns = allCampaigns.filter(c => c.status === 'active' || c.status === 'sending').length
 
     // Aggregate message stats from campaigns
     const totalSent = campaigns.reduce((sum, c) => sum + c.sent, 0)
     const totalDelivered = campaigns.reduce((sum, c) => sum + c.delivered, 0)
     const totalReplies = campaigns.reduce((sum, c) => sum + c.replies, 0)
 
+    // Previous period for trend comparison
+    const periodDays = period === '7d' ? 7 : period === '30d' ? 30 : period === '90d' ? 90 : 7
+    const prevStartDate = new Date(startDate)
+    prevStartDate.setDate(prevStartDate.getDate() - periodDays)
+    const prevCampaigns = allCampaigns.filter(c => {
+      const d = new Date(c.createdAt)
+      return d >= prevStartDate && d < startDate
+    })
+    const prevSent = prevCampaigns.reduce((sum, c) => sum + c.sent, 0)
+    const prevDelivered = prevCampaigns.reduce((sum, c) => sum + c.delivered, 0)
+    const prevReplies = prevCampaigns.reduce((sum, c) => sum + c.replies, 0)
+
     // Week-over-week: campaigns created this week vs last week
-    const campaignsThisWeek = campaigns.filter(c => new Date(c.createdAt) >= oneWeekAgo).length
-    const campaignsLastWeek = campaigns.filter(c => {
+    const campaignsThisWeek = allCampaigns.filter(c => new Date(c.createdAt) >= oneWeekAgo).length
+    const campaignsLastWeek = allCampaigns.filter(c => {
       const d = new Date(c.createdAt)
       return d >= twoWeeksAgo && d < oneWeekAgo
     }).length
@@ -72,11 +125,14 @@ export async function GET() {
     const deliveryRate = totalSent > 0 ? Math.round((totalDelivered / totalSent) * 1000) / 10 : 0
     const replyRate = totalDelivered > 0 ? Math.round((totalReplies / totalDelivered) * 1000) / 10 : 0
 
-    // Weekly activity - last 7 days
+    // Determine number of days to show in daily activity based on period
+    const daysToShow = period === '7d' ? 7 : period === '30d' ? 14 : period === '90d' ? 12 : 7
+
+    // Weekly activity - last N days
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
     const weeklyActivity = []
     const prevWeekActivity = []
-    for (let i = 6; i >= 0; i--) {
+    for (let i = daysToShow - 1; i >= 0; i--) {
       const day = new Date()
       day.setDate(day.getDate() - i)
       const dayStart = new Date(day)
@@ -128,7 +184,7 @@ export async function GET() {
     const weeklyTrend = computeTrend(thisWeekTotal, prevWeekTotal)
 
     // Recent activity - combine campaigns and conversations, last 10
-    const recentCampaignActivity = campaigns
+    const recentCampaignActivity = allCampaigns
       .filter(c => c.sent > 0 || c.status === 'active' || c.status === 'sending')
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .slice(0, 5)
@@ -174,16 +230,63 @@ export async function GET() {
       ? { hour: peakHourData.hour, label: peakHourData.label, count: peakHourData.count, formatted: formatHour(peakHourData.hour) }
       : null
 
-    // Compute trends for stat cards
-    const sentTrend = computeTrend(campaignsThisWeek, campaignsLastWeek)
-    const deliveredTrend = computeTrend(
-      campaigns.filter(c => new Date(c.createdAt) >= oneWeekAgo).reduce((s, c) => s + c.delivered, 0),
-      campaigns.filter(c => { const d = new Date(c.createdAt); return d >= twoWeeksAgo && d < oneWeekAgo }).reduce((s, c) => s + c.delivered, 0)
-    )
-    const repliesTrend = computeTrend(
-      campaigns.filter(c => new Date(c.createdAt) >= oneWeekAgo).reduce((s, c) => s + c.replies, 0),
-      campaigns.filter(c => { const d = new Date(c.createdAt); return d >= twoWeeksAgo && d < oneWeekAgo }).reduce((s, c) => s + c.replies, 0)
-    )
+    // Compute trends for stat cards using period comparison
+    const sentTrend = computeTrend(totalSent, prevSent)
+    const deliveredTrend = computeTrend(totalDelivered, prevDelivered)
+    const repliesTrend = computeTrend(totalReplies, prevReplies)
+
+    // Compute Quick Insight
+    const quickInsights: string[] = []
+
+    if (weeklyTrend.direction === 'up' && weeklyTrend.percentage > 0) {
+      quickInsights.push(`You sent ${weeklyTrend.percentage}% more messages this week`)
+    } else if (weeklyTrend.direction === 'down' && weeklyTrend.percentage > 0) {
+      quickInsights.push(`Message activity dropped ${weeklyTrend.percentage}% this week`)
+    }
+
+    if (totalSent > 0 && deliveryRate > 95) {
+      quickInsights.push(`Delivery rate is excellent at ${deliveryRate}%`)
+    } else if (totalSent > 0 && deliveryRate < 80) {
+      quickInsights.push(`Delivery rate needs attention (${deliveryRate}%)`)
+    }
+
+    if (replyRate > 20) {
+      quickInsights.push(`Reply rate is strong at ${replyRate}%`)
+    }
+
+    // Contacts that haven't received a reply in 7+ days
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    const inactiveContacts = contacts.filter(c => {
+      if (c.status !== 'active') return false
+      const lastMsg = c.lastMessage ? new Date(c.lastMessage) : null
+      if (!lastMsg) return true
+      return lastMsg < sevenDaysAgo
+    }).length
+
+    if (inactiveContacts > 0) {
+      quickInsights.push(`${inactiveContacts} contact${inactiveContacts > 1 ? 's haven\'t' : ' hasn\'t'} replied in 7 days`)
+    }
+
+    if (newThisWeek > 0) {
+      quickInsights.push(`${newThisWeek} new contact${newThisWeek > 1 ? 's' : ''} added this week`)
+    }
+
+    if (activeCampaigns > 0) {
+      quickInsights.push(`${activeCampaigns} active campaign${activeCampaigns > 1 ? 's' : ''} running`)
+    }
+
+    const quickInsight = quickInsights.length > 0 ? quickInsights[0] : 'Start by connecting WhatsApp and adding contacts'
+
+    // What's New
+    const whatsNew = [
+      { title: 'AI Twin', description: 'Auto-reply in your style', badge: 'NEW' },
+      { title: 'Campaign Wizard', description: 'Step-by-step campaign builder', badge: 'NEW' },
+      { title: 'Flow Builder', description: 'Design conversation flows', badge: 'NEW' },
+      { title: 'Number Validator', description: 'Verify WhatsApp numbers', badge: 'NEW' },
+    ]
+
+    const isReturningUser = totalContacts > 0 || totalCampaigns > 0
 
     return NextResponse.json({
       totalContacts,
@@ -207,6 +310,10 @@ export async function GET() {
       campaignsLastWeek,
       hourlyActivity,
       peakHour,
+      quickInsight,
+      whatsNew,
+      isReturningUser,
+      inactiveContacts,
     })
   } catch (error) {
     console.error('Stats API error:', error)

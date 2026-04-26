@@ -80,20 +80,23 @@ async function main() {
   // Seed Conversations for the first contact
   const existingConvos = await db.conversation.count()
   if (existingConvos === 0) {
-    const contacts = await db.contact.findMany({ take: 3 })
-    for (const contact of contacts) {
+    const contacts = await db.contact.findMany({ take: 5 })
+    for (let ci = 0; ci < contacts.length; ci++) {
+      const contact = contacts[ci]
+      const isPinned = ci === 0
+      const isArchived = ci === contacts.length - 1
       await db.conversation.createMany({
         data: [
-          { contactId: contact.id, contactName: contact.name, direction: 'incoming', content: 'Hi! I wanted to ask about your latest product offerings.' },
-          { contactId: contact.id, contactName: contact.name, direction: 'outgoing', content: 'Of course! We just launched our new line. Let me send you the catalog.' },
-          { contactId: contact.id, contactName: contact.name, direction: 'incoming', content: 'That would be great! Also, do you have any bulk pricing?' },
-          { contactId: contact.id, contactName: contact.name, direction: 'outgoing', content: 'Yes, we offer tiered pricing for orders over 100 units. I\'ll include those details too.' },
-          { contactId: contact.id, contactName: contact.name, direction: 'incoming', content: 'Perfect, looking forward to it!' },
-          { contactId: contact.id, contactName: contact.name, direction: 'incoming', content: contact.lastMessage || 'Thanks!' },
+          { contactId: contact.id, contactName: contact.name, contactPhone: contact.phone, direction: 'incoming', content: 'Hi! I wanted to ask about your latest product offerings.', status: 'delivered', isRead: ci > 0, isPinned, isArchived },
+          { contactId: contact.id, contactName: contact.name, contactPhone: contact.phone, direction: 'outgoing', content: 'Of course! We just launched our new line. Let me send you the catalog.', status: 'read', isRead: true, isPinned, isArchived },
+          { contactId: contact.id, contactName: contact.name, contactPhone: contact.phone, direction: 'incoming', content: 'That would be great! Also, do you have any bulk pricing?', status: 'delivered', isRead: ci > 1, isPinned, isArchived },
+          { contactId: contact.id, contactName: contact.name, contactPhone: contact.phone, direction: 'outgoing', content: 'Yes, we offer tiered pricing for orders over 100 units. I\'ll include those details too.', status: 'read', isRead: true, isPinned, isArchived },
+          { contactId: contact.id, contactName: contact.name, contactPhone: contact.phone, direction: 'incoming', content: 'Perfect, looking forward to it!', status: 'delivered', isRead: ci > 0, isPinned, isArchived },
+          { contactId: contact.id, contactName: contact.name, contactPhone: contact.phone, direction: 'incoming', content: contact.lastMessage || 'Thanks!', status: 'delivered', isRead: false, isPinned, isArchived },
         ]
       })
     }
-    console.log('Seeded conversations for 3 contacts')
+    console.log('Seeded conversations for 5 contacts')
   }
 
   console.log('Seed complete!')

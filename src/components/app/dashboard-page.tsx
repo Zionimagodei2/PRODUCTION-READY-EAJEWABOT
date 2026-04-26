@@ -8,7 +8,8 @@ import {
   ArrowRight, Zap, TrendingUp, Activity, FileCode,
   Megaphone, UserPlus, Clock, Sparkles, Phone, 
   CheckCircle2, AlertCircle, ChevronRight, Flame, Radio, Database,
-  Sun, Moon, Target, Wifi, ShieldCheck, Wand2, Upload, QrCode, Timer, MessageCircle, GitBranch, Webhook, Brain
+  Sun, Moon, Target, Wifi, ShieldCheck, Wand2, Upload, QrCode, Timer, MessageCircle, GitBranch, Webhook, Brain,
+  Lightbulb, RefreshCw, Eye, Server, HardDrive, CircleDot
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useToastStore } from '@/store/toast-store'
@@ -17,6 +18,17 @@ import { DashboardSkeleton } from '@/components/app/loading-skeleton'
 interface TrendData {
   direction: 'up' | 'down' | 'neutral'
   percentage: number
+}
+
+interface HealthData {
+  status: string
+  uptime: number
+  timestamp: string
+  services: {
+    database: string
+    whatsapp: string
+    api: string
+  }
 }
 
 interface Stats {
@@ -39,6 +51,10 @@ interface Stats {
   repliesTrend: TrendData
   campaignsThisWeek: number
   campaignsLastWeek: number
+  quickInsight: string
+  whatsNew: { title: string; description: string; badge: string }[]
+  isReturningUser: boolean
+  inactiveContacts: number
 }
 
 interface FeatureCardProps {
@@ -67,6 +83,12 @@ const container = {
 const item = {
   hidden: { opacity: 0, y: 20, scale: 0.95 },
   show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+}
+
+// Staggered section entrance
+const sectionVariant = {
+  hidden: { opacity: 0, y: 24 },
+  show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 20 } }
 }
 
 // Animated counter hook
@@ -252,7 +274,7 @@ const growthTools: FeatureCardProps[] = [
   { id: 'qr-code', icon: <QrCode className="w-5 h-5" />, title: 'QR Code', subtitle: 'Generate WhatsApp QR codes', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent' },
 ]
 
-const insights: FeatureCardProps[] = [
+const insightsSection: FeatureCardProps[] = [
   { id: 'analytics', icon: <BarChart3 className="w-5 h-5" />, title: 'Analytics', subtitle: 'Track performance & metrics', color: '#ec4899', glowClass: 'neon-glow-pink', borderColor: 'border-pink-500/20', gradientFrom: 'from-pink-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'campaign-reports', icon: <FileText className="w-5 h-5" />, title: 'Campaign Reports', subtitle: 'Detailed delivery reports', color: '#ef4444', glowClass: 'neon-glow-red', borderColor: 'border-red-500/20', gradientFrom: 'from-red-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'response-time', icon: <Timer className="w-5 h-5" />, title: 'Response Time', subtitle: 'Track response performance', color: '#8b5cf6', glowClass: 'neon-glow-purple', borderColor: 'border-purple-500/20', gradientFrom: 'from-purple-500/[0.06]', gradientTo: 'to-transparent' },
@@ -270,30 +292,86 @@ const organizationSection: FeatureCardProps[] = [
   { id: 'team-management', icon: <Users className="w-5 h-5" />, title: 'Team Management', subtitle: 'Manage members & roles', color: '#8b5cf6', glowClass: 'neon-glow-purple', borderColor: 'border-purple-500/20', gradientFrom: 'from-purple-500/[0.06]', gradientTo: 'to-transparent' },
 ]
 
+// Health dot component
+function HealthDot({ status }: { status: string }) {
+  if (status === 'ok') return <div className="health-dot-green" />
+  if (status === 'offline') return <div className="health-dot-red" />
+  return <div className="health-dot-amber" />
+}
+
 export function DashboardPage() {
   const { waConnected, setActiveFeature, setAddContactOpen } = useAppStore()
   const { addToast } = useToastStore()
   const { time: currentTime, mounted } = useCurrentTime()
   const [stats, setStats] = useState<Stats | null>(null)
+  const [healthData, setHealthData] = useState<HealthData | null>(null)
   const [isLoadingStats, setIsLoadingStats] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null)
 
-  // Fetch stats from API
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const res = await fetch('/api/stats')
-        if (res.ok) {
-          const data = await res.json()
-          setStats(data)
-        }
-      } catch {
-        // Silent fail for stats
-      } finally {
-        setIsLoadingStats(false)
+  // Fetch stats from API with auto-refresh every 30s
+  const fetchStats = useCallback(async (silent = false) => {
+    if (silent) setIsRefreshing(true)
+    try {
+      const res = await fetch('/api/stats')
+      if (res.ok) {
+        const data = await res.json()
+        setStats(data)
+        setLastRefreshed(new Date())
       }
+    } catch {
+      // Silent fail for stats
+    } finally {
+      setIsLoadingStats(false)
+      setIsRefreshing(false)
     }
-    fetchStats()
   }, [])
+
+  // Fetch health data
+  const fetchHealth = useCallback(async () => {
+    try {
+      const res = await fetch('/api/health')
+      if (res.ok) {
+        const data = await res.json()
+        setHealthData(data)
+      }
+    } catch {
+      // Silent fail for health
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchStats()
+    fetchHealth()
+  }, [fetchStats, fetchHealth])
+
+  // Auto-refresh stats every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchStats(true)
+      fetchHealth()
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [fetchStats, fetchHealth])
+
+  // Quick Stats toast on first dashboard load per session
+  useEffect(() => {
+    if (isLoadingStats || !stats) return
+    const sessionKey = 'eaje-quick-stats-shown'
+    if (typeof window !== 'undefined' && sessionStorage.getItem(sessionKey)) return
+    const sent = stats.totalSent ?? 0
+    const rate = stats.deliveryRate ?? 0
+    const active = stats.activeCampaigns ?? 0
+    if (sent > 0 || rate > 0 || active > 0) {
+      addToast({ 
+        type: 'info', 
+        title: '📊 Quick Stats', 
+        message: `${sent.toLocaleString()} messages sent today • ${rate}% delivery rate${active > 0 ? ` • ${active} active campaigns` : ''}`,
+        duration: 5000,
+      })
+      if (typeof window !== 'undefined') sessionStorage.setItem(sessionKey, '1')
+    }
+  }, [isLoadingStats, stats, addToast])
 
   // Rotating tips state
   const tips = [
@@ -314,7 +392,13 @@ export function DashboardPage() {
   // Mark all as read state for recent activity
   const [activityDimmed, setActivityDimmed] = useState(false)
 
-  const greeting = mounted && currentTime ? (currentTime.getHours() < 12 ? 'Good Morning' : currentTime.getHours() < 18 ? 'Good Afternoon' : 'Good Evening') : 'Hello'
+  // Personalized greeting - "Welcome back" for returning users
+  const isReturningUser = stats?.isReturningUser ?? false
+  const greeting = mounted && currentTime 
+    ? (isReturningUser 
+        ? 'Welcome Back' 
+        : (currentTime.getHours() < 12 ? 'Good Morning' : currentTime.getHours() < 18 ? 'Good Afternoon' : 'Good Evening'))
+    : 'Hello'
   const formattedDate = mounted && currentTime ? currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : ''
   const formattedTime = mounted && currentTime ? currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : ''
 
@@ -328,6 +412,8 @@ export function DashboardPage() {
   const deliveredTrend = stats?.deliveredTrend
   const repliesTrend = stats?.repliesTrend
   const weeklyTrend = stats?.weeklyTrend
+  const quickInsight = stats?.quickInsight ?? ''
+  const whatsNew = stats?.whatsNew ?? []
 
   // Compute mini sparkline bars from real weekly activity data (last 4 days)
   const miniSparklineData = weeklyActivity.slice(-4).map(d => d.messages)
@@ -347,6 +433,14 @@ export function DashboardPage() {
       trendValue: label,
       vsLabel: `${label} vs last week`,
     }
+  }
+
+  // Format uptime
+  const formatUptime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600)
+    const mins = Math.floor((seconds % 3600) / 60)
+    if (hours > 0) return `${hours}h ${mins}m`
+    return `${mins}m`
   }
 
   if (isLoadingStats) {
@@ -372,19 +466,38 @@ export function DashboardPage() {
       <motion.div 
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
+        transition={{ duration: 0.4, delay: 0.05 }}
         className="flex items-center justify-between"
       >
         <div>
           <h1 className="text-lg font-extrabold text-white/95">{greeting} 👋</h1>
-          <p className="text-[11px] text-white/40 mt-0.5 flex items-center gap-1.5">
+          <p className="text-[11px] text-white/40 mt-0.5 flex items-center gap-1.5 flex-wrap">
             <span>{formattedDate}</span>
             {mounted && <><span className="text-white/15">•</span><span>{formattedTime}</span></>}
             <span className="text-white/15">•</span>
             <span className="flex items-center gap-1">
-              <Wifi className="w-2.5 h-2.5" style={{ color: waConnected ? '#22c55e' : '#ef4444' }} />
-              {waConnected ? 'Connected' : 'Offline'}
+              {/* Live indicator with pulsing green dot */}
+              {waConnected && (
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                </span>
+              )}
+              {!waConnected && <Wifi className="w-2.5 h-2.5" style={{ color: '#ef4444' }} />}
+              <span className={waConnected ? 'text-emerald-400/80 font-semibold' : 'text-red-400/80'}>
+                {waConnected ? 'Live' : 'Offline'}
+              </span>
             </span>
+            {/* Auto-refresh indicator */}
+            {lastRefreshed && (
+              <>
+                <span className="text-white/15">•</span>
+                <span className="flex items-center gap-0.5 text-white/25">
+                  <RefreshCw className={`w-2 h-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <span className="text-[9px]">30s</span>
+                </span>
+              </>
+            )}
           </p>
           {/* Rotating Tip */}
           <p key={tipKey} className="text-[10px] text-white/30 mt-1 animate-tip-fade">{tips[tipIndex]}</p>
@@ -400,49 +513,130 @@ export function DashboardPage() {
         </div>
       </motion.div>
 
+      {/* What's New Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 16, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ delay: 0.1, type: 'spring', stiffness: 280, damping: 22 }}
+        className="glass-card rounded-2xl p-4 border border-fuchsia-500/15 relative overflow-hidden"
+        style={{ boxShadow: '0 0 30px rgba(217,70,239,0.06)' }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/[0.04] to-transparent pointer-events-none" />
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-fuchsia-500/20 to-pink-500/20 flex items-center justify-center">
+            <Sparkles className="w-3.5 h-3.5 text-fuchsia-400" />
+          </div>
+          <span className="text-xs font-bold text-white/80 uppercase tracking-wider">What&apos;s New</span>
+          <span className="text-[7px] font-extrabold px-1.5 py-0.5 rounded-md bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white badge-pulse">FRESH</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 relative z-10">
+          {whatsNew.map((feature) => (
+            <div 
+              key={feature.title}
+              className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-white/[0.03] border border-white/[0.04] hover:border-fuchsia-500/20 transition-colors"
+            >
+              <div className="w-1.5 h-1.5 rounded-full bg-fuchsia-400 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold text-white/75 truncate">{feature.title}</p>
+                <p className="text-[9px] text-white/35 truncate">{feature.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Quick Insight Card */}
+      {quickInsight && (
+        <motion.div
+          initial={{ opacity: 0, y: 16, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ delay: 0.15, type: 'spring', stiffness: 280, damping: 22 }}
+          className="glass-card rounded-2xl p-4 border border-amber-500/15 relative overflow-hidden"
+          style={{ boxShadow: '0 0 30px rgba(245,158,11,0.06)' }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.04] to-transparent pointer-events-none" />
+          <div className="flex items-start gap-3 relative z-10">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Lightbulb className="w-4.5 h-4.5 text-amber-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="text-[10px] font-bold text-amber-400/70 uppercase tracking-wider">Quick Insight</span>
+              <p className="text-[13px] font-semibold text-white/80 mt-0.5 leading-snug">{quickInsight}</p>
+              <div className="flex items-center gap-3 mt-2">
+                {stats && stats.deliveryRate > 0 && (
+                  <span className="text-[10px] text-white/35 flex items-center gap-1">
+                    <TrendingUp className="w-2.5 h-2.5 text-emerald-400/60" />
+                    {stats.deliveryRate}% delivery
+                  </span>
+                )}
+                {stats && stats.replyRate > 0 && (
+                  <span className="text-[10px] text-white/35 flex items-center gap-1">
+                    <MessageCircle className="w-2.5 h-2.5 text-purple-400/60" />
+                    {stats.replyRate}% reply
+                  </span>
+                )}
+                {stats && stats.inactiveContacts > 0 && (
+                  <span className="text-[10px] text-white/35 flex items-center gap-1">
+                    <AlertCircle className="w-2.5 h-2.5 text-amber-400/60" />
+                    {stats.inactiveContacts} idle
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {/* Quick Stats - Enhanced with real data from API */}
-      <div className="grid grid-cols-3 gap-3">
-        <StatCard 
-          value={totalSent} 
-          label="Sent" 
-          icon={<Send className="w-4 h-4 text-neon-blue" />}
-          colorClass="bg-blue-500/10"
-          statClass="stat-card-blue"
-          {...formatTrend(sentTrend)}
-          sparklineBars={miniSparklinePcts.length >= 4 ? miniSparklinePcts : undefined}
-          sparklineColor="#3b82f6"
-        />
-        <StatCard 
-          value={totalDelivered} 
-          label="Delivered" 
-          icon={<TrendingUp className="w-4 h-4 text-neon-green" />}
-          colorClass="bg-green-500/10"
-          statClass="stat-card-green"
-          breathColor="#22c55e"
-          {...formatTrend(deliveredTrend)}
-          sparklineBars={miniSparklinePcts.length >= 4 ? miniSparklinePcts : undefined}
-          sparklineColor="#22c55e"
-        />
-        <StatCard 
-          value={totalReplies} 
-          label="Replies" 
-          icon={<Activity className="w-4 h-4 text-neon-purple" />}
-          colorClass="bg-purple-500/10"
-          statClass="stat-card-purple"
-          {...formatTrend(repliesTrend)}
-          sparklineBars={miniSparklinePcts.length >= 4 ? miniSparklinePcts : undefined}
-          sparklineColor="#8b5cf6"
-        />
-      </div>
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, type: 'spring', stiffness: 280, damping: 22 }}
+      >
+        <div className="grid grid-cols-3 gap-3">
+          <StatCard 
+            value={totalSent} 
+            label="Sent" 
+            icon={<Send className="w-4 h-4 text-neon-blue" />}
+            colorClass="bg-blue-500/10"
+            statClass="stat-card-blue"
+            {...formatTrend(sentTrend)}
+            sparklineBars={miniSparklinePcts.length >= 4 ? miniSparklinePcts : undefined}
+            sparklineColor="#3b82f6"
+          />
+          <StatCard 
+            value={totalDelivered} 
+            label="Delivered" 
+            icon={<TrendingUp className="w-4 h-4 text-neon-green" />}
+            colorClass="bg-green-500/10"
+            statClass="stat-card-green"
+            breathColor="#22c55e"
+            {...formatTrend(deliveredTrend)}
+            sparklineBars={miniSparklinePcts.length >= 4 ? miniSparklinePcts : undefined}
+            sparklineColor="#22c55e"
+          />
+          <StatCard 
+            value={totalReplies} 
+            label="Replies" 
+            icon={<Activity className="w-4 h-4 text-neon-purple" />}
+            colorClass="bg-purple-500/10"
+            statClass="stat-card-purple"
+            {...formatTrend(repliesTrend)}
+            sparklineBars={miniSparklinePcts.length >= 4 ? miniSparklinePcts : undefined}
+            sparklineColor="#8b5cf6"
+          />
+        </div>
+      </motion.div>
 
       {/* Subtle divider below stats row */}
       <div className="gradient-divider" />
 
       {/* Activity Sparkline - Enhanced with weekly goal ring */}
       <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
+        variants={sectionVariant}
+        initial="hidden"
+        animate="show"
+        transition={{ delay: 0.25 }}
         className="glass-card rounded-2xl p-4 border-white/5 data-viz-gradient relative overflow-hidden"
       >
         <div className="flex items-center justify-between mb-4">
@@ -499,8 +693,9 @@ export function DashboardPage() {
 
       {/* Quick Actions - Enhanced */}
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
+        variants={sectionVariant}
+        initial="hidden"
+        animate="show"
         transition={{ delay: 0.3 }}
       >
         <div className="flex items-center gap-2.5 mb-3">
@@ -598,7 +793,7 @@ export function DashboardPage() {
           <div className="flex-1 h-px bg-gradient-to-r from-pink-500/20 to-transparent" />
         </div>
         <div className="grid grid-cols-2 gap-3">
-          {insights.map((card) => (
+          {insightsSection.map((card) => (
             <FeatureCard key={card.id} {...card} />
           ))}
         </div>
@@ -620,36 +815,59 @@ export function DashboardPage() {
         </div>
       </motion.div>
 
-      {/* System Health Mini-Widget */}
+      {/* System Health Widget - Enhanced with actual API health checks */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="glass-card rounded-2xl p-3"
+        className="glass-card rounded-2xl p-4 border border-white/[0.04]"
       >
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-1.5">
-            <Activity className="w-3 h-3 text-white/30" />
-            <span className="text-[10px] font-semibold text-white/30 uppercase tracking-wider">System Health</span>
+            <Activity className="w-3 h-3 text-white/40" />
+            <span className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">System Health</span>
+            {healthData && (
+              <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${
+                healthData.status === 'ok' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'
+              }`}>
+                {healthData.status === 'ok' ? 'HEALTHY' : 'DEGRADED'}
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <div className="health-dot-green" />
-              <span className="text-[9px] text-white/30">API</span>
+          {healthData && (
+            <span className="text-[9px] text-white/20 flex items-center gap-1">
+              <Clock className="w-2 h-2" />
+              Uptime: {formatUptime(healthData.uptime)}
+            </span>
+          )}
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { label: 'API', icon: <Server className="w-2.5 h-2.5" />, status: healthData?.services.api ?? 'unknown' },
+            { label: 'Database', icon: <HardDrive className="w-2.5 h-2.5" />, status: healthData?.services.database ?? 'unknown' },
+            { label: 'WhatsApp', icon: <Phone className="w-2.5 h-2.5" />, status: healthData?.services.whatsapp ?? 'unknown' },
+            { label: 'Queue', icon: <CircleDot className="w-2.5 h-2.5" />, status: 'ok' },
+          ].map((service) => (
+            <div 
+              key={service.label}
+              className="flex flex-col items-center gap-1.5 py-2 px-1 rounded-xl bg-white/[0.02] border border-white/[0.03]"
+            >
+              <div className="flex items-center gap-1">
+                <HealthDot status={service.status} />
+                <span className="text-white/25">{service.icon}</span>
+              </div>
+              <span className="text-[8px] text-white/35 font-medium">{service.label}</span>
+              <span className={`text-[7px] font-bold ${
+                service.status === 'ok' ? 'text-emerald-400/70' : 
+                service.status === 'offline' ? 'text-white/20' : 
+                service.status === 'error' ? 'text-red-400/70' : 'text-amber-400/70'
+              }`}>
+                {service.status === 'ok' ? 'Online' : 
+                 service.status === 'offline' ? 'Offline' : 
+                 service.status === 'error' ? 'Error' : 'Unknown'}
+              </span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="health-dot-green" />
-              <span className="text-[9px] text-white/30">DB</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="health-dot-amber" />
-              <span className="text-[9px] text-white/30">Queue</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="health-dot-green" />
-              <span className="text-[9px] text-white/30">Storage</span>
-            </div>
-          </div>
+          ))}
         </div>
       </motion.div>
 

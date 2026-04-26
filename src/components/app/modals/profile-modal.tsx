@@ -97,7 +97,8 @@ export function ProfileModal() {
       {/* Profile Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center hover:border-white/20 hover:bg-gradient-to-br hover:from-blue-500/25 hover:to-purple-500/25 transition-all flex-shrink-0"
+        title="Profile & Settings"
+        className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/[0.08] flex items-center justify-center hover:border-white/[0.12] hover:from-blue-500/25 hover:to-purple-500/25 hover:scale-[1.02] active:scale-[0.97] transition-all duration-200 flex-shrink-0"
         aria-label="Profile"
       >
         <User className="w-4 h-4 text-white/60" />

@@ -64,7 +64,7 @@ export function BottomNav() {
               data-tab-id={tab.id}
               onClick={() => handleTabPress(tab.id, tab)}
               whileTap={{ scale: 0.9 }}
-              className="relative flex flex-col items-center justify-center gap-0.5 w-16 h-full transition-colors"
+              className="relative flex flex-col items-center justify-center gap-0.5 w-16 h-full transition-all duration-200"
               style={isActive ? { backgroundColor: `${tab.activeColor}08` } : {}}
             >
               <div className="relative">
@@ -72,14 +72,14 @@ export function BottomNav() {
                   <motion.div
                     layoutId="activeTabGlow"
                     className="absolute -inset-3 rounded-xl"
-                    style={{ background: `radial-gradient(circle, ${tab.activeColor}20, transparent)` }}
+                    style={{ background: `radial-gradient(circle, ${tab.activeColor}25, transparent)` }}
                     transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                   />
                 )}
-                <div className="relative transition-all duration-200" style={{ 
+                <div className="relative transition-all duration-300" style={{ 
                   color: isActive ? tab.activeColor : 'rgba(255,255,255,0.25)',
                   filter: isActive ? `drop-shadow(0 0 8px ${tab.activeColor}60)` : 'none',
-                  transform: isActive ? 'translateY(-1px) scale(1.05)' : 'none'
+                  transform: isActive ? 'translateY(-2px) scale(1.15)' : 'none'
                 }}>
                   {tab.icon}
                 </div>
@@ -90,9 +90,9 @@ export function BottomNav() {
                   </span>
                 )}
               </div>
-              <span className={`text-[10px] font-semibold transition-all duration-200 ${
-                isActive ? '' : 'text-white/25'
-              }`} style={isActive ? { color: tab.activeColor } : {}}>
+              <span className={`font-semibold transition-all duration-300 ${
+                isActive ? 'text-[11px]' : 'text-[10px] text-white/25'
+              }`} style={isActive ? { color: tab.activeColor, fontWeight: 800 } : {}}>
                 {tab.label}
               </span>
               {isActive && (

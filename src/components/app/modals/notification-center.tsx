@@ -62,10 +62,11 @@ export function NotificationCenter() {
       {/* Bell Button */}
       <button 
         onClick={() => setIsOpen(true)}
-        className="relative w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors flex-shrink-0"
+        title="Notifications"
+        className="relative w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center hover:bg-white/[0.08] hover:border-white/[0.12] hover:scale-[1.02] active:scale-[0.97] transition-all duration-200 flex-shrink-0"
         aria-label="Notifications"
       >
-        <Bell className="w-3.5 h-3.5 text-white/50" />
+        <Bell className="w-4 h-4 text-white/50" />
         {mounted && unreadCount > 0 && (
           <div
             className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-500 rounded-full flex items-center justify-center badge-pulse"

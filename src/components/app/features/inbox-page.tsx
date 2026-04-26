@@ -1,39 +1,47 @@
 'use client'
 
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useAppStore } from '@/store/app-store'
+import { useToastStore } from '@/store/toast-store'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, MessageCircle, Search, Check, CheckCheck,
   Plus, MessageSquare, Users, BarChart3, Phone, Trash2, Archive,
-  Loader2, Pin
+  Loader2, Pin, Send, MoreVertical, Eye, EyeOff, X, Reply, CornerDownLeft
 } from 'lucide-react'
 
 interface ConversationThread {
   contactId: string
   contactName: string
+  contactPhone: string
   lastMessage: string
   lastTimestamp: string
   unreadCount: number
-  messageStatus: 'read' | 'sent' | 'none'
-  avatarColor: string
   totalMessages: number
+  isPinned: boolean
+  isArchived: boolean
+  lastDirection: string
+  lastStatus: string
   isOnline: boolean
-  isTyping?: boolean
-  isPinned?: boolean
 }
 
-interface ApiConversation {
+interface ChatMessage {
   id: string
   contactId: string
   contactName: string
+  contactPhone: string
   direction: string
   content: string
+  status: string
+  isRead: boolean
+  mediaType: string
+  mediaUrl: string
   timestamp: string
   createdAt: string
+  readAt: string | null
 }
 
-type FilterTab = 'all' | 'unread' | 'pinned'
+type FilterTab = 'all' | 'unread' | 'groups' | 'archived'
 
 const container = {
   hidden: { opacity: 0 },
@@ -47,13 +55,6 @@ const conversationItem = {
   hidden: { opacity: 0, x: -10 },
   show: { opacity: 1, x: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
 }
-
-// Swipe action definitions
-const swipeActions = [
-  { icon: Phone, label: 'Call', color: '#22c55e', bg: 'rgba(34,197,94,0.15)' },
-  { icon: Archive, label: 'Archive', color: '#3b82f6', bg: 'rgba(59,130,246,0.15)' },
-  { icon: Trash2, label: 'Delete', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
-]
 
 const avatarColors = ['#3b82f6', '#8b5cf6', '#ec4899', '#f97316', '#22c55e', '#06b6d4', '#f59e0b', '#ef4444']
 
@@ -85,7 +86,15 @@ function formatRelativeTime(dateStr: string): string {
   }
 }
 
-/** Truncate last message preview to ~40 chars */
+function formatMessageTime(dateStr: string): string {
+  try {
+    const date = new Date(dateStr)
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+  } catch {
+    return ''
+  }
+}
+
 function truncatePreview(text: string, maxLen = 42): string {
   if (!text) return ''
   if (text.length <= maxLen) return text
@@ -93,7 +102,8 @@ function truncatePreview(text: string, maxLen = 42): string {
 }
 
 export function InboxPage() {
-  const { goBack, setSelectedContactId, setActiveFeature } = useAppStore()
+  const { goBack, setActiveFeature } = useAppStore()
+  const { addToast } = useToastStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [searchFocused, setSearchFocused] = useState(false)
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all')
@@ -103,81 +113,81 @@ export function InboxPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Thread view state
+  const [activeThread, setActiveThread] = useState<ConversationThread | null>(null)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [messagesLoading, setMessagesLoading] = useState(false)
+  const [replyText, setReplyText] = useState('')
+  const [sendingReply, setSendingReply] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const replyInputRef = useRef<HTMLInputElement>(null)
+
+  // Quick actions menu
+  const [actionsMenuId, setActionsMenuId] = useState<string | null>(null)
+
   const fetchConversations = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
-      const res = await fetch('/api/conversations')
+      const params = new URLSearchParams()
+      if (searchQuery) params.set('search', searchQuery)
+      if (activeFilter !== 'all') params.set('filter', activeFilter)
+
+      const res = await fetch(`/api/conversations?${params.toString()}`)
       if (!res.ok) throw new Error('Failed to fetch conversations')
-      const responseData = await res.json()
-      const data: ApiConversation[] = responseData.conversations || []
+      const data = await res.json()
 
-      // Group by contactId to create threads
-      const threadMap = new Map<string, ApiConversation[]>()
-
-      for (const conv of data) {
-        const key = conv.contactId || conv.contactName || 'unknown'
-        if (!threadMap.has(key)) {
-          threadMap.set(key, [])
-        }
-        threadMap.get(key)!.push(conv)
-      }
-
-      // Build thread objects
-      const builtThreads: ConversationThread[] = []
-
-      for (const [contactId, messages] of threadMap) {
-        // Sort messages by timestamp descending (most recent first)
-        messages.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-
-        const latest = messages[0]
-        const unreadCount = messages.filter(m => m.direction === 'incoming').length
-
-        // Determine message status based on last outgoing message
-        const hasOutgoing = messages.some(m => m.direction === 'outgoing')
-        const lastOutgoing = messages.find(m => m.direction === 'outgoing')
-        let messageStatus: 'read' | 'sent' | 'none' = 'none'
-        if (lastOutgoing) {
-          messageStatus = 'sent'
-        }
-        if (hasOutgoing && unreadCount === 0) {
-          messageStatus = 'read'
-        }
-
-        // Simulate some typing contacts and pinned contacts
-        const isTyping = Math.random() < 0.15 && unreadCount > 0
-        const isPinned = Math.random() < 0.2
-
-        builtThreads.push({
-          contactId,
-          contactName: latest.contactName || 'Unknown Contact',
-          lastMessage: latest.content,
-          lastTimestamp: latest.timestamp,
-          unreadCount,
-          messageStatus,
-          avatarColor: getAvatarColor(contactId),
-          totalMessages: messages.length,
+      // Use threads from API if available, otherwise build from raw conversations
+      if (data.threads && data.threads.length > 0) {
+        setThreads(data.threads.map((t: ConversationThread) => ({
+          ...t,
+          avatarColor: getAvatarColor(t.contactId),
           isOnline: false,
-          isTyping,
-          isPinned,
-        })
+        })))
+      } else if (data.conversations && data.conversations.length > 0) {
+        // Fallback: build threads from raw messages
+        const threadMap = new Map<string, ConversationThread>()
+        for (const conv of data.conversations) {
+          const key = conv.contactId || conv.contactName || 'unknown'
+          const existing = threadMap.get(key)
+          if (!existing) {
+            threadMap.set(key, {
+              contactId: conv.contactId || key,
+              contactName: conv.contactName || 'Unknown Contact',
+              contactPhone: conv.contactPhone || '',
+              lastMessage: conv.content,
+              lastTimestamp: conv.timestamp,
+              unreadCount: !conv.isRead && conv.direction === 'incoming' ? 1 : 0,
+              totalMessages: 1,
+              isPinned: conv.isPinned || false,
+              isArchived: conv.isArchived || false,
+              lastDirection: conv.direction,
+              lastStatus: conv.status || 'sent',
+              isOnline: false,
+            })
+          } else {
+            existing.totalMessages += 1
+            if (!conv.isRead && conv.direction === 'incoming') existing.unreadCount += 1
+            if (new Date(conv.timestamp) > new Date(existing.lastTimestamp)) {
+              existing.lastMessage = conv.content
+              existing.lastTimestamp = conv.timestamp
+              existing.lastDirection = conv.direction
+              existing.lastStatus = conv.status || 'sent'
+            }
+            if (conv.isPinned) existing.isPinned = true
+          }
+        }
+        setThreads(Array.from(threadMap.values()).map(t => ({ ...t, avatarColor: getAvatarColor(t.contactId) })))
+      } else {
+        setThreads([])
       }
-
-      // Sort threads: pinned first, then by most recent message
-      builtThreads.sort((a, b) => {
-        if (a.isPinned && !b.isPinned) return -1
-        if (!a.isPinned && b.isPinned) return 1
-        return new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
-      })
-
-      setThreads(builtThreads)
     } catch (err) {
       console.error('Failed to fetch conversations:', err)
       setError('Failed to load conversations')
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [searchQuery, activeFilter])
 
   // Page transition flash effect
   useEffect(() => {
@@ -185,43 +195,160 @@ export function InboxPage() {
     return () => clearTimeout(timer)
   }, [])
 
-  // Fetch conversations on mount
+  // Fetch conversations on mount and when filters change
   useEffect(() => {
     fetchConversations()
   }, [fetchConversations])
 
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages])
+
+  const fetchMessages = useCallback(async (contactId: string) => {
+    try {
+      setMessagesLoading(true)
+      const res = await fetch(`/api/conversations?view=messages&contactId=${encodeURIComponent(contactId)}`)
+      if (!res.ok) throw new Error('Failed to fetch messages')
+      const data = await res.json()
+      setMessages(data.messages || [])
+    } catch (err) {
+      console.error('Failed to fetch messages:', err)
+      addToast({ type: 'error', title: 'Failed', message: 'Could not load messages' })
+    } finally {
+      setMessagesLoading(false)
+    }
+  }, [addToast])
+
+  const handleConversationClick = (thread: ConversationThread) => {
+    setActiveThread(thread)
+    fetchMessages(thread.contactId)
+    // Mark as read
+    if (thread.unreadCount > 0) {
+      fetch('/api/conversations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'mark-read', contactId: thread.contactId }),
+      }).then(() => {
+        setThreads(prev => prev.map(t =>
+          t.contactId === thread.contactId ? { ...t, unreadCount: 0 } : t
+        ))
+      }).catch(() => {})
+    }
+  }
+
+  const handleBackFromThread = () => {
+    setActiveThread(null)
+    setMessages([])
+    setReplyText('')
+  }
+
+  const handleSendReply = async () => {
+    if (!replyText.trim() || !activeThread) return
+    setSendingReply(true)
+    try {
+      const res = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contactId: activeThread.contactId,
+          contactName: activeThread.contactName,
+          contactPhone: activeThread.contactPhone,
+          content: replyText.trim(),
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to send')
+      const newMsg = await res.json()
+      setMessages(prev => [...prev, newMsg])
+      setReplyText('')
+      // Update thread
+      setThreads(prev => prev.map(t =>
+        t.contactId === activeThread.contactId
+          ? { ...t, lastMessage: replyText.trim(), lastTimestamp: newMsg.timestamp, lastDirection: 'outgoing', lastStatus: 'sent' }
+          : t
+      ))
+    } catch {
+      addToast({ type: 'error', title: 'Send Failed', message: 'Could not send reply' })
+    } finally {
+      setSendingReply(false)
+    }
+  }
+
+  const handleQuickAction = async (action: string, thread: ConversationThread) => {
+    setActionsMenuId(null)
+    try {
+      const res = await fetch('/api/conversations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, contactId: thread.contactId }),
+      })
+      if (!res.ok) throw new Error('Action failed')
+      
+      // Update local state
+      if (action === 'mark-read') {
+        setThreads(prev => prev.map(t => t.contactId === thread.contactId ? { ...t, unreadCount: 0 } : t))
+        addToast({ type: 'success', title: 'Marked as read' })
+      } else if (action === 'mark-unread') {
+        setThreads(prev => prev.map(t => t.contactId === thread.contactId ? { ...t, unreadCount: 1 } : t))
+        addToast({ type: 'success', title: 'Marked as unread' })
+      } else if (action === 'pin') {
+        setThreads(prev => prev.map(t => t.contactId === thread.contactId ? { ...t, isPinned: true } : t))
+        addToast({ type: 'success', title: 'Conversation pinned' })
+      } else if (action === 'unpin') {
+        setThreads(prev => prev.map(t => t.contactId === thread.contactId ? { ...t, isPinned: false } : t))
+        addToast({ type: 'success', title: 'Conversation unpinned' })
+      } else if (action === 'archive') {
+        setThreads(prev => prev.filter(t => t.contactId !== thread.contactId))
+        addToast({ type: 'success', title: 'Conversation archived' })
+      } else if (action === 'unarchive') {
+        setThreads(prev => prev.map(t => t.contactId === thread.contactId ? { ...t, isArchived: false } : t))
+        addToast({ type: 'success', title: 'Conversation unarchived' })
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Action Failed', message: 'Could not perform action' })
+    }
+  }
+
   const filteredConversations = useMemo(() => {
     let filtered = threads
 
-    // Apply search filter
+    // Apply search filter (client-side for real-time)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
       filtered = filtered.filter(
-        (c) => c.contactName.toLowerCase().includes(query) || c.lastMessage.toLowerCase().includes(query)
+        (c) =>
+          c.contactName.toLowerCase().includes(query) ||
+          (c.contactPhone && c.contactPhone.includes(query)) ||
+          c.lastMessage.toLowerCase().includes(query)
       )
     }
 
-    // Apply tab filter
+    // Apply tab filter (client-side)
     if (activeFilter === 'unread') {
       filtered = filtered.filter((c) => c.unreadCount > 0)
-    } else if (activeFilter === 'pinned') {
-      filtered = filtered.filter((c) => c.isPinned)
+    } else if (activeFilter === 'archived') {
+      filtered = filtered.filter((c) => c.isArchived)
+    } else if (activeFilter === 'groups') {
+      // Groups heuristic: multiple participants or group-like names
+      filtered = filtered.filter((c) => c.contactName.toLowerCase().includes('group') || c.totalMessages > 5)
+    } else {
+      // All: exclude archived
+      filtered = filtered.filter((c) => !c.isArchived)
     }
 
     return filtered
   }, [searchQuery, activeFilter, threads])
 
-  const totalConversations = threads.length
+  const totalConversations = threads.filter(c => !c.isArchived).length
   const totalUnread = threads.reduce((sum, c) => sum + c.unreadCount, 0)
   const responseRate = threads.length > 0
-    ? Math.round((threads.filter(t => t.messageStatus === 'read' || t.messageStatus === 'sent').length / threads.length) * 100)
+    ? Math.round((threads.filter(t => t.lastStatus === 'read' || t.lastStatus === 'delivered').length / threads.length) * 100)
     : 0
-  const pinnedCount = threads.filter(c => c.isPinned).length
-
-  const handleConversationClick = (thread: ConversationThread) => {
-    setSelectedContactId(thread.contactId)
-    setActiveFeature('contact-detail')
-  }
+  const pinnedCount = threads.filter(c => c.isPinned && !c.isArchived).length
+  const archivedCount = threads.filter(c => c.isArchived).length
+  const groupsCount = threads.filter(c => c.contactName.toLowerCase().includes('group') || c.totalMessages > 5).length
 
   const getInitials = (name: string) => {
     return name
@@ -235,9 +362,177 @@ export function InboxPage() {
   const filters: { key: FilterTab; label: string; count: number }[] = [
     { key: 'all', label: 'All', count: totalConversations },
     { key: 'unread', label: 'Unread', count: threads.filter((c) => c.unreadCount > 0).length },
-    { key: 'pinned', label: 'Pinned', count: pinnedCount },
+    { key: 'groups', label: 'Groups', count: groupsCount },
+    { key: 'archived', label: 'Archived', count: archivedCount },
   ]
 
+  // ====================== THREAD VIEW ======================
+  if (activeThread) {
+    return (
+      <div className="flex flex-col h-[calc(100vh-8rem)] max-w-lg mx-auto">
+        {/* Thread Header */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06]">
+          <motion.button
+            onClick={handleBackFromThread}
+            whileTap={{ scale: 0.95 }}
+            className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 text-white/60" />
+          </motion.button>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-sm font-bold text-white/95 truncate">{activeThread.contactName}</h2>
+            <p className="text-[10px] text-white/40">{activeThread.contactPhone || 'No phone'}</p>
+          </div>
+          <div className="flex items-center gap-1">
+            <motion.button
+              onClick={() => handleQuickAction(activeThread.isPinned ? 'unpin' : 'pin', activeThread)}
+              whileTap={{ scale: 0.9 }}
+              className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
+            >
+              <Pin className={`w-3.5 h-3.5 ${activeThread.isPinned ? 'text-green-400' : 'text-white/30'}`} />
+            </motion.button>
+            <motion.button
+              onClick={() => setActionsMenuId(actionsMenuId === activeThread.contactId ? null : activeThread.contactId)}
+              whileTap={{ scale: 0.9 }}
+              className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors relative"
+            >
+              <MoreVertical className="w-3.5 h-3.5 text-white/30" />
+              {/* Actions dropdown */}
+              <AnimatePresence>
+                {actionsMenuId === activeThread.contactId && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: -5 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -5 }}
+                    className="absolute right-0 top-10 w-44 glass-card rounded-xl py-1.5 z-50 overflow-hidden"
+                  >
+                    <button
+                      onClick={() => handleQuickAction(activeThread.unreadCount > 0 ? 'mark-read' : 'mark-unread', activeThread)}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-white/70 hover:bg-white/[0.06] transition-colors"
+                    >
+                      {activeThread.unreadCount > 0 ? <Eye className="w-3.5 h-3.5 text-white/40" /> : <EyeOff className="w-3.5 h-3.5 text-white/40" />}
+                      {activeThread.unreadCount > 0 ? 'Mark as read' : 'Mark as unread'}
+                    </button>
+                    <button
+                      onClick={() => handleQuickAction('archive', activeThread)}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-white/70 hover:bg-white/[0.06] transition-colors"
+                    >
+                      <Archive className="w-3.5 h-3.5 text-white/40" />
+                      Archive
+                    </button>
+                    <button
+                      onClick={() => handleQuickAction(activeThread.isPinned ? 'unpin' : 'pin', activeThread)}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-white/70 hover:bg-white/[0.06] transition-colors"
+                    >
+                      <Pin className="w-3.5 h-3.5 text-white/40" />
+                      {activeThread.isPinned ? 'Unpin' : 'Pin'}
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.button>
+          </div>
+        </div>
+
+        {/* Messages Area */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          {messagesLoading ? (
+            <div className="flex flex-col items-center justify-center py-16">
+              <Loader2 className="w-6 h-6 text-green-400/50 animate-spin mb-3" />
+              <p className="text-xs text-white/40">Loading messages...</p>
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16">
+              <MessageCircle className="w-10 h-10 text-white/10 mb-3" />
+              <p className="text-sm text-white/40">No messages yet</p>
+              <p className="text-xs text-white/25 mt-1">Start the conversation</p>
+            </div>
+          ) : (
+            messages.map((msg) => (
+              <motion.div
+                key={msg.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`flex ${msg.direction === 'outgoing' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div className={`max-w-[80%] ${msg.direction === 'outgoing' ? 'chat-bubble-sent' : 'chat-bubble-received'} rounded-2xl px-3.5 py-2.5 message-bubble`}>
+                  {/* Media attachment */}
+                  {msg.mediaType === 'image' && msg.mediaUrl && (
+                    <div className="mb-2 rounded-lg overflow-hidden">
+                      <div className="w-full h-32 bg-white/5 flex items-center justify-center">
+                        <MessageSquare className="w-6 h-6 text-white/20" />
+                      </div>
+                    </div>
+                  )}
+                  {msg.mediaType === 'document' && (
+                    <div className="mb-2 flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                      <MessageSquare className="w-4 h-4 text-white/40" />
+                      <span className="text-[10px] text-white/50">Document attachment</span>
+                    </div>
+                  )}
+                  {msg.mediaType === 'audio' && (
+                    <div className="mb-2 flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                      <div className="flex items-center gap-0.5">
+                        {[...Array(12)].map((_, i) => (
+                          <div key={i} className="w-0.5 bg-green-400/40 rounded-full" style={{ height: `${Math.max(4, Math.random() * 14)}px` }} />
+                        ))}
+                      </div>
+                      <span className="text-[10px] text-white/50">0:{String(Math.floor(Math.random() * 50 + 10)).padStart(2, '0')}</span>
+                    </div>
+                  )}
+                  {/* Message text */}
+                  <p className="text-[13px] text-white/85 leading-relaxed break-words">{msg.content}</p>
+                  {/* Timestamp & read receipt */}
+                  <div className="flex items-center justify-end gap-1.5 mt-1">
+                    <span className="text-[9px] text-white/25 timestamp-hover">{formatMessageTime(msg.timestamp)}</span>
+                    {msg.direction === 'outgoing' && (
+                      msg.status === 'read' ? <CheckCheck className="w-3 h-3 text-blue-400/70" /> :
+                      msg.status === 'delivered' ? <CheckCheck className="w-3 h-3 text-white/30" /> :
+                      <Check className="w-3 h-3 text-white/25" />
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            ))
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Reply Input */}
+        <div className="px-4 py-3 border-t border-white/[0.06]">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 relative">
+              <input
+                ref={replyInputRef}
+                type="text"
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendReply() } }}
+                placeholder="Type a message..."
+                className="w-full bg-white/[0.05] border border-white/[0.08] rounded-2xl px-4 py-2.5 pr-10 text-sm text-white/90 placeholder:text-white/25 focus:outline-none focus:border-green-500/30 transition-all"
+              />
+              <CornerDownLeft className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20" />
+            </div>
+            <motion.button
+              onClick={handleSendReply}
+              disabled={!replyText.trim() || sendingReply}
+              whileTap={{ scale: 0.9 }}
+              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                replyText.trim()
+                  ? 'bg-gradient-to-br from-green-500 to-green-600 text-white'
+                  : 'bg-white/5 text-white/20 cursor-not-allowed'
+              }`}
+              style={replyText.trim() ? { boxShadow: '0 0 15px rgba(34,197,94,0.3)' } : undefined}
+            >
+              {sendingReply ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            </motion.button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ====================== CONVERSATION LIST VIEW ======================
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-4">
       {/* Page Transition Flash */}
@@ -290,7 +585,6 @@ export function InboxPage() {
           </div>
           <p className="text-xl font-extrabold text-white/95">{totalConversations}</p>
           <p className="text-[9px] text-white/50 font-semibold mt-0.5">Conversations</p>
-          {/* Mini progress */}
           <div className="mt-1.5 h-1 rounded-full bg-white/5 overflow-hidden">
             <div className="h-full rounded-full bg-gradient-to-r from-green-500/50 to-green-400/50 progress-shimmer" style={{ width: '85%', backgroundSize: '200% 100%' }} />
           </div>
@@ -319,7 +613,7 @@ export function InboxPage() {
 
       <div className="gradient-divider" />
 
-      {/* Search Bar - Enhanced with animated focus */}
+      {/* Search Bar */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -331,7 +625,7 @@ export function InboxPage() {
         }`} />
         <input
           type="text"
-          placeholder="Search conversations..."
+          placeholder="Search by name, phone, or message..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => setSearchFocused(true)}
@@ -342,6 +636,15 @@ export function InboxPage() {
               : 'border-white/8'
           }`}
         />
+        {searchQuery && (
+          <motion.button
+            onClick={() => setSearchQuery('')}
+            whileTap={{ scale: 0.9 }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white/10 flex items-center justify-center"
+          >
+            <X className="w-3 h-3 text-white/50" />
+          </motion.button>
+        )}
         {searchFocused && (
           <motion.div
             initial={{ scaleX: 0 }}
@@ -358,13 +661,13 @@ export function InboxPage() {
         transition={{ delay: 0.15 }}
         className="relative"
       >
-        <div className="flex gap-1 p-1 rounded-xl bg-white/[0.03] border border-white/5">
+        <div className="flex gap-1 p-1 rounded-xl bg-white/[0.03] border border-white/5 overflow-x-auto no-scrollbar">
           {filters.map((filter) => (
             <motion.button
               key={filter.key}
               onClick={() => setActiveFilter(filter.key)}
               whileTap={{ scale: 0.95 }}
-              className={`relative flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200 ${
+              className={`relative flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-200 whitespace-nowrap ${
                 activeFilter === filter.key
                   ? 'text-green-400'
                   : 'text-white/40 hover:text-white/60'
@@ -450,7 +753,7 @@ export function InboxPage() {
                   layout
                   onClick={() => handleConversationClick(conversation)}
                   onMouseEnter={() => setHoveredConvId(conversation.contactId)}
-                  onMouseLeave={() => setHoveredConvId(null)}
+                  onMouseLeave={() => { setHoveredConvId(null); setActionsMenuId(null) }}
                   className={`relative flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-all duration-200 group conversation-card-glow ${
                     conversation.unreadCount > 0 ? 'bg-green-500/[0.02]' : 'hover:bg-white/[0.03]'
                   }`}
@@ -476,21 +779,19 @@ export function InboxPage() {
                     <div
                       className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white/80"
                       style={{
-                        background: `linear-gradient(135deg, ${conversation.avatarColor}40, ${conversation.avatarColor}15)`,
-                        border: `1.5px solid ${conversation.avatarColor}30`,
-                        boxShadow: conversation.unreadCount > 0 ? `0 0 12px ${conversation.avatarColor}15` : 'none'
+                        background: `linear-gradient(135deg, ${getAvatarColor(conversation.contactId)}40, ${getAvatarColor(conversation.contactId)}15)`,
+                        border: `1.5px solid ${getAvatarColor(conversation.contactId)}30`,
+                        boxShadow: conversation.unreadCount > 0 ? `0 0 12px ${getAvatarColor(conversation.contactId)}15` : 'none'
                       }}
                     >
                       {getInitials(conversation.contactName)}
                     </div>
-                    {/* Online status dot */}
                     {conversation.isOnline && (
                       <div
                         className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-[#0c0c14] online-status-ring"
                         style={{ boxShadow: '0 0 6px rgba(34,197,94,0.6)' }}
                       />
                     )}
-                    {/* Unread count badge on avatar */}
                     {conversation.unreadCount > 0 && (
                       <motion.div
                         initial={{ scale: 0.5, opacity: 0 }}
@@ -522,31 +823,27 @@ export function InboxPage() {
                       </div>
                     </div>
 
-                    {/* Last message preview / Typing indicator */}
+                    {/* Last message preview */}
                     <div className="flex items-center justify-between gap-2 mt-0.5">
-                      {conversation.isTyping ? (
-                        <div className="flex items-center gap-1.5">
-                          <div className="inbox-typing-dots">
-                            <span /><span /><span />
-                          </div>
-                          <span className="text-[10px] text-green-400/70 font-medium">typing</span>
-                        </div>
-                      ) : (
-                        <p className={`text-[11px] truncate leading-relaxed ${
-                          conversation.unreadCount > 0 ? 'text-white/60' : 'text-white/40'
-                        }`}>
-                          {truncatePreview(conversation.lastMessage)}
-                        </p>
-                      )}
+                      <p className={`text-[11px] truncate leading-relaxed ${
+                        conversation.unreadCount > 0 ? 'text-white/60' : 'text-white/40'
+                      }`}>
+                        {conversation.lastDirection === 'outgoing' && (
+                          <span className="text-white/30">You: </span>
+                        )}
+                        {truncatePreview(conversation.lastMessage)}
+                      </p>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
-                        {/* Message status icon */}
-                        {conversation.messageStatus === 'read' && (
+                        {/* Read receipts */}
+                        {conversation.lastDirection === 'outgoing' && conversation.lastStatus === 'read' && (
                           <CheckCheck className="w-3.5 h-3.5 text-blue-400/60" />
                         )}
-                        {conversation.messageStatus === 'sent' && (
+                        {conversation.lastDirection === 'outgoing' && conversation.lastStatus === 'delivered' && (
+                          <CheckCheck className="w-3.5 h-3.5 text-white/25" />
+                        )}
+                        {conversation.lastDirection === 'outgoing' && conversation.lastStatus === 'sent' && (
                           <Check className="w-3.5 h-3.5 text-white/25" />
                         )}
-                        {/* Total messages count for active conversations */}
                         {conversation.totalMessages > 0 && conversation.unreadCount === 0 && (
                           <span className="text-[9px] text-white/20 font-medium">{conversation.totalMessages}</span>
                         )}
@@ -554,7 +851,7 @@ export function InboxPage() {
                     </div>
                   </div>
 
-                  {/* Swipe action hints - visible on hover */}
+                  {/* Quick action hints on hover */}
                   <AnimatePresence>
                     {hoveredConvId === conversation.contactId && (
                       <motion.div
@@ -562,22 +859,41 @@ export function InboxPage() {
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 5 }}
                         className="flex items-center gap-0.5 flex-shrink-0"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        {swipeActions.map((action) => (
-                          <motion.div
-                            key={action.label}
-                            whileHover={{ scale: 1.15 }}
-                            className="w-6 h-6 rounded-md flex items-center justify-center"
-                            style={{ background: action.bg }}
-                          >
-                            <action.icon className="w-3 h-3" style={{ color: action.color }} />
-                          </motion.div>
-                        ))}
+                        <motion.button
+                          whileHover={{ scale: 1.15 }}
+                          onClick={(e) => { e.stopPropagation(); handleConversationClick(conversation) }}
+                          className="w-6 h-6 rounded-md flex items-center justify-center bg-green-500/10"
+                        >
+                          <Reply className="w-3 h-3 text-green-400" />
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.15 }}
+                          onClick={(e) => { e.stopPropagation(); handleQuickAction(conversation.unreadCount > 0 ? 'mark-read' : 'mark-unread', conversation) }}
+                          className="w-6 h-6 rounded-md flex items-center justify-center bg-blue-500/10"
+                        >
+                          {conversation.unreadCount > 0 ? <Eye className="w-3 h-3 text-blue-400" /> : <EyeOff className="w-3 h-3 text-blue-400" />}
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.15 }}
+                          onClick={(e) => { e.stopPropagation(); handleQuickAction(conversation.isPinned ? 'unpin' : 'pin', conversation) }}
+                          className="w-6 h-6 rounded-md flex items-center justify-center bg-purple-500/10"
+                        >
+                          <Pin className={`w-3 h-3 text-purple-400`} />
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.15 }}
+                          onClick={(e) => { e.stopPropagation(); handleQuickAction('archive', conversation) }}
+                          className="w-6 h-6 rounded-md flex items-center justify-center bg-amber-500/10"
+                        >
+                          <Archive className="w-3 h-3 text-amber-400" />
+                        </motion.button>
                       </motion.div>
                     )}
                   </AnimatePresence>
 
-                  {/* Subtle divider (not on last item) */}
+                  {/* Subtle divider */}
                   {index < filteredConversations.length - 1 && (
                     <div className="absolute bottom-0 left-16 right-4 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
                   )}

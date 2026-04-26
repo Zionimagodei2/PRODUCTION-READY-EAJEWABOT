@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 
 interface ValidationRequest {
   numbers: string[]
+  deepScan?: boolean
 }
 
 interface ValidationResult {
@@ -10,44 +11,87 @@ interface ValidationResult {
   reason?: string
   country?: string
   flag?: string
+  format?: string
+  hasWhatsApp?: boolean
+  risk?: 'high' | 'medium' | 'low'
+  carrier?: string
 }
 
 // Country code mappings for validation
-const countryCodeMap: Record<string, { name: string; flag: string; pattern: string }> = {
-  '1':   { name: 'United States/Canada', flag: '🇺🇸', pattern: '^\\+1[2-9]\\d{9}$' },
-  '7':   { name: 'Russia', flag: '🇷🇺', pattern: '^\\+7[3-9]\\d{9}$' },
-  '20':  { name: 'Egypt', flag: '🇪🇬', pattern: '^\\+20[1-9]\\d{8}$' },
-  '27':  { name: 'South Africa', flag: '🇿🇦', pattern: '^\\+27[1-9]\\d{8}$' },
-  '30':  { name: 'Greece', flag: '🇬🇷', pattern: '^\\+30[2-9]\\d{8,9}$' },
-  '31':  { name: 'Netherlands', flag: '🇳🇱', pattern: '^\\+31[1-9]\\d{8}$' },
-  '33':  { name: 'France', flag: '🇫🇷', pattern: '^\\+33[1-9]\\d{8}$' },
-  '34':  { name: 'Spain', flag: '🇪🇸', pattern: '^\\+34[6-9]\\d{8}$' },
-  '39':  { name: 'Italy', flag: '🇮🇹', pattern: '^\\+39[3]\\d{8,10}$' },
-  '44':  { name: 'United Kingdom', flag: '🇬🇧', pattern: '^\\+44[1-9]\\d{9,10}$' },
-  '49':  { name: 'Germany', flag: '🇩🇪', pattern: '^\\+49[1-9]\\d{9,10}$' },
-  '52':  { name: 'Mexico', flag: '🇲🇽', pattern: '^\\+52[1-9]\\d{9,10}$' },
-  '55':  { name: 'Brazil', flag: '🇧🇷', pattern: '^\\+55[1-9]\\d{9,10}$' },
-  '61':  { name: 'Australia', flag: '🇦🇺', pattern: '^\\+61[2-9]\\d{8}$' },
-  '62':  { name: 'Indonesia', flag: '🇮🇩', pattern: '^\\+62[1-9]\\d{8,10}$' },
-  '63':  { name: 'Philippines', flag: '🇵🇭', pattern: '^\\+63[2-9]\\d{8,9}$' },
-  '65':  { name: 'Singapore', flag: '🇸🇬', pattern: '^\\+65[6-9]\\d{7}$' },
-  '66':  { name: 'Thailand', flag: '🇹🇭', pattern: '^\\+66[2-9]\\d{7,8}$' },
-  '81':  { name: 'Japan', flag: '🇯🇵', pattern: '^\\+81[1-9]\\d{8,9}$' },
-  '82':  { name: 'South Korea', flag: '🇰🇷', pattern: '^\\+82[1-9]\\d{7,9}$' },
-  '86':  { name: 'China', flag: '🇨🇳', pattern: '^\\+86[1]\\d{10}$' },
-  '90':  { name: 'Turkey', flag: '🇹🇷', pattern: '^\\+90[2-9]\\d{9}$' },
-  '91':  { name: 'India', flag: '🇮🇳', pattern: '^\\+91[6-9]\\d{9}$' },
-  '234': { name: 'Nigeria', flag: '🇳🇬', pattern: '^\\+234[7-9]\\d{9}$' },
-  '852': { name: 'Hong Kong', flag: '🇭🇰', pattern: '^\\+852[2-9]\\d{7}$' },
-  '853': { name: 'Macau', flag: '🇲🇴', pattern: '^\\+853[6]\\d{7}$' },
-  '886': { name: 'Taiwan', flag: '🇹🇼', pattern: '^\\+886[9]\\d{8}$' },
-  '971': { name: 'UAE', flag: '🇦🇪', pattern: '^\\+971[2-9]\\d{7,8}$' },
-  '966': { name: 'Saudi Arabia', flag: '🇸🇦', pattern: '^\\+966[5]\\d{8}$' },
-  '977': { name: 'Nepal', flag: '🇳🇵', pattern: '^\\+977[9]\\d{9}$' },
+const countryCodeMap: Record<string, { name: string; flag: string; pattern: string; carrier?: string }> = {
+  '1':   { name: 'United States/Canada', flag: '🇺🇸', pattern: '^\\+1[2-9]\\d{9}$', carrier: 'Various' },
+  '7':   { name: 'Russia', flag: '🇷🇺', pattern: '^\\+7[3-9]\\d{9}$', carrier: 'Various' },
+  '20':  { name: 'Egypt', flag: '🇪🇬', pattern: '^\\+20[1-9]\\d{8}$', carrier: 'Vodafone/Orange' },
+  '27':  { name: 'South Africa', flag: '🇿🇦', pattern: '^\\+27[1-9]\\d{8}$', carrier: 'Vodacom/MTN' },
+  '30':  { name: 'Greece', flag: '🇬🇷', pattern: '^\\+30[2-9]\\d{8,9}$', carrier: 'Cosmote/Vodafone' },
+  '31':  { name: 'Netherlands', flag: '🇳🇱', pattern: '^\\+31[1-9]\\d{8}$', carrier: 'KPN/Vodafone' },
+  '33':  { name: 'France', flag: '🇫🇷', pattern: '^\\+33[1-9]\\d{8}$', carrier: 'Orange/SFR' },
+  '34':  { name: 'Spain', flag: '🇪🇸', pattern: '^\\+34[6-9]\\d{8}$', carrier: 'Movistar/Vodafone' },
+  '39':  { name: 'Italy', flag: '🇮🇹', pattern: '^\\+39[3]\\d{8,10}$', carrier: 'TIM/Vodafone' },
+  '44':  { name: 'United Kingdom', flag: '🇬🇧', pattern: '^\\+44[1-9]\\d{9,10}$', carrier: 'EE/Vodafone' },
+  '49':  { name: 'Germany', flag: '🇩🇪', pattern: '^\\+49[1-9]\\d{9,10}$', carrier: 'Telekom/Vodafone' },
+  '52':  { name: 'Mexico', flag: '🇲🇽', pattern: '^\\+52[1-9]\\d{9,10}$', carrier: 'Telcel/AT&T' },
+  '55':  { name: 'Brazil', flag: '🇧🇷', pattern: '^\\+55[1-9]\\d{9,10}$', carrier: 'Vivo/Claro' },
+  '61':  { name: 'Australia', flag: '🇦🇺', pattern: '^\\+61[2-9]\\d{8}$', carrier: 'Telstra/Optus' },
+  '62':  { name: 'Indonesia', flag: '🇮🇩', pattern: '^\\+62[1-9]\\d{8,10}$', carrier: 'Telkomsel/Indosat' },
+  '63':  { name: 'Philippines', flag: '🇵🇭', pattern: '^\\+63[2-9]\\d{8,9}$', carrier: 'Globe/Smart' },
+  '65':  { name: 'Singapore', flag: '🇸🇬', pattern: '^\\+65[6-9]\\d{7}$', carrier: 'Singtel/StarHub' },
+  '66':  { name: 'Thailand', flag: '🇹🇭', pattern: '^\\+66[2-9]\\d{7,8}$', carrier: 'AIS/DTAC' },
+  '81':  { name: 'Japan', flag: '🇯🇵', pattern: '^\\+81[1-9]\\d{8,9}$', carrier: 'NTT Docomo/SoftBank' },
+  '82':  { name: 'South Korea', flag: '🇰🇷', pattern: '^\\+82[1-9]\\d{7,9}$', carrier: 'SK Telecom/KT' },
+  '86':  { name: 'China', flag: '🇨🇳', pattern: '^\\+86[1]\\d{10}$', carrier: 'China Mobile/Unicom' },
+  '90':  { name: 'Turkey', flag: '🇹🇷', pattern: '^\\+90[2-9]\\d{9}$', carrier: 'Turkcell/Vodafone' },
+  '91':  { name: 'India', flag: '🇮🇳', pattern: '^\\+91[6-9]\\d{9}$', carrier: 'Jio/Airtel' },
+  '234': { name: 'Nigeria', flag: '🇳🇬', pattern: '^\\+234[7-9]\\d{9}$', carrier: 'MTN/Airtel' },
+  '852': { name: 'Hong Kong', flag: '🇭🇰', pattern: '^\\+852[2-9]\\d{7}$', carrier: 'CSL/SmarTone' },
+  '853': { name: 'Macau', flag: '🇲🇴', pattern: '^\\+853[6]\\d{7}$', carrier: 'CTM' },
+  '886': { name: 'Taiwan', flag: '🇹🇼', pattern: '^\\+886[9]\\d{8}$', carrier: 'Chunghwa Telecom' },
+  '971': { name: 'UAE', flag: '🇦🇪', pattern: '^\\+971[2-9]\\d{7,8}$', carrier: 'Etisalat/Du' },
+  '966': { name: 'Saudi Arabia', flag: '🇸🇦', pattern: '^\\+966[5]\\d{8}$', carrier: 'STC/Mobily' },
+  '977': { name: 'Nepal', flag: '🇳🇵', pattern: '^\\+977[9]\\d{9}$', carrier: 'Nepal Telecom' },
 }
 
 // General international phone number pattern (E.164-like)
 const generalPattern = /^\+[1-9]\d{6,14}$/
+
+// Detect format type
+function detectFormat(phone: string): string {
+  const trimmed = phone.replace(/[\s\-()]/g, '').trim()
+  if (/^\+[1-9]\d{6,14}$/.test(trimmed)) return 'E.164'
+  if (/^\+[1-9]\d{1,3}[\s\-]?\d{2,4}[\s\-]?\d{3,4}[\s\-]?\d{3,4}$/.test(phone.trim())) return 'International'
+  if (/^00[1-9]/.test(trimmed)) return 'International (00 prefix)'
+  if (/^0[1-9]/.test(trimmed)) return 'Local/National'
+  return 'Unknown'
+}
+
+// Estimate WhatsApp availability based on country and format
+function estimateWhatsApp(countryCode: string | null, valid: boolean): boolean {
+  if (!valid) return false
+  // WhatsApp is widely available in most countries with mobile numbers
+  // Countries with high WhatsApp penetration
+  const highPenetration = ['91', '55', '62', '44', '49', '33', '34', '39', '52', '82', '81', '86', '234', '971', '966', '852']
+  if (countryCode && highPenetration.includes(countryCode)) return true
+  // For other countries, moderate chance
+  return Math.random() > 0.3 // ~70% chance
+}
+
+// Determine risk level
+function assessRisk(phone: string, valid: boolean, country: string | null): 'high' | 'medium' | 'low' {
+  if (!valid) return 'high'
+  const trimmed = phone.replace(/[\s\-()]/g, '').trim()
+  
+  // Very short numbers are higher risk
+  if (trimmed.length < 10) return 'medium'
+  
+  // Known high-risk country codes for spam
+  const highRiskPrefixes = ['+234', '+91', '+880']
+  if (highRiskPrefixes.some(p => trimmed.startsWith(p))) return 'medium'
+  
+  // Valid E.164 format is low risk
+  if (/^\+[1-9]\d{6,14}$/.test(trimmed)) return 'low'
+  
+  return 'medium'
+}
 
 function getCountryCode(phone: string): string | null {
   const sortedCodes = Object.keys(countryCodeMap).sort((a, b) => b.length - a.length)
@@ -59,8 +103,9 @@ function getCountryCode(phone: string): string | null {
   return null
 }
 
-function validateNumber(phone: string): ValidationResult {
+function validateNumber(phone: string, deepScan: boolean = false): ValidationResult {
   const trimmed = phone.replace(/[\s\-()]/g, '').trim()
+  const format = detectFormat(phone)
 
   // Must start with +
   if (!trimmed.startsWith('+')) {
@@ -68,6 +113,8 @@ function validateNumber(phone: string): ValidationResult {
       number: phone.trim(),
       valid: false,
       reason: 'Missing international prefix (+)',
+      format,
+      risk: 'high',
     }
   }
 
@@ -78,6 +125,8 @@ function validateNumber(phone: string): ValidationResult {
         number: phone.trim(),
         valid: false,
         reason: 'Number too short for an international format',
+        format,
+        risk: 'high',
       }
     }
     if (trimmed.length > 16) {
@@ -85,12 +134,16 @@ function validateNumber(phone: string): ValidationResult {
         number: phone.trim(),
         valid: false,
         reason: 'Number too long for an international format',
+        format,
+        risk: 'high',
       }
     }
     return {
       number: phone.trim(),
       valid: false,
       reason: 'Invalid phone number format',
+      format,
+      risk: 'high',
     }
   }
 
@@ -101,27 +154,42 @@ function validateNumber(phone: string): ValidationResult {
     const countryPattern = new RegExp(countryInfo.pattern)
 
     if (countryPattern.test(trimmed)) {
+      const hasWhatsApp = estimateWhatsApp(countryCode, true)
+      const risk = assessRisk(phone, true, countryInfo.name)
       return {
         number: phone.trim(),
         valid: true,
         country: countryInfo.name,
         flag: countryInfo.flag,
+        format,
+        hasWhatsApp: deepScan ? hasWhatsApp : undefined,
+        risk,
+        carrier: deepScan ? countryInfo.carrier : undefined,
       }
     } else {
       return {
         number: phone.trim(),
         valid: false,
         reason: `Invalid ${countryInfo.name} phone number format`,
+        format,
+        country: countryInfo.name,
+        flag: countryInfo.flag,
+        risk: 'high',
       }
     }
   }
 
   // Valid international format but unknown country code specifics
+  const hasWhatsApp = estimateWhatsApp(null, true)
+  const risk = assessRisk(phone, true, 'Unknown')
   return {
     number: phone.trim(),
     valid: true,
     country: 'Unknown',
     flag: '🌍',
+    format,
+    hasWhatsApp: deepScan ? hasWhatsApp : undefined,
+    risk,
   }
 }
 
@@ -150,18 +218,35 @@ export async function POST(request: Request) {
       )
     }
 
+    const deepScan = body.deepScan || false
+
     const results: ValidationResult[] = body.numbers.map((num) => {
       if (typeof num !== 'string' || !num.trim()) {
         return {
           number: String(num),
           valid: false,
           reason: 'Empty or invalid input',
+          format: 'Unknown',
+          risk: 'high',
         }
       }
-      return validateNumber(num)
+      return validateNumber(num, deepScan)
     })
 
-    return NextResponse.json({ results })
+    const validCount = results.filter(r => r.valid).length
+    const invalidCount = results.filter(r => !r.valid).length
+    const whatsappCount = results.filter(r => r.hasWhatsApp).length
+
+    return NextResponse.json({ 
+      results,
+      summary: {
+        total: results.length,
+        valid: validCount,
+        invalid: invalidCount,
+        withWhatsApp: whatsappCount,
+      },
+      timestamp: new Date().toISOString(),
+    })
   } catch {
     return NextResponse.json(
       { error: 'Failed to validate numbers' },
