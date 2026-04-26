@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Settings as SettingsIcon, Shield, Bell, Palette, Database, Key, Globe, HelpCircle, LogOut, ChevronRight, Moon, Zap, MessageSquare, CreditCard, Activity, HardDrive, Clock, Pencil, Info, MessageCircle, BarChart3, Users, HardDriveDownload, Loader2 } from 'lucide-react'
+import { Settings as SettingsIcon, Shield, Bell, Palette, Database, Key, Globe, HelpCircle, LogOut, ChevronRight, Moon, Zap, MessageSquare, CreditCard, Activity, HardDrive, Clock, Pencil, Info, MessageCircle, BarChart3, Users, HardDriveDownload, Loader2, Download, CheckCircle2 } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
+import { usePWAInstall } from '@/lib/permissions'
 
 interface SettingItem {
   icon: React.ReactNode
@@ -57,8 +58,8 @@ function Toggle({ value, onToggle, color = '#3b82f6' }: { value: boolean; onTogg
 function SettingRow({ item, onToggle }: { item: SettingItem; onToggle?: () => void }) {
   return (
     <div
-      onClick={item.action === 'toggle' ? undefined : onToggle}
-      className={`w-full flex items-center gap-3.5 px-4 py-3.5 hover:bg-white/[0.03] transition-colors rounded-lg group ${item.action !== 'toggle' ? 'cursor-pointer' : ''}`}
+      onClick={item.action === 'toggle' || item.action === 'button' ? undefined : onToggle}
+      className={`w-full flex items-center gap-3.5 px-4 py-3.5 hover:bg-white/[0.03] transition-colors rounded-lg group ${item.action === 'navigate' ? 'cursor-pointer' : ''}`}
     >
       <motion.div 
         className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -106,6 +107,8 @@ export function SettingsPage() {
   const [isLoadingProfile, setIsLoadingProfile] = useState(true)
 
   const { setActiveFeature } = useAppStore()
+  const { isInstallable, isInstalled, install } = usePWAInstall()
+  const [isInstalling, setIsInstalling] = useState(false)
 
   // Fetch stats from API
   useEffect(() => {
@@ -200,7 +203,16 @@ export function SettingsPage() {
     { icon: <CreditCard className="w-4 h-4" />, label: 'Subscription', subtitle: subscriptionSubtitle, action: 'navigate', iconColor: '#f97316', iconBg: 'rgba(249,115,22,0.1)' },
   ]
 
+  const handleInstallApp = async () => {
+    if (isInstallable && !isInstalled) {
+      setIsInstalling(true)
+      await install()
+      setIsInstalling(false)
+    }
+  }
+
   const appSettings: SettingItem[] = [
+    { icon: isInstalled ? <CheckCircle2 className="w-4 h-4" /> : <Download className="w-4 h-4" />, label: isInstalled ? 'App Installed' : 'Install App', subtitle: isInstalled ? 'Running as standalone app' : isInstallable ? 'Install for faster access & offline use' : 'Add to home screen from browser menu', action: isInstalled ? 'button' : 'navigate', iconColor: isInstalled ? '#22c55e' : '#3b82f6', iconBg: isInstalled ? 'rgba(34,197,94,0.1)' : 'rgba(59,130,246,0.1)' },
     { icon: <Bell className="w-4 h-4" />, label: 'Notifications', subtitle: 'Push & email alerts', action: 'toggle', value: notifications, iconColor: '#f59e0b', iconBg: 'rgba(245,158,11,0.1)' },
     { icon: <Moon className="w-4 h-4" />, label: 'Dark Mode', subtitle: 'Theme appearance', action: 'toggle', value: darkMode, iconColor: '#8b5cf6', iconBg: 'rgba(139,92,246,0.1)' },
     { icon: <MessageSquare className="w-4 h-4" />, label: 'Smart Replies', subtitle: 'AI-generated suggestions', action: 'toggle', value: smartReplies, iconColor: '#ec4899', iconBg: 'rgba(236,72,153,0.1)' },
@@ -352,19 +364,31 @@ export function SettingsPage() {
           <div className="flex-1 gradient-divider" />
         </div>
         <div className="glass-card rounded-2xl overflow-hidden divide-y divide-white/[0.04]">
-          {appSettings.map((item, i) => (
-            <SettingRow 
-              key={i} 
-              item={item} 
-              onToggle={() => {
-                if (item.label === 'Notifications') setNotifications(!notifications)
-                if (item.label === 'Dark Mode') setDarkMode(!darkMode)
-                if (item.label === 'Smart Replies') setSmartReplies(!smartReplies)
-                if (item.label === 'Auto Backup') setAutoBackup(!autoBackup)
-                if (item.label === 'Delivery Reports') setDeliveryReports(!deliveryReports)
-              }}
-            />
-          ))}
+          {appSettings.map((item, i) => {
+            const isInstallRow = item.label === 'Install App' || item.label === 'App Installed'
+            return (
+              <div key={i} className="relative">
+                <SettingRow 
+                  item={isInstalling && isInstallRow ? { ...item, action: 'button' as const } : item} 
+                  onToggle={isInstallRow ? handleInstallApp : () => {
+                    if (item.label === 'Notifications') setNotifications(!notifications)
+                    if (item.label === 'Dark Mode') setDarkMode(!darkMode)
+                    if (item.label === 'Smart Replies') setSmartReplies(!smartReplies)
+                    if (item.label === 'Auto Backup') setAutoBackup(!autoBackup)
+                    if (item.label === 'Delivery Reports') setDeliveryReports(!deliveryReports)
+                  }}
+                />
+                {isInstallRow && isInstalling && (
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                    <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+                  </div>
+                )}
+                {item.label === 'App Installed' && !isInstalling && (
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[8px] font-bold px-1.5 py-0.5 rounded-md bg-green-500/15 text-green-400 border border-green-500/20">Active</span>
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
 

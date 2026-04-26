@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Users, Play, Pause, Download, CheckCircle2, ArrowLeft, Search, Plus, X, Trash2,
   Globe, ExternalLink, Bookmark, BookmarkCheck, Loader2, Sparkles, ChevronDown,
-  ChevronUp, Filter, MapPin, Link2, AlertCircle, RotateCw, Eye, Smartphone
+  ChevronUp, Filter, MapPin, Link2, AlertCircle, RotateCw, Eye, Smartphone,
+  Phone, MessageSquare
 } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 import { useToastStore } from '@/store/toast-store'
@@ -557,9 +558,14 @@ export function GroupExtractorPage() {
                           {group.inviteLink && (
                             <div className="flex items-center gap-1.5 mt-1.5">
                               <Link2 className="w-3 h-3 text-neon-cyan" />
-                              <span className="text-[9px] text-neon-cyan/70 truncate font-mono">
+                              <a
+                                href={group.inviteLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[9px] text-neon-cyan/70 truncate font-mono hover:text-neon-cyan transition-colors"
+                              >
                                 {group.inviteLink.replace('https://', '')}
-                              </span>
+                              </a>
                             </div>
                           )}
                           {group.sourceName && (
@@ -571,7 +577,7 @@ export function GroupExtractorPage() {
                       </div>
 
                       {/* Action buttons */}
-                      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/[0.04]">
+                      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/[0.04] flex-wrap">
                         {group.inviteLink && (
                           <a
                             href={group.inviteLink}
@@ -580,6 +586,16 @@ export function GroupExtractorPage() {
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neon-green/10 border border-neon-green/20 text-neon-green text-[11px] font-semibold hover:bg-neon-green/15 transition-colors"
                           >
                             <ExternalLink className="w-3 h-3" /> Join Group
+                          </a>
+                        )}
+                        {group.inviteLink && (
+                          <a
+                            href={group.inviteLink.startsWith('https://chat.whatsapp.com') ? group.inviteLink : `https://wa.me/`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-[11px] font-semibold hover:bg-green-500/15 transition-colors"
+                          >
+                            <MessageSquare className="w-3 h-3" /> WhatsApp
                           </a>
                         )}
                         {group.id && (
@@ -980,10 +996,31 @@ function ManualGroupSection({
                   </div>
                   <div>
                     <p className="text-xs font-medium text-white/80">{contact.name}</p>
-                    <p className="text-[10px] text-white/30">{contact.phone}</p>
+                    <a
+                      href={`tel:${contact.phone.replace(/[^\d+]/g, '')}`}
+                      className="text-[10px] text-neon-green/70 font-mono hover:text-neon-green transition-colors"
+                    >
+                      {contact.phone}
+                    </a>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <a
+                    href={`https://wa.me/${contact.phone.replace(/[^\d]/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 px-2 py-1 rounded-md bg-green-500/10 border border-green-500/20 text-green-400 text-[9px] font-medium hover:bg-green-500/15 transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <MessageSquare className="w-2.5 h-2.5" /> Chat
+                  </a>
+                  <a
+                    href={`tel:${contact.phone.replace(/[^\d+]/g, '')}`}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[9px] font-medium hover:bg-blue-500/15 transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Phone className="w-2.5 h-2.5" /> Call
+                  </a>
                   <span className="text-[9px] text-white/20 bg-white/[0.04] px-1.5 py-0.5 rounded">{contact.group}</span>
                   <CheckCircle2 className="w-4 h-4 text-neon-blue" />
                 </div>

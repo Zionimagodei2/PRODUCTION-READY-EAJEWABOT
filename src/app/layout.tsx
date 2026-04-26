@@ -19,10 +19,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#08080e" },
-    { media: "(prefers-color-scheme: light)", color: "#3b82f6" },
-  ],
+  themeColor: "#08080e",
 };
 
 export const metadata: Metadata = {
@@ -70,14 +67,11 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="EAJE WhatsBot" />
         <meta name="application-name" content="EAJE WhatsBot" />
-        <meta name="msapplication-TileColor" content="#3b82f6" />
-        <meta name="msapplication-navbutton-color" content="#3b82f6" />
+        <meta name="msapplication-TileColor" content="#08080e" />
+        <meta name="msapplication-navbutton-color" content="#08080e" />
         
         {/* Mobile Permissions - declarative for web apps */}
         <meta name="permissions" content="notifications,camera,microphone,contacts" />
-        
-        {/* Safe area insets for iOS */}
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
         
         {/* Preload critical assets */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />

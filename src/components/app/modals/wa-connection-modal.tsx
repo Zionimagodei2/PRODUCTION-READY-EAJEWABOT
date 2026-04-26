@@ -1,11 +1,16 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '@/store/app-store'
-import { X, Wifi, WifiOff, CheckCircle2, AlertCircle, Smartphone, QrCode, Phone, Copy, Loader2 } from 'lucide-react'
+import { X, Wifi, WifiOff, CheckCircle2, AlertCircle, Smartphone, QrCode, Phone, Copy, Loader2, RefreshCw } from 'lucide-react'
 
-type Step = 'disconnected' | 'loading' | 'qr' | 'pairing-code' | 'connected'
+type Step = 'disconnected' | 'loading' | 'qr' | 'pairing-code' | 'connected' | 'error'
+
+const CONNECTION_TIMEOUT_MS = 30_000 // 30 seconds
+const POLL_INTERVAL_MS = 3_000
+const MAX_POLL_ATTEMPTS = 20 // ~60 seconds
+const MAX_CONSECUTIVE_ERRORS = 3
 
 export function WaConnectionModal() {
   const { waConnected, setWaConnected } = useAppStore()
@@ -18,73 +23,198 @@ export function WaConnectionModal() {
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
+  // Refs for cleanup and tracking
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const pollCountRef = useRef(0)
+  const consecutiveErrorsRef = useRef(0)
+  const connectionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const isMountedRef = useRef(true)
+
   const close = useCallback(() => setIsOpen(false), [])
+
+  // Cleanup helper
+  const cleanup = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+    if (connectionTimerRef.current) {
+      clearTimeout(connectionTimerRef.current)
+      connectionTimerRef.current = null
+    }
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    pollCountRef.current = 0
+    consecutiveErrorsRef.current = 0
+  }, [])
+
+  // Reset to disconnected with error
+  const handleError = useCallback((message: string) => {
+    if (!isMountedRef.current) return
+    setError(message)
+    setStep('error')
+    setIsLoading(false)
+    cleanup()
+  }, [cleanup])
 
   // Poll WhatsApp status when modal is open
   useEffect(() => {
     if (!isOpen) return
-    
+
+    // Reset tracking refs
+    pollCountRef.current = 0
+    consecutiveErrorsRef.current = 0
+
     const checkStatus = async () => {
+      if (!isMountedRef.current) return
+
+      // Check max poll attempts
+      if (pollCountRef.current >= MAX_POLL_ATTEMPTS) {
+        handleError('Connection timed out. The WhatsApp service may be unavailable. Please try again.')
+        return
+      }
+
+      // Check consecutive errors
+      if (consecutiveErrorsRef.current >= MAX_CONSECUTIVE_ERRORS) {
+        handleError('Lost connection to WhatsApp service. The service may be down. Please try again.')
+        return
+      }
+
+      // Create new AbortController for this request
+      abortControllerRef.current = new AbortController()
+      const { signal } = abortControllerRef.current
+
       try {
-        const res = await fetch('/api/whatsapp')
+        const res = await fetch('/api/whatsapp', { signal })
+        if (!isMountedRef.current || signal.aborted) return
+
         if (res.ok) {
           const data = await res.json()
+          if (!isMountedRef.current || signal.aborted) return
+
+          // Reset consecutive errors on success
+          consecutiveErrorsRef.current = 0
+
           if (data.authenticated) {
             setWaConnected(true)
             setStep('connected')
+            // Stop polling once connected
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current)
+              intervalRef.current = null
+            }
+            if (connectionTimerRef.current) {
+              clearTimeout(connectionTimerRef.current)
+              connectionTimerRef.current = null
+            }
           } else if (data.status === 'qr' && data.qr) {
             setQrCode(data.qr)
-            if (step === 'loading' || step === 'disconnected') setStep('qr')
+            setStep((prev) => {
+              if (prev === 'loading' || prev === 'disconnected' || prev === 'error') return 'qr'
+              return prev
+            })
           }
+        } else {
+          consecutiveErrorsRef.current++
         }
-      } catch {}
+      } catch (err) {
+        if (!isMountedRef.current) return
+        // Don't count aborted requests as errors
+        if (err instanceof DOMException && err.name === 'AbortError') return
+        consecutiveErrorsRef.current++
+      }
+
+      pollCountRef.current++
     }
 
+    // Initial check
     checkStatus()
-    const interval = setInterval(checkStatus, 3000)
-    
+
+    // Set up polling interval
+    intervalRef.current = setInterval(checkStatus, POLL_INTERVAL_MS)
+
+    // Set up connection timeout
+    connectionTimerRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return
+      // Only timeout if we haven't reached connected state
+      setStep((currentStep) => {
+        if (currentStep !== 'connected') {
+          handleError('Connection timed out after 30 seconds. Please try again.')
+          return 'error'
+        }
+        return currentStep
+      })
+    }, CONNECTION_TIMEOUT_MS)
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close()
     }
     document.addEventListener('keydown', handleKeyDown)
     document.body.style.overflow = 'hidden'
-    
+
     return () => {
-      clearInterval(interval)
+      cleanup()
       document.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = ''
     }
-  }, [isOpen, close, setWaConnected, step])
+  }, [isOpen, close, setWaConnected, handleError, cleanup])
+
+  // Track mounted state
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
 
   const startSession = async () => {
     setIsLoading(true)
     setError(null)
     setStep('loading')
-    
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
     try {
-      // Start the WhatsApp session
       const res = await fetch('/api/whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'start' })
+        body: JSON.stringify({ action: 'start' }),
+        signal: controller.signal
       })
       const data = await res.json()
-      
+
+      if (data.error && !data.status) {
+        setError(data.error || 'Failed to start session.')
+        setStep('error')
+        setIsLoading(false)
+        return
+      }
+
       if (data.status === 'authenticated') {
         setWaConnected(true)
         setStep('connected')
       } else if (data.status === 'qr') {
         // Fetch the QR code
-        const qrRes = await fetch('/api/whatsapp')
+        const qrController = new AbortController()
+        abortControllerRef.current = qrController
+        const qrRes = await fetch('/api/whatsapp', { signal: qrController.signal })
         const qrData = await qrRes.json()
         if (qrData.qr) {
           setQrCode(qrData.qr)
           setStep('qr')
+        } else if (qrData.error) {
+          setError(qrData.error)
+          setStep('error')
         }
       }
-    } catch {
-      setError('Failed to start session. Make sure the WhatsApp service is running.')
-      setStep('disconnected')
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return
+      setError('Failed to start session. Make sure the WhatsApp service is running on port 3003.')
+      setStep('error')
     } finally {
       setIsLoading(false)
     }
@@ -98,40 +228,59 @@ export function WaConnectionModal() {
 
     setIsLoading(true)
     setError(null)
-    
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
     try {
       const res = await fetch('/api/whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'pairing-code', phoneNumber: phoneNumber.replace(/\D/g, '') })
+        body: JSON.stringify({ action: 'pairing-code', phoneNumber: phoneNumber.replace(/\D/g, '') }),
+        signal: controller.signal
       })
       const data = await res.json()
-      
+
       if (data.success && data.pairingCode) {
         setPairingCode(data.pairingCode)
         setStep('pairing-code')
       } else {
-        setError(data.error || 'Failed to get pairing code')
+        setError(data.error || 'Failed to get pairing code. Make sure the WhatsApp service is running.')
       }
-    } catch {
-      setError('Failed to request pairing code')
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return
+      setError('Failed to request pairing code. The WhatsApp service may be unavailable.')
     } finally {
       setIsLoading(false)
     }
   }
 
   const disconnect = async () => {
+    const controller = new AbortController()
     try {
       await fetch('/api/whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'logout' })
+        body: JSON.stringify({ action: 'logout' }),
+        signal: controller.signal
       })
-    } catch {}
+    } catch {
+      // Ignore errors on disconnect
+    }
     setWaConnected(false)
     setStep('disconnected')
     setQrCode(null)
     setPairingCode(null)
+    setError(null)
+  }
+
+  const retry = () => {
+    setError(null)
+    setStep('disconnected')
+    setQrCode(null)
+    setPairingCode(null)
+    pollCountRef.current = 0
+    consecutiveErrorsRef.current = 0
   }
 
   const copyToClipboard = (text: string) => {
@@ -185,7 +334,7 @@ export function WaConnectionModal() {
               </button>
 
               {/* Error Message */}
-              {error && (
+              {error && step !== 'error' && (
                 <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
                   <p className="text-xs text-red-400">{error}</p>
@@ -210,6 +359,39 @@ export function WaConnectionModal() {
                   >
                     {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" />}
                     {isLoading ? 'Starting...' : 'Connect WhatsApp'}
+                  </button>
+                </div>
+              )}
+
+              {/* Error State with Retry */}
+              {step === 'error' && (
+                <div className="text-center space-y-5">
+                  <div className="w-20 h-20 rounded-3xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto">
+                    <AlertCircle className="w-10 h-10 text-red-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white/95">Connection Failed</h3>
+                    <p className="text-sm text-white/40 mt-1">Something went wrong while connecting to WhatsApp</p>
+                  </div>
+                  {error && (
+                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-2 text-left">
+                      <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-red-400">{error}</p>
+                    </div>
+                  )}
+                  <button
+                    onClick={retry}
+                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-sm shadow-lg hover:opacity-90 transition-opacity"
+                    style={{ boxShadow: '0 0 25px rgba(34,197,94,0.3)' }}
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Retry Connection
+                  </button>
+                  <button
+                    onClick={close}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-white/5 text-white/50 border border-white/10 font-bold text-sm hover:bg-white/10 transition-colors"
+                  >
+                    Dismiss
                   </button>
                 </div>
               )}
@@ -245,6 +427,15 @@ export function WaConnectionModal() {
                         if (el && qrCode) {
                           import('qrcode').then(QRCode => {
                             QRCode.toCanvas(el, qrCode, { width: 200, margin: 1 })
+                          }).catch(() => {
+                            // If qrcode package fails to load/render, show fallback text
+                            if (el && el.parentNode) {
+                              const parent = el.parentNode
+                              const fallback = document.createElement('div')
+                              fallback.className = 'w-[200px] h-[200px] flex items-center justify-center bg-gray-100 rounded-xl'
+                              fallback.innerHTML = '<p style="color:#666;font-size:12px;text-align:center;padding:20px;">QR code unavailable.<br/>Use pairing code instead.</p>'
+                              parent.replaceChild(fallback, el)
+                            }
                           })
                         }
                       }} />

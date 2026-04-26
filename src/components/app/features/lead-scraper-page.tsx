@@ -757,12 +757,31 @@ export function LeadScraperPage() {
                       {r.phone && (
                         <div className="flex items-center gap-1.5 mt-1">
                           <Phone className="w-2.5 h-2.5 text-neon-green/60" />
-                          <span className="text-[10px] text-neon-green/80 font-mono">{r.phone}</span>
+                          <a
+                            href={`tel:${r.phone.replace(/[^\d+]/g, '')}`}
+                            className="text-[10px] text-neon-green/80 font-mono hover:text-neon-green transition-colors"
+                          >
+                            {r.phone}
+                          </a>
                           {r.hasWhatsApp && (
                             <span className="text-[8px] px-1 py-0.5 rounded bg-green-500/10 text-green-400 border border-green-500/15 flex items-center gap-0.5">
                               <MessageSquare className="w-2 h-2" /> WhatsApp
                             </span>
                           )}
+                          <a
+                            href={`https://wa.me/${r.phone.replace(/[^\d]/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 border border-green-500/15 text-[8px] font-medium hover:bg-green-500/15 transition-colors"
+                          >
+                            <MessageSquare className="w-2 h-2" /> Chat
+                          </a>
+                          <a
+                            href={`tel:${r.phone.replace(/[^\d+]/g, '')}`}
+                            className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/15 text-[8px] font-medium hover:bg-blue-500/15 transition-colors"
+                          >
+                            <Phone className="w-2 h-2" /> Call
+                          </a>
                         </div>
                       )}
 
@@ -780,9 +799,14 @@ export function LeadScraperPage() {
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/15">{r.category}</span>
                         {r.address && (
-                          <span className="text-[9px] text-white/20 flex items-center gap-0.5">
+                          <a
+                            href={`https://maps.google.com/?q=${encodeURIComponent(r.address)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[9px] text-white/20 flex items-center gap-0.5 hover:text-white/40 transition-colors"
+                          >
                             <MapPin className="w-2 h-2" /> {r.address}
-                          </span>
+                          </a>
                         )}
                       </div>
 
