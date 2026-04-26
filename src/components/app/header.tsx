@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useAppStore } from '@/store/app-store'
-import { User, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { WaConnectionModal } from './modals/wa-connection-modal'
 import { NotificationCenter } from './modals/notification-center'
+import { ProfileModal } from './modals/profile-modal'
 
 
 export function Header() {
@@ -44,9 +45,10 @@ export function Header() {
   }, [searchOpen, setSearchOpen])
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/5 relative" style={{ background: 'rgba(8, 8, 14, 0.95)', backdropFilter: 'blur(24px)' }}>
-      <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto">
-        <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-40 border-b border-white/5" style={{ background: 'rgba(8, 8, 14, 0.95)', backdropFilter: 'blur(24px)' }}>
+      <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto relative">
+        {/* Back button - absolute positioned to not affect layout */}
+        <div className="absolute left-1 top-1/2 -translate-y-1/2 z-10">
           <AnimatePresence>
             {activeFeature && (
               <motion.button
@@ -62,33 +64,32 @@ export function Header() {
               </motion.button>
             )}
           </AnimatePresence>
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg animate-float" style={{ boxShadow: '0 0 20px rgba(59,130,246,0.3)' }}>
-              <span className="text-[11px] font-black text-white tracking-tight">EW</span>
-            </div>
-            <div>
-              <h1 className="text-[15px] font-extrabold gradient-text tracking-tight leading-none neon-text-glow">EAJE WHATSBOT</h1>
-              <p className="text-[9px] text-white/40 font-semibold mt-0.5 tracking-wide">Enterprise Dashboard</p>
-            </div>
+        </div>
+        <div className="flex items-center gap-2.5 min-w-0 flex-1 pl-8">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg animate-float flex-shrink-0" style={{ boxShadow: '0 0 20px rgba(59,130,246,0.3)' }}>
+            <span className="text-[11px] font-black text-white tracking-tight">EW</span>
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-[15px] font-extrabold gradient-text tracking-tight leading-none neon-text-glow truncate">EAJE WHATSBOT</h1>
+            <p className="text-[9px] text-white/40 font-semibold mt-0.5 tracking-wide">Enterprise Dashboard</p>
           </div>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           <button
             ref={searchRef}
             onClick={() => setSearchOpen(true)}
-            className={`w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center hover:bg-white/[0.08] hover:border-white/[0.12] transition-all duration-200 ${searchPulsed ? 'animate-pulse-once' : ''}`}
+            className={`w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center hover:bg-white/[0.08] hover:border-white/[0.12] transition-all duration-200 ${searchPulsed ? 'animate-pulse-once' : ''}`}
             title="Search (⌘K)"
+            aria-label="Search"
           >
-            <Search className="w-4 h-4 text-white/50" />
+            <Search className="w-3.5 h-3.5 text-white/50" />
           </button>
           <WaConnectionModal />
           <NotificationCenter />
-          <button className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center hover:border-white/20 hover:bg-gradient-to-br hover:from-blue-500/25 hover:to-purple-500/25 transition-all">
-            <User className="w-4 h-4 text-white/60" />
-          </button>
+          <ProfileModal />
           {waConnected && (
-            <div className={`flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 ${celebrating ? 'animate-celebrate' : ''}`}>
+            <div className={`hidden sm:flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 ${celebrating ? 'animate-celebrate' : ''}`}>
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse-dot" />
               <span className="text-[9px] font-semibold text-emerald-400">Connected</span>
             </div>
@@ -97,6 +98,6 @@ export function Header() {
       </div>
       {/* Animated shimmer line below header */}
       <div className="header-shimmer-line" />
-        </header>
+    </header>
   )
 }

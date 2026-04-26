@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { useAppStore } from '@/store/app-store'
-import { ArrowLeft, Activity, RefreshCw, Clock, AlertTriangle, CheckCircle2, Wifi, Server, MessageSquare, Database, Calendar, HardDrive, Inbox } from 'lucide-react'
+import { ArrowLeft, Activity, RotateCw, Clock, AlertTriangle, CheckCircle2, Wifi, Server, MessageSquare, Database, Calendar, HardDrive, Inbox } from 'lucide-react'
 
 type ServiceStatus = 'connected' | 'degraded' | 'down' | 'unchecked'
 
@@ -241,7 +241,7 @@ export function ApiHealthPage() {
             disabled={isRefreshing}
             className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors disabled:opacity-50"
           >
-            <RefreshCw className={`w-4 h-4 text-white/50 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RotateCw className={`w-4 h-4 text-white/50 ${isRefreshing ? 'animate-spin' : ''}`} />
           </motion.button>
         </div>
       </motion.div>

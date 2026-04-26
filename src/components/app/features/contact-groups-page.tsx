@@ -5,7 +5,7 @@ import { useAppStore } from '@/store/app-store'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Users, ArrowLeft, Plus, Edit, Send, Copy, Trash2, X,
-  Check, Sparkles, RefreshCw, ToggleLeft, ToggleRight,
+  Check, Sparkles, RotateCw, ToggleLeft, ToggleRight,
   Tag, Zap, Loader2
 } from 'lucide-react'
 
@@ -209,7 +209,7 @@ export function ContactGroupsPage() {
         members: dormant.length,
         color: '#f97316',
         accentBorder: 'border-orange-500/25',
-        icon: <RefreshCw className="w-4 h-4 text-orange-400" />,
+        icon: <RotateCw className="w-4 h-4 text-orange-400" />,
       },
       {
         id: 'newleads',
@@ -715,7 +715,7 @@ export function ContactGroupsPage() {
                   animate={{ rotate: 360 }}
                   transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
                 >
-                  <RefreshCw className="w-2.5 h-2.5" style={{ color: `${segment.color}80` }} />
+                  <RotateCw className="w-2.5 h-2.5" style={{ color: `${segment.color}80` }} />
                 </motion.div>
                 <span className="text-[9px] text-white/30">Auto-refreshed</span>
                 <span className="text-[9px] text-white/15">•</span>

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   ArrowLeft, Brain, Sparkles, Loader2, Upload, MessageSquare, 
   ToggleLeft, ToggleRight, Zap, Bot, Smile, ChevronDown, ChevronUp,
-  Send, FileText, AlertTriangle, CheckCircle2, RefreshCw, MessageCircle,
+  Send, FileText, AlertTriangle, CheckCircle2, RotateCw, MessageCircle,
   Gauge, TrendingUp, Star, Award
 } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
@@ -953,7 +953,7 @@ export function PersonalityAgentPage() {
           transition={{ delay: 0.4 }}
           className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.02] border border-white/[0.04]"
         >
-          <RefreshCw className="w-3 h-3 text-white/20" />
+          <RotateCw className="w-3 h-3 text-white/20" />
           <p className="text-[10px] text-white/25">
             Retrain after importing new conversations for better accuracy
           </p>

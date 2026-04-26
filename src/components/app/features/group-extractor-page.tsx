@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Users, Play, Pause, Download, CheckCircle2, ArrowLeft, Search, Plus, X, Trash2,
   Globe, ExternalLink, Bookmark, BookmarkCheck, Loader2, Sparkles, ChevronDown,
-  ChevronUp, Filter, MapPin, Link2, AlertCircle, RefreshCw, Eye
+  ChevronUp, Filter, MapPin, Link2, AlertCircle, RotateCw, Eye, Smartphone
 } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 import { useToastStore } from '@/store/toast-store'
@@ -264,6 +264,29 @@ export function GroupExtractorPage() {
     addToast({ type: 'success', title: 'Exported', message: `${data.length} contacts exported as JSON` })
   }
 
+  // Export as VCF (vCard) for saving to phone/cloud contacts
+  const exportVCF = (data: ExtractedContact[]) => {
+    const vcfContent = data.map(c => {
+      const phone = c.phone.replace(/[^\d+]/g, '')
+      return [
+        'BEGIN:VCARD',
+        'VERSION:3.0',
+        `FN:${c.name}`,
+        `TEL;TYPE=CELL:${phone}`,
+        `ORG:${c.group}`,
+        'END:VCARD',
+      ].join('\n')
+    }).join('\n')
+    const blob = new Blob([vcfContent], { type: 'text/vcard' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'whatsapp-contacts.vcf'
+    a.click()
+    URL.revokeObjectURL(url)
+    addToast({ type: 'success', title: 'Saved to Phone', message: `${data.length} contacts exported as VCF — open to save to phone/cloud` })
+  }
+
   const filteredExtracted = selectedGroup
     ? extracted.filter(c => {
         const group = groups.find(g => g.id === selectedGroup)
@@ -486,7 +509,7 @@ export function GroupExtractorPage() {
                   whileTap={{ scale: 0.97 }}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-semibold hover:bg-green-500/15 transition-colors"
                 >
-                  <RefreshCw className="w-3 h-3" /> Retry Search
+                  <RotateCw className="w-3 h-3" /> Retry Search
                 </motion.button>
               </motion.div>
             )}
@@ -677,6 +700,7 @@ export function GroupExtractorPage() {
                       filteredExtracted={filteredExtracted}
                       exportCSV={exportCSV}
                       exportJSON={exportJSON}
+                      exportVCF={exportVCF}
                       addToast={addToast}
                     />
                   </motion.div>
@@ -726,6 +750,7 @@ export function GroupExtractorPage() {
               filteredExtracted={filteredExtracted}
               exportCSV={exportCSV}
               exportJSON={exportJSON}
+              exportVCF={exportVCF}
               addToast={addToast}
             />
           </motion.div>
@@ -764,6 +789,7 @@ interface ManualGroupSectionProps {
   filteredExtracted: ExtractedContact[]
   exportCSV: (data: ExtractedContact[]) => void
   exportJSON: (data: ExtractedContact[]) => void
+  exportVCF: (data: ExtractedContact[]) => void
   addToast: (toast: { type: string; title: string; message: string }) => void
 }
 
@@ -793,6 +819,7 @@ function ManualGroupSection({
   filteredExtracted,
   exportCSV,
   exportJSON,
+  exportVCF,
   addToast,
 }: ManualGroupSectionProps) {
   return (
@@ -932,6 +959,9 @@ function ManualGroupSection({
               </button>
               <button onClick={() => exportJSON(filteredExtracted)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neon-purple/10 text-neon-purple border border-neon-purple/20 text-[11px] font-medium hover:bg-neon-purple/20 transition-colors">
                 <Download className="w-3 h-3" /> JSON
+              </button>
+              <button onClick={() => exportVCF(filteredExtracted)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neon-green/10 text-neon-green border border-neon-green/20 text-[11px] font-medium hover:bg-neon-green/20 transition-colors">
+                <Smartphone className="w-3 h-3" /> Save to Phone
               </button>
             </div>
           </div>

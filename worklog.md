@@ -2831,3 +2831,35 @@ Stage Summary:
 - .next HMR cache cleared to resolve RefreshCw stale module error
 - All user data will be created by the user as they use the app
 - Zero lint errors
+---
+Task ID: 11
+Agent: Main Agent
+Task: Fix preview not rendering, fix RefreshCw HMR error, fix profile icon, fix notification clipping, add VCF export
+
+Work Log:
+- Restarted dev server (was down) - confirmed app responds HTTP 200
+- Tested app with agent-browser: all pages rendering, dashboard, bottom nav, onboarding, modals working
+- Fixed RefreshCw HMR module instantiation error: Replaced RefreshCw with RotateCw across 6 files (api-health-page, group-extractor-page, contact-groups-page, personality-agent-page, lead-scraper-page, message-status-page)
+- Fixed Profile Icon - had no tap handler: Created new ProfileModal component (/src/components/app/modals/profile-modal.tsx) with full profile editing, preferences, and settings navigation. Updated Header to import ProfileModal.
+- Fixed Header layout shifting: Made back button absolute positioned so it doesn't affect layout when appearing/disappearing on feature pages
+- Fixed NotificationCenter clipping: Changed from inline rendering to createPortal(document.body) so notifications render outside header's containing block
+- Added aria-label to notification bell and profile icon buttons for accessibility
+- Added VCF/vCard export to GroupExtractorPage: New exportVCF function generates vCard 3.0 format for saving contacts directly to phone/cloud. Added "Save to Phone" button with Smartphone icon.
+- Added Smartphone icon to group-extractor-page lucide-react import
+- Added exportVCF prop through ManualGroupSectionProps interface
+
+Stage Summary:
+- App rendering confirmed working (HTTP 200, browser tested)
+- RefreshCw HMR error permanently fixed across all 6 files
+- Profile icon now opens full ProfileModal with edit, preferences, settings
+- Header layout no longer shifts when navigating to feature pages
+- Notifications now render via portal (no more clipping)
+- VCF/vCard export added for save-to-phone/cloud contacts
+- All lint checks pass, zero runtime errors
+
+Unresolved Issues / Next Steps:
+- WhatsApp connection crash during connection process needs investigation
+- Could add more contact export formats
+- AI Auto-Reply with Gemini still pending
+- PWA installability still pending
+- Some feature pages still use mock data

@@ -5,7 +5,7 @@ import { useAppStore } from '@/store/app-store'
 import { motion } from 'framer-motion'
 import {
   ArrowLeft, Activity, CheckCircle2, Clock, Eye, XCircle,
-  Send, RefreshCw, Radio, Loader2, Inbox
+  Send, RotateCw, Radio, Loader2, Inbox
 } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────
@@ -540,7 +540,7 @@ export function MessageStatusPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/15 flex items-center justify-center">
-              <RefreshCw
+              <RotateCw
                 className={`w-4 h-4 text-amber-400 ${autoRefresh ? 'animate-spin' : ''}`}
                 style={{ animationDuration: '3s' }}
               />
