@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAppStore } from '@/store/app-store'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import { Bot, Plus, Trash2, GripVertical, MessageSquare, ArrowRight, ArrowLeft, Save, Zap, GitBranch } from 'lucide-react'
 import { useToastStore } from '@/store/toast-store'
 

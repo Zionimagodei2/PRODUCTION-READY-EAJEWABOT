@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import { Search, Import, Phone, MessageSquare, UserPlus, Users, RotateCcw, ArrowDownUp, Clock, ShieldCheck, UserCheck, Tags, Sparkles, Trash2, CheckSquare, Square, X, Send, Download, FolderPlus, Plus } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 import { ListSkeleton } from '@/components/app/loading-skeleton'

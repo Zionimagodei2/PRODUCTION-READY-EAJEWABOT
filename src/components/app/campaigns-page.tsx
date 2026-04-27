@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import { Plus, Clock, CheckCircle2, Send, Pause, Play, Trash2, Copy, Search, ArrowDownUp, Megaphone, RotateCcw, Tag, Users, ShoppingBag, Gift, Zap, CalendarClock, Droplets, Layers, ChevronRight, ChevronLeft, RefreshCw, Timer, Eye, MessageCircle } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 import { ListSkeleton } from '@/components/app/loading-skeleton'

@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { motion } from '@/lib/framer-shim'
 
 function SkeletonCard({ className = '' }: { className?: string }) {
   return (

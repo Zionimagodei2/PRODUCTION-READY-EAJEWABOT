@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAppStore } from '@/store/app-store'
-import { motion } from 'framer-motion'
+import { motion } from '@/lib/framer-shim'
 import {
   ArrowLeft, Pause, Play, Copy, Trash2, Download,
   Send, CheckCircle2, Eye, MessageSquare, XCircle,

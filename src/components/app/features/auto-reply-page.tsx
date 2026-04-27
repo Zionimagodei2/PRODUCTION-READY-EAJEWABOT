@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useAppStore } from '@/store/app-store'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import {
   MessageSquare, Plus, Trash2, ArrowLeft, Zap, Hash, ToggleLeft,
   Sparkles, Bot, Send, Loader2, Briefcase, ChevronDown, MessageCircle

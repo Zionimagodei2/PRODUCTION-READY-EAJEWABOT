@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useAppStore } from '@/store/app-store'
-import { motion } from 'framer-motion'
+import { motion } from '@/lib/framer-shim'
 import {
   ArrowLeft, Timer, TrendingDown, TrendingUp, Zap,
   Lightbulb, Target, Loader2, Inbox

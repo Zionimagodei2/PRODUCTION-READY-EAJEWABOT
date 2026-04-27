@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion } from '@/lib/framer-shim'
 import { Link2, ArrowLeft, Copy, CheckCircle2, ExternalLink, QrCode, MessageSquare } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 

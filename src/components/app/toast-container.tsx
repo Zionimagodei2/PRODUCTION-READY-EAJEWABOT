@@ -1,7 +1,7 @@
 'use client'
 
 import { useToastStore, type ToastType } from '@/store/toast-store'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import { CheckCircle2, XCircle, AlertCircle, Info, X } from 'lucide-react'
 
 const typeConfig: Record<ToastType, { icon: React.ReactNode; color: string; bg: string; border: string }> = {

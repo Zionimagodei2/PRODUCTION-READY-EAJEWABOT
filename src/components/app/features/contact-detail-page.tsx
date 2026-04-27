@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAppStore } from '@/store/app-store'
-import { motion } from 'framer-motion'
+import { motion } from '@/lib/framer-shim'
 import {
   ArrowLeft, Phone, MessageSquare, StickyNote,
   Mail, Building2, MapPin, Calendar, Tag, Clock,

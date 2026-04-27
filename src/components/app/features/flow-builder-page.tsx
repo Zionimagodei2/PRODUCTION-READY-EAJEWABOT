@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { useToastStore } from '@/store/toast-store'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import {
   ArrowLeft, GitBranch, Play, Copy, Download, Power, PowerOff,
   Plus, Zap, MessageSquare, GitMerge, MousePointerClick, Square,

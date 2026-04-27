@@ -8,10 +8,10 @@ import {
   ArrowRight, Zap, TrendingUp, Activity, FileCode,
   Megaphone, UserPlus, Clock, Sparkles, Phone, 
   CheckCircle2, AlertCircle, ChevronRight, Flame, Radio, Database,
-  Sun, Moon, Target, Wifi, ShieldCheck, Wand2, Upload, QrCode, Timer, MessageCircle, GitBranch, Webhook, Brain,
+  Sun, Moon, Target, Wifi, ShieldCheck, Shield, Wand2, Upload, QrCode, Timer, MessageCircle, GitBranch, Webhook, Brain,
   Lightbulb, RefreshCw, Eye, Server, HardDrive, CircleDot
 } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { motion } from '@/lib/framer-shim'
 import { useToastStore } from '@/store/toast-store'
 import { DashboardSkeleton } from '@/components/app/loading-skeleton'
 
@@ -272,6 +272,7 @@ const growthTools: FeatureCardProps[] = [
   { id: 'link-generator', icon: <Link2 className="w-5 h-5" />, title: 'Link Generator', subtitle: 'Create WhatsApp links', color: '#f97316', glowClass: 'neon-glow-orange', borderColor: 'border-orange-500/20', gradientFrom: 'from-orange-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'broadcast-lists', icon: <Radio className="w-5 h-5" />, title: 'Broadcast Lists', subtitle: 'Targeted group messaging', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'qr-code', icon: <QrCode className="w-5 h-5" />, title: 'QR Code', subtitle: 'Generate WhatsApp QR codes', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent' },
+  { id: 'anti-ban', icon: <Shield className="w-5 h-5" />, title: 'Anti-Ban Shield', subtitle: 'Protect from WhatsApp bans', color: '#22c55e', glowClass: 'neon-glow-green', borderColor: 'border-green-500/20', gradientFrom: 'from-green-500/[0.06]', gradientTo: 'to-transparent', hasNewBadge: true },
 ]
 
 const insightsSection: FeatureCardProps[] = [

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import { useAppStore } from '@/store/app-store'
 import { X, Wifi, WifiOff, CheckCircle2, AlertCircle, Smartphone, QrCode, Phone, Copy, Loader2, RefreshCw } from 'lucide-react'
 

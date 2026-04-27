@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import { Download, X, Smartphone, Bell, Camera, MapPin, Check, ChevronRight } from 'lucide-react'
 import { usePWAInstall, usePermission } from '@/lib/permissions'
 import { useToastStore } from '@/store/toast-store'

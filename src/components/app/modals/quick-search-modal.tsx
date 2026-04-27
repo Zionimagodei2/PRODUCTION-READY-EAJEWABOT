@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAppStore, type FeaturePage, type TabId } from '@/store/app-store'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import {
   Search, Send, MessageSquare, Bot, Calendar, Users,
   BarChart3, FileText, FileCode, Sparkles, Radio,
@@ -32,6 +32,7 @@ const featureItems: Omit<SearchItem, 'action'>[] = [
   { id: 'feat-group-extractor', icon: <Users className="w-4 h-4" />, title: 'Group Extractor', subtitle: 'Extract contacts from groups', category: 'Features', categoryColor: '#22c55e' },
   { id: 'feat-lead-scraper', icon: <Search className="w-4 h-4" />, title: 'Lead Scraper', subtitle: 'Find new prospects', category: 'Features', categoryColor: '#22c55e' },
   { id: 'feat-number-validator', icon: <ShieldCheck className="w-4 h-4" />, title: 'Number Validator', subtitle: 'Verify WhatsApp numbers', category: 'Features', categoryColor: '#22c55e' },
+  { id: 'feat-number-generator', icon: <Phone className="w-4 h-4" />, title: 'Number Generator', subtitle: 'Bulk phone number generation', category: 'Features', categoryColor: '#8b5cf6' },
   { id: 'feat-link-generator', icon: <Link2 className="w-4 h-4" />, title: 'Link Generator', subtitle: 'Create WhatsApp links', category: 'Features', categoryColor: '#f97316' },
   { id: 'feat-analytics', icon: <BarChart3 className="w-4 h-4" />, title: 'Analytics', subtitle: 'Track performance & metrics', category: 'Features', categoryColor: '#ec4899' },
   { id: 'feat-campaign-reports', icon: <FileText className="w-4 h-4" />, title: 'Campaign Reports', subtitle: 'Detailed delivery reports', category: 'Features', categoryColor: '#ef4444' },
@@ -170,6 +171,7 @@ export function QuickSearchModal() {
       'feat-group-extractor': 'group-extractor',
       'feat-lead-scraper': 'lead-scraper',
       'feat-number-validator': 'number-validator',
+      'feat-number-generator': 'number-generator',
       'feat-link-generator': 'link-generator',
       'feat-analytics': 'analytics',
       'feat-campaign-reports': 'campaign-reports',

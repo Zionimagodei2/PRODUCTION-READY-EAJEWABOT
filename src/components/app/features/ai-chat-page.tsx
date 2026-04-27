@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import { Bot, Send, Sparkles, ArrowLeft, AlertCircle } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 

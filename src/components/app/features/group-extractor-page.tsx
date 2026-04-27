@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import {
   Users, Play, Pause, Download, CheckCircle2, ArrowLeft, Search, Plus, X, Trash2,
   Globe, ExternalLink, Bookmark, BookmarkCheck, Loader2, Sparkles, ChevronDown,

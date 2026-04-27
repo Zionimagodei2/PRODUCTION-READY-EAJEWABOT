@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { useToastStore } from '@/store/toast-store'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import {
   ArrowLeft, Webhook, Globe, Zap, Activity, Check, X, Shield,
   Eye, EyeOff, Plus, ChevronDown, ChevronUp, Clock, AlertTriangle,

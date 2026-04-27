@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAppStore } from '@/store/app-store'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import {
   BarChart3, TrendingUp, TrendingDown, Users, MessageSquare, Eye, Clock,
   ArrowUpRight, ArrowDownRight, ArrowLeft, Hash, Zap, Flame, Target,

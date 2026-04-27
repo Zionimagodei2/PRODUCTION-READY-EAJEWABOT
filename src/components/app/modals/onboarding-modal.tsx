@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import { Sparkles, Smartphone, Compass, Rocket, ArrowRight, X } from 'lucide-react'
 
 interface OnboardingStep {

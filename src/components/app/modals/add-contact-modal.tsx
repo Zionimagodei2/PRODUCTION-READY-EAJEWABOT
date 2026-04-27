@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import { useAppStore } from '@/store/app-store'
 import { useToastStore } from '@/store/toast-store'
 import { X, UserPlus, Phone, Mail, Building2, Tag, StickyNote } from 'lucide-react'

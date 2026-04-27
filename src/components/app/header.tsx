@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { Search } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import { WaConnectionModal } from './modals/wa-connection-modal'
 import { NotificationCenter } from './modals/notification-center'
 import { ProfileModal } from './modals/profile-modal'

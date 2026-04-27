@@ -11,7 +11,7 @@ import { AddContactModal } from '@/components/app/modals/add-contact-modal'
 import { ToastContainer } from '@/components/app/toast-container'
 import { OfflineIndicator } from '@/components/app/offline-indicator'
 import { PWAInstallBanner, PermissionPrompt } from '@/components/app/modals/pwa-install-banner'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from '@/lib/framer-shim'
 import dynamic from 'next/dynamic'
 
 // Lazy load non-dashboard tab pages

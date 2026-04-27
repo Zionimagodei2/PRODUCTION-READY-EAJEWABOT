@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAppStore } from '@/store/app-store'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import { Calendar as CalendarIcon, Clock, Plus, Trash2, CheckCircle2, AlertCircle, Repeat, Edit, ArrowLeft, Zap, Hash } from 'lucide-react'
 import { useToastStore } from '@/store/toast-store'
 

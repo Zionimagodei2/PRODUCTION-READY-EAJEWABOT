@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import { WifiOff, Wifi } from 'lucide-react'
 import { useToastStore } from '@/store/toast-store'
 

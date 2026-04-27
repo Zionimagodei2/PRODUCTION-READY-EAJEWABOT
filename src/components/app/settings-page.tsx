@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import { Settings as SettingsIcon, Shield, Bell, Palette, Database, Key, Globe, HelpCircle, LogOut, ChevronRight, Moon, Zap, MessageSquare, CreditCard, Activity, HardDrive, Clock, Pencil, Info, MessageCircle, BarChart3, Users, HardDriveDownload, Loader2, Download, CheckCircle2, Eye, EyeOff, X, Save, AlertTriangle, Trash2, RotateCcw, UserX, Volume2, MessageCircleMore, LayoutGrid, List, Sparkles, Send } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 import { usePWAInstall } from '@/lib/permissions'

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAppStore } from '@/store/app-store'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import { Users, Search, Plus, Radio, Edit, Send, Copy, Trash2, X, ChevronDown, ChevronUp, ArrowLeft, Loader2, Check } from 'lucide-react'
 
 interface ApiContact {

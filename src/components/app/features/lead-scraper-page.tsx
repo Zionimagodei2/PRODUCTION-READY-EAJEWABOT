@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import {
   Search, ArrowLeft, MapPin, Building2, Phone, Star, Download, Plus,
   CheckCircle2, AlertCircle, Globe, ExternalLink, Zap, BarChart3,

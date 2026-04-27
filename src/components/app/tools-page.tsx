@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Users, Search, Link2, Play, Pause, Download, Copy, CheckCircle2, AlertCircle, ExternalLink, Sparkles, Zap, ShieldCheck, QrCode, ChevronRight, Globe, ArrowRight } from 'lucide-react'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
+import { Users, Search, Link2, Play, Pause, Download, Copy, CheckCircle2, AlertCircle, ExternalLink, Sparkles, Zap, ShieldCheck, QrCode, ChevronRight, Globe, ArrowRight, Phone } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 
 // Group Extractor Sub-component
@@ -405,6 +405,7 @@ export function ToolsPage() {
   const quickAccessItems = [
     { title: 'WhatsApp Link', description: 'Create wa.me links', icon: <Link2 className="w-4 h-4" />, accentColor: '#06b6d4', accentBg: 'bg-cyan-500/10', accentText: 'text-cyan-400', feature: 'link-generator' as const },
     { title: 'Validate Numbers', description: 'Verify WA numbers', icon: <ShieldCheck className="w-4 h-4" />, accentColor: '#22c55e', accentBg: 'bg-green-500/10', accentText: 'text-green-400', feature: 'number-validator' as const },
+    { title: 'Generate Numbers', description: 'Bulk number gen', icon: <Phone className="w-4 h-4" />, accentColor: '#8b5cf6', accentBg: 'bg-violet-500/10', accentText: 'text-violet-400', feature: 'number-generator' as const },
     { title: 'QR Code', description: 'Generate QR codes', icon: <QrCode className="w-4 h-4" />, accentColor: '#06b6d4', accentBg: 'bg-cyan-500/10', accentText: 'text-cyan-400', feature: 'qr-code' as const },
   ]
 

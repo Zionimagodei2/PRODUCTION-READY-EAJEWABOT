@@ -2,7 +2,7 @@
 
 import { useAppStore, type FeaturePage } from '@/store/app-store'
 import dynamic from 'next/dynamic'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import { DashboardSkeleton } from '@/components/app/loading-skeleton'
 
 // Lazy load all feature pages for code splitting and faster initial load
@@ -34,6 +34,8 @@ const MessageStatusPage = dynamic(() => import('./message-status-page').then(m =
 const WebhookManagerPage = dynamic(() => import('./webhook-manager-page').then(m => ({ default: m.WebhookManagerPage })), { loading: () => <FeatureLoading /> })
 const TeamManagementPage = dynamic(() => import('./team-management-page').then(m => ({ default: m.TeamManagementPage })), { loading: () => <FeatureLoading /> })
 const PersonalityAgentPage = dynamic(() => import('./personality-agent-page').then(m => ({ default: m.PersonalityAgentPage })), { loading: () => <FeatureLoading /> })
+const AntiBanPage = dynamic(() => import('./anti-ban-page').then(m => ({ default: m.AntiBanPage })), { loading: () => <FeatureLoading /> })
+const NumberGeneratorPage = dynamic(() => import('./number-generator-page').then(m => ({ default: m.NumberGeneratorPage })), { loading: () => <FeatureLoading /> })
 
 function FeatureLoading() {
   return (
@@ -72,6 +74,8 @@ const featureComponents: Record<FeaturePage, React.ComponentType> = {
   'webhook-manager': WebhookManagerPage,
   'team-management': TeamManagementPage,
   'personality-agent': PersonalityAgentPage,
+  'anti-ban': AntiBanPage,
+  'number-generator': NumberGeneratorPage,
 }
 
 export function FeatureRouter() {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAppStore } from '@/store/app-store'
-import { motion } from 'framer-motion'
+import { motion } from '@/lib/framer-shim'
 import {
   ArrowLeft, Activity, CheckCircle2, Clock, Eye, XCircle,
   Send, RotateCw, Radio, Loader2, Inbox

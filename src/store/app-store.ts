@@ -30,6 +30,8 @@ export type FeaturePage =
   | 'webhook-manager'
   | 'team-management'
   | 'personality-agent'
+  | 'number-generator'
+  | 'anti-ban'
   | null
 
 interface AppState {

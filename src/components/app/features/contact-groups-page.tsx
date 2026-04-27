@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAppStore } from '@/store/app-store'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import {
   Users, ArrowLeft, Plus, Edit, Send, Copy, Trash2, X,
   Check, Sparkles, RotateCw, ToggleLeft, ToggleRight,

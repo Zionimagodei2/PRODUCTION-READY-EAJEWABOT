@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { useToastStore } from '@/store/toast-store'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import {
   Send, Clock, Users, FileText, Upload, CheckCircle2, AlertCircle, ArrowLeft,
   Hash, ImageIcon, Zap, X, Mic, Smartphone, Calendar, Repeat,

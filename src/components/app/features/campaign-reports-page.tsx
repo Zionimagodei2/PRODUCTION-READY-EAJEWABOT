@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAppStore } from '@/store/app-store'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import { FileText, Download, Search, CheckCircle2, XCircle, Eye, ChevronDown, ArrowLeft, Hash, TrendingUp, AlertTriangle, BarChart3, Loader2 } from 'lucide-react'
 
 interface Report {

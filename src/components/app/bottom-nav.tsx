@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useAppStore, type TabId } from '@/store/app-store'
 import { Home, Megaphone, Users, Wrench, Settings } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 
 const tabs: { id: TabId; label: string; icon: React.ReactNode; activeColor: string; badge?: number }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <Home className="w-5 h-5" />, activeColor: '#3b82f6' },

@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { useToastStore } from '@/store/toast-store'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import {
   ArrowLeft, Users, Shield, UserPlus, Crown, Eye, Settings,
   Search, Check, X, Mail, Clock, ChevronRight, Loader2,

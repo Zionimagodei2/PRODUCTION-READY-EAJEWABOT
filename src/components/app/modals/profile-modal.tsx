@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/framer-shim'
 import {
   X, User, Settings, Shield, Bell, Moon, Sun,
   ChevronRight, Smartphone, Camera, Edit3, Mail, Phone, MapPin, Crown, HelpCircle, Info, LogOut

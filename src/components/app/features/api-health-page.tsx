@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { motion } from 'framer-motion'
+import { motion } from '@/lib/framer-shim'
 import { useAppStore } from '@/store/app-store'
 import { ArrowLeft, Activity, RotateCw, Clock, AlertTriangle, CheckCircle2, Wifi, Server, MessageSquare, Database, Calendar, HardDrive, Inbox } from 'lucide-react'
 
