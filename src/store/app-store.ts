@@ -32,6 +32,9 @@ export type FeaturePage =
   | 'personality-agent'
   | 'number-generator'
   | 'anti-ban'
+  | 'ai-smart-reply'
+  | 'campaign-analytics'
+  | 'bulk-scheduler'
   | null
 
 interface AppState {

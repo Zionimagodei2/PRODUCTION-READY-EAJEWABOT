@@ -261,8 +261,10 @@ const coreAutomation: FeatureCardProps[] = [
   { id: 'message-templates', icon: <FileCode className="w-5 h-5" />, title: 'Templates', subtitle: 'Reusable message templates', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'ai-chat', icon: <Sparkles className="w-5 h-5" />, title: 'AI Assistant', subtitle: 'Smart automation helper', color: '#f59e0b', glowClass: 'neon-glow-orange', borderColor: 'border-orange-500/20', gradientFrom: 'from-orange-500/[0.06]', gradientTo: 'to-transparent', isActive: true, hasNewBadge: true, isPopular: true },
   { id: 'personality-agent', icon: <Brain className="w-5 h-5" />, title: 'AI Twin', subtitle: 'Auto-reply in your style', color: '#f97316', glowClass: 'neon-glow-orange', borderColor: 'border-orange-500/20', gradientFrom: 'from-orange-500/[0.06]', gradientTo: 'to-transparent', hasNewBadge: true, isPopular: true },
+  { id: 'ai-smart-reply', icon: <Sparkles className="w-5 h-5" />, title: 'AI Smart Reply', subtitle: 'Intelligent reply suggestions', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent', isActive: true, hasNewBadge: true },
   { id: 'campaign-wizard', icon: <Wand2 className="w-5 h-5" />, title: 'Campaign Wizard', subtitle: 'Step-by-step campaign builder', color: '#3b82f6', glowClass: 'neon-glow-blue', borderColor: 'border-blue-500/20', gradientFrom: 'from-blue-500/[0.06]', gradientTo: 'to-transparent', hasNewBadge: true },
   { id: 'flow-builder', icon: <GitBranch className="w-5 h-5" />, title: 'Flow Builder', subtitle: 'Design conversation flows', color: '#06b6d4', glowClass: 'neon-glow-cyan', borderColor: 'border-cyan-500/20', gradientFrom: 'from-cyan-500/[0.06]', gradientTo: 'to-transparent', hasNewBadge: true },
+  { id: 'bulk-scheduler', icon: <Calendar className="w-5 h-5" />, title: 'Bulk Scheduler', subtitle: 'Schedule bulk campaigns', color: '#6366f1', glowClass: 'neon-glow-purple', borderColor: 'border-indigo-500/20', gradientFrom: 'from-indigo-500/[0.06]', gradientTo: 'to-transparent', hasNewBadge: true, isPopular: true },
 ]
 
 const growthTools: FeatureCardProps[] = [
@@ -276,6 +278,7 @@ const growthTools: FeatureCardProps[] = [
 ]
 
 const insightsSection: FeatureCardProps[] = [
+  { id: 'campaign-analytics', icon: <BarChart3 className="w-5 h-5" />, title: 'Campaign Analytics', subtitle: 'Deep insights & ROI tracking', color: '#10b981', glowClass: 'neon-glow-green', borderColor: 'border-emerald-500/20', gradientFrom: 'from-emerald-500/[0.06]', gradientTo: 'to-transparent', hasNewBadge: true },
   { id: 'analytics', icon: <BarChart3 className="w-5 h-5" />, title: 'Analytics', subtitle: 'Track performance & metrics', color: '#ec4899', glowClass: 'neon-glow-pink', borderColor: 'border-pink-500/20', gradientFrom: 'from-pink-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'campaign-reports', icon: <FileText className="w-5 h-5" />, title: 'Campaign Reports', subtitle: 'Detailed delivery reports', color: '#ef4444', glowClass: 'neon-glow-red', borderColor: 'border-red-500/20', gradientFrom: 'from-red-500/[0.06]', gradientTo: 'to-transparent' },
   { id: 'response-time', icon: <Timer className="w-5 h-5" />, title: 'Response Time', subtitle: 'Track response performance', color: '#8b5cf6', glowClass: 'neon-glow-purple', borderColor: 'border-purple-500/20', gradientFrom: 'from-purple-500/[0.06]', gradientTo: 'to-transparent' },

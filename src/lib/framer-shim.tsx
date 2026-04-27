@@ -112,11 +112,7 @@ function createMotionComponent(tag: string) {
 
     const [isHovered, setIsHovered] = useState(false)
     const [isPressed, setIsPressed] = useState(false)
-    const [mounted, setMounted] = useState(false)
-
-    useEffect(() => {
-      requestAnimationFrame(() => setMounted(true))
-    }, [])
+    const [hasAnimated, setHasAnimated] = useState(false)
 
     // Resolve variants
     const resolveVariant = (v: string | Record<string, any> | undefined): Record<string, any> | undefined => {
@@ -128,16 +124,15 @@ function createMotionComponent(tag: string) {
     const initialState = resolveVariant(initial as string) || (initial as Record<string, any>)
     const animateState = resolveVariant(animate as string) || (animate as Record<string, any>)
 
+    // Once animated, use animateState as the base style
+    const baseStyle = hasAnimated ? animateState : initialState
+
     // Build current style
     let currentStyle: React.CSSProperties = {}
 
-    // Start with initial state
-    if (initialState) {
-      Object.assign(currentStyle, motionToCSS(initialState))
-    }
-
-    // Apply animate state if mounted
-    if (mounted && animateState) {
+    if (baseStyle) {
+      Object.assign(currentStyle, motionToCSS(baseStyle))
+    } else if (animateState) {
       Object.assign(currentStyle, motionToCSS(animateState))
     }
 
@@ -160,11 +155,24 @@ function createMotionComponent(tag: string) {
       Object.assign(currentStyle, style)
     }
 
+    // Trigger animation on mount: after first paint, switch to animate state
+    useEffect(() => {
+      if (!initialState || !animateState || hasAnimated) return
+
+      // Double rAF ensures the browser has painted the initial styles first
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setHasAnimated(true)
+          onAnimationComplete?.()
+        })
+      })
+    }, [hasAnimated])
+
     const Tag = tag as any
 
     return (
       <Tag
-        ref={ref}
+        ref={ref as any}
         className={className}
         style={currentStyle}
         onClick={onClick}
