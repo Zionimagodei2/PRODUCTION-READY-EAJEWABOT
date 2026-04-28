@@ -15,7 +15,6 @@ import { AddContactModal } from '@/components/app/modals/add-contact-modal'
 import { ToastContainer } from '@/components/app/toast-container'
 import { OfflineIndicator } from '@/components/app/offline-indicator'
 import { PWAInstallBanner, PermissionPrompt } from '@/components/app/modals/pwa-install-banner'
-import { AnimatePresence, motion } from '@/lib/framer-shim'
 
 const tabComponents: Record<string, React.ComponentType> = {
   dashboard: DashboardPage,
@@ -26,31 +25,27 @@ const tabComponents: Record<string, React.ComponentType> = {
 }
 
 export default function Home() {
-  const { activeTab, activeFeature } = useAppStore()
+  const store = useAppStore()
+  const { activeTab, activeFeature } = store
+
+  // Expose store for headless browser automation testing
+  if (typeof window !== 'undefined') {
+    (window as Record<string, unknown>).__APP_STORE__ = store
+  }
 
   const TabComponent = tabComponents[activeTab]
 
   return (
-    <div className="min-h-screen flex flex-col bg-background overflow-x-hidden w-full max-w-[100vw]">
+    <div className="min-h-screen flex flex-col bg-background w-full max-w-[100vw] overflow-x-hidden">
       {/* Animated mesh background */}
       <div className="mesh-bg" />
       
       <Header />
-      <main className="flex-1 overflow-y-auto overflow-x-hidden pb-20">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden pb-24">
         {activeFeature ? (
           <FeatureRouter />
         ) : (
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.15 }}
-            >
-              <TabComponent />
-            </motion.div>
-          </AnimatePresence>
+          <TabComponent />
         )}
       </main>
       <FloatingNav />

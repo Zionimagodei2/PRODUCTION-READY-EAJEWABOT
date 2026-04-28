@@ -74,8 +74,8 @@ export function FloatingNav() {
       {/* Overlay when FAB menu is open */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-40"
-          style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}
+          className="fixed inset-0 z-[60]"
+          style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)' }}
           onClick={() => setIsOpen(false)}
         />
       )}
@@ -83,13 +83,13 @@ export function FloatingNav() {
       {/* Fan-out navigation items */}
       {isOpen && (
         <div
-          className="fixed z-50 flex flex-col gap-2 items-end"
+          className="fixed z-[70] flex flex-col gap-2 items-end"
           style={{
             bottom: '5rem',
             right: '1rem',
           }}
         >
-          {navItems.map((item) => {
+          {navItems.map((item, index) => {
             const Icon = item.icon
             const isActive = activeTab === item.id
 
@@ -97,7 +97,7 @@ export function FloatingNav() {
               <button
                 key={item.id}
                 onClick={() => handleNavClick(item.id)}
-                className="group flex items-center gap-3 px-3 py-2.5 rounded-2xl border transition-all duration-200 active:scale-95"
+                className="group flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border transition-colors duration-150 active:scale-95"
                 style={{
                   background: isActive
                     ? `linear-gradient(135deg, ${item.color}18, ${item.color}08)`
@@ -137,10 +137,10 @@ export function FloatingNav() {
         </div>
       )}
 
-      {/* FAB Button */}
+      {/* FAB Button — fully visible, high z-index */}
       <div
         ref={fabRef}
-        className="fixed z-50"
+        className="fixed z-[70]"
         style={{
           bottom: '1.25rem',
           right: '1rem',
@@ -148,15 +148,15 @@ export function FloatingNav() {
       >
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 active:scale-90"
+          className="w-14 h-14 rounded-full flex items-center justify-center transition-colors duration-150 active:scale-90"
           style={{
             background: isOpen
               ? 'rgba(255,255,255,0.08)'
               : 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
             boxShadow: isOpen
               ? '0 4px 16px rgba(0,0,0,0.4)'
-              : '0 4px 20px rgba(59,130,246,0.25), 0 4px 20px rgba(139,92,246,0.15)',
-            border: '1px solid rgba(255,255,255,0.12)',
+              : '0 4px 20px rgba(59,130,246,0.3), 0 4px 24px rgba(139,92,246,0.2)',
+            border: '1px solid rgba(255,255,255,0.15)',
           }}
           aria-label={isOpen ? 'Close navigation' : 'Open navigation'}
         >
@@ -173,7 +173,7 @@ export function FloatingNav() {
               style={{
                 background: '#ef4444',
                 borderColor: 'rgba(8,8,14,0.95)',
-                boxShadow: '0 0 6px rgba(239,68,68,0.4)',
+                boxShadow: '0 0 8px rgba(239,68,68,0.5)',
               }}
             />
           )}

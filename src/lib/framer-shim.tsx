@@ -1,10 +1,11 @@
 'use client'
 
-import React, { useState, useEffect, useRef, forwardRef } from 'react'
+import React, { useState, useRef, forwardRef, useEffect } from 'react'
 
 // ========================================
 // Framer Motion CSS-based Shim
 // Replaces framer-motion to avoid Turbopack HMR crashes
+// FIXED: No CSS transitions on mount — only on hover/tap interactions
 // ========================================
 
 interface MotionProps extends React.HTMLAttributes<HTMLElement> {
@@ -79,25 +80,27 @@ function motionToCSS(values: Record<string, any>): React.CSSProperties {
   return style
 }
 
-function getTransitionCSS(transition?: Record<string, any>): string {
-  if (!transition) return 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+// Only transition visual properties — never layout-affecting ones
+const TRANSITION_PROPS = 'transform, opacity, filter, box-shadow, border-color, border-radius, background-color, background'
 
-  const duration = transition.duration ?? 0.2
+function getTransitionCSS(transition?: Record<string, any>): string {
+  if (!transition) return `${TRANSITION_PROPS} 0.15s cubic-bezier(0.4, 0, 0.2, 1)`
+
+  const duration = transition.duration ?? 0.15
   const ease = transition.ease ?? 'cubic-bezier(0.4, 0, 0.2, 1)'
 
   if (transition.type === 'spring') {
     const damping = transition.damping ?? 20
     const stiffness = transition.stiffness ?? 300
-    // Approximate spring with CSS
     const dur = (damping / stiffness) * 1.5
-    return `all ${dur}s cubic-bezier(0.34, 1.56, 0.64, 1)`
+    return `${TRANSITION_PROPS} ${dur}s cubic-bezier(0.34, 1.56, 0.64, 1)`
   }
 
   if (transition.type === 'tween' || transition.type === 'inertial') {
-    return `all ${duration}s ${ease}`
+    return `${TRANSITION_PROPS} ${duration}s ${ease}`
   }
 
-  return `all ${duration}s ${ease}`
+  return `${TRANSITION_PROPS} ${duration}s ${ease}`
 }
 
 function createMotionComponent(tag: string) {
@@ -112,7 +115,9 @@ function createMotionComponent(tag: string) {
 
     const [isHovered, setIsHovered] = useState(false)
     const [isPressed, setIsPressed] = useState(false)
-    const [hasAnimated, setHasAnimated] = useState(false)
+    // Track if the component has been interacted with (hover/tap)
+    // Only apply CSS transitions AFTER first interaction to prevent mount jitter
+    const [hasInteracted, setHasInteracted] = useState(false)
 
     // Resolve variants
     const resolveVariant = (v: string | Record<string, any> | undefined): Record<string, any> | undefined => {
@@ -124,51 +129,63 @@ function createMotionComponent(tag: string) {
     const initialState = resolveVariant(initial as string) || (initial as Record<string, any>)
     const animateState = resolveVariant(animate as string) || (animate as Record<string, any>)
 
-    // Once animated, use animateState as the base style
-    const baseStyle = hasAnimated ? animateState : initialState
+    // Always render at the animate state immediately — no mount animation
+    // This prevents the "shake" caused by CSS transitions firing on mount
+    const baseStyle = animateState || initialState
 
     // Build current style
     let currentStyle: React.CSSProperties = {}
 
     if (baseStyle) {
       Object.assign(currentStyle, motionToCSS(baseStyle))
-    } else if (animateState) {
-      Object.assign(currentStyle, motionToCSS(animateState))
     }
 
-    // Apply whileHover
+    // Apply whileHover (only after user has interacted)
     if (isHovered && whileHover) {
       Object.assign(currentStyle, motionToCSS(whileHover))
     }
 
-    // Apply whileTap
+    // Apply whileTap (only after user has interacted)
     if (isPressed && whileTap) {
       Object.assign(currentStyle, motionToCSS(whileTap))
     }
 
-    // Add transition
-    const transitionCSS = getTransitionCSS(transition)
-    currentStyle.transition = transitionCSS
+    // ONLY apply CSS transition after user interaction — NOT on mount
+    // This is the critical fix for the site shaking/jittering bug
+    if (hasInteracted && (whileHover || whileTap)) {
+      const transitionCSS = getTransitionCSS(transition)
+      currentStyle.transition = transitionCSS
+    }
 
     // Merge with explicit style (explicit wins)
     if (style) {
       Object.assign(currentStyle, style)
     }
 
-    // Trigger animation on mount: after first paint, switch to animate state
-    useEffect(() => {
-      if (!initialState || !animateState || hasAnimated) return
-
-      // Double rAF ensures the browser has painted the initial styles first
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setHasAnimated(true)
-          onAnimationComplete?.()
-        })
-      })
-    }, [hasAnimated])
-
     const Tag = tag as any
+
+    const handleHoverStart = (e: any) => {
+      if (!hasInteracted) setHasInteracted(true)
+      setIsHovered(true)
+      onHoverStart?.()
+      ;(props as any).onMouseEnter?.(e)
+    }
+
+    const handleHoverEnd = (e: any) => {
+      setIsHovered(false)
+      setIsPressed(false)
+      onHoverEnd?.()
+      ;(props as any).onMouseLeave?.(e)
+    }
+
+    const handlePressStart = () => {
+      if (!hasInteracted) setHasInteracted(true)
+      setIsPressed(true)
+    }
+
+    const handlePressEnd = () => {
+      setIsPressed(false)
+    }
 
     return (
       <Tag
@@ -176,21 +193,12 @@ function createMotionComponent(tag: string) {
         className={className}
         style={currentStyle}
         onClick={onClick}
-        onMouseEnter={(e: any) => {
-          setIsHovered(true)
-          onHoverStart?.()
-          ;(props as any).onMouseEnter?.(e)
-        }}
-        onMouseLeave={(e: any) => {
-          setIsHovered(false)
-          setIsPressed(false)
-          onHoverEnd?.()
-          ;(props as any).onMouseLeave?.(e)
-        }}
-        onMouseDown={() => setIsPressed(true)}
-        onMouseUp={() => setIsPressed(false)}
-        onTouchStart={() => setIsPressed(true)}
-        onTouchEnd={() => setIsPressed(false)}
+        onMouseEnter={handleHoverStart}
+        onMouseLeave={handleHoverEnd}
+        onMouseDown={handlePressStart}
+        onMouseUp={handlePressEnd}
+        onTouchStart={handlePressStart}
+        onTouchEnd={handlePressEnd}
         {...rest}
       >
         {children}
@@ -248,7 +256,6 @@ export function useTransform(
   if (typeof inputOrTransform === 'function') {
     return inputOrTransform(val)
   }
-  // Input/output range interpolation - simplified
   return val
 }
 

@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { motion } from '@/lib/framer-shim'
 import { useAppStore } from '@/store/app-store'
-import { ArrowLeft, Wifi, WifiOff, CheckCircle2, AlertCircle, Smartphone, QrCode, Phone, Copy, Loader2, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Wifi, WifiOff, CheckCircle2, AlertCircle, Smartphone, QrCode, Phone, Copy, Loader2, RefreshCw, Shield, Zap, Globe } from 'lucide-react'
 
 type Step = 'disconnected' | 'loading' | 'qr' | 'pairing-code' | 'connected' | 'error'
 
@@ -206,16 +205,15 @@ export function WaConnectionPage() {
   }
 
   return (
-    <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-5">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <motion.button
+    <div className="min-h-[calc(100vh-3.5rem)] px-4 py-6 pb-24 max-w-lg mx-auto">
+      {/* Page Header */}
+      <div className="flex items-center gap-3 mb-6">
+        <button
           onClick={goBack}
-          whileTap={{ scale: 0.95 }}
-          className="w-9 h-9 rounded-xl glass-card flex items-center justify-center"
+          className="w-9 h-9 rounded-xl glass-card flex items-center justify-center hover:bg-white/[0.06] transition-colors"
         >
           <ArrowLeft className="w-4 h-4 text-white/60" />
-        </motion.button>
+        </button>
         <div className="flex-1">
           <h1 className="text-lg font-extrabold text-white/95 flex items-center gap-2">
             <Wifi className="w-5 h-5 text-green-400" />
@@ -226,7 +224,7 @@ export function WaConnectionPage() {
       </div>
 
       {/* Status Banner */}
-      <div className={`glass-card rounded-2xl p-4 border ${
+      <div className={`glass-card rounded-2xl p-4 border mb-5 ${
         waConnected ? 'border-emerald-500/20' : step === 'error' ? 'border-red-500/20' : 'border-amber-500/15'
       }`} style={{
         background: waConnected
@@ -236,7 +234,7 @@ export function WaConnectionPage() {
           : 'linear-gradient(135deg, rgba(245,158,11,0.05), rgba(245,158,11,0.01))'
       }}>
         <div className="flex items-center gap-3">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
             waConnected ? 'bg-emerald-500/15' : step === 'error' ? 'bg-red-500/15' : 'bg-amber-500/10'
           }`}>
             {waConnected ? <CheckCircle2 className="w-6 h-6 text-emerald-400" /> 
@@ -244,52 +242,71 @@ export function WaConnectionPage() {
              : isLoading ? <Loader2 className="w-6 h-6 text-amber-400 animate-spin" />
              : <WifiOff className="w-6 h-6 text-amber-400" />}
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <h3 className="text-sm font-bold text-white/90">
               {waConnected ? 'Connected & Active' 
                : step === 'error' ? 'Connection Failed' 
                : isLoading ? 'Connecting...'
                : 'Not Connected'}
             </h3>
-            <p className="text-[11px] text-white/40 mt-0.5">
+            <p className="text-[11px] text-white/40 mt-0.5 truncate">
               {waConnected ? 'Your WhatsApp is ready for automation'
                : step === 'error' ? error || 'Something went wrong'
                : isLoading ? 'Starting WhatsApp service...'
                : 'Connect to start using automation features'}
             </p>
           </div>
-          <div className={`w-2.5 h-2.5 rounded-full ${waConnected ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+          <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${waConnected ? 'bg-emerald-400' : 'bg-amber-400'}`} />
         </div>
       </div>
 
       {/* Error Display */}
       {error && step !== 'error' && (
-        <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-2">
+        <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-2 mb-5">
           <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
           <p className="text-xs text-red-400">{error}</p>
         </div>
       )}
 
-      {/* Disconnected State */}
+      {/* Disconnected State — Full Page with Features */}
       {step === 'disconnected' && (
-        <div className="space-y-4">
-          <div className="glass-card rounded-2xl p-5 text-center space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500/15 to-emerald-500/10 border border-green-500/20 flex items-center justify-center mx-auto">
-              <Wifi className="w-8 h-8 text-green-400" />
+        <div className="space-y-5">
+          <div className="glass-card rounded-2xl p-6 text-center space-y-5">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-green-500/15 to-emerald-500/10 border border-green-500/20 flex items-center justify-center mx-auto">
+              <Wifi className="w-10 h-10 text-green-400" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white/95">Connect WhatsApp</h3>
-              <p className="text-xs text-white/40 mt-1">Link your WhatsApp Business to start sending messages and automations</p>
+              <h3 className="text-lg font-bold text-white/95">Connect WhatsApp</h3>
+              <p className="text-xs text-white/40 mt-1.5 max-w-xs mx-auto">Link your WhatsApp Business to start sending messages and automations</p>
             </div>
             <button
               onClick={startSession}
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
               style={{ boxShadow: '0 0 20px rgba(34,197,94,0.2)' }}
             >
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" />}
               {isLoading ? 'Starting...' : 'Connect WhatsApp'}
             </button>
+          </div>
+
+          {/* Features you unlock */}
+          <div className="glass-card rounded-2xl p-5 space-y-3">
+            <h4 className="text-xs font-bold text-white/70 uppercase tracking-wider">Features you unlock</h4>
+            <div className="space-y-2.5">
+              {[
+                { icon: Zap, text: 'Bulk message sending', color: '#f59e0b' },
+                { icon: Globe, text: 'Group extraction & management', color: '#3b82f6' },
+                { icon: Shield, text: 'Number validation', color: '#22c55e' },
+              ].map((feat, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${feat.color}15` }}>
+                    <feat.icon className="w-4 h-4" style={{ color: feat.color }} />
+                  </div>
+                  <span className="text-xs text-white/60">{feat.text}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Pairing Code Alternative */}
@@ -321,12 +338,12 @@ export function WaConnectionPage() {
 
       {/* Error State */}
       {step === 'error' && (
-        <div className="glass-card rounded-2xl p-5 text-center space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto">
-            <AlertCircle className="w-8 h-8 text-red-400" />
+        <div className="glass-card rounded-2xl p-6 text-center space-y-5">
+          <div className="w-20 h-20 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto">
+            <AlertCircle className="w-10 h-10 text-red-400" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-white/95">Connection Failed</h3>
+            <h3 className="text-lg font-bold text-white/95">Connection Failed</h3>
             <p className="text-xs text-white/40 mt-1">Something went wrong while connecting to WhatsApp</p>
           </div>
           {error && (
@@ -355,12 +372,12 @@ export function WaConnectionPage() {
 
       {/* Loading State */}
       {step === 'loading' && (
-        <div className="glass-card rounded-2xl p-8 text-center space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mx-auto">
-            <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+        <div className="glass-card rounded-2xl p-8 text-center space-y-5">
+          <div className="w-20 h-20 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mx-auto">
+            <Loader2 className="w-10 h-10 text-blue-400 animate-spin" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-white/95">Connecting...</h3>
+            <h3 className="text-lg font-bold text-white/95">Connecting...</h3>
             <p className="text-xs text-white/40 mt-1">Starting WhatsApp service and generating QR code</p>
           </div>
         </div>
@@ -442,16 +459,16 @@ export function WaConnectionPage() {
 
       {/* Connected State */}
       {step === 'connected' && (
-        <div className="space-y-4">
-          <div className="glass-card rounded-2xl p-5 text-center space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto">
-              <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+        <div className="space-y-5">
+          <div className="glass-card rounded-2xl p-6 text-center space-y-5">
+            <div className="w-20 h-20 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-10 h-10 text-emerald-400" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white/95">WhatsApp Connected</h3>
+              <h3 className="text-lg font-bold text-white/95">WhatsApp Connected</h3>
               <p className="text-xs text-white/40 mt-1">Your WhatsApp is active and ready to send messages</p>
             </div>
-            <div className="glass-card rounded-xl p-3 text-left space-y-2.5">
+            <div className="glass-card rounded-xl p-4 text-left space-y-3">
               <div className="flex justify-between text-xs">
                 <span className="text-white/40">Status</span>
                 <span className="text-emerald-400 font-semibold flex items-center gap-1.5">
@@ -466,6 +483,10 @@ export function WaConnectionPage() {
               <div className="flex justify-between text-xs">
                 <span className="text-white/40">Features</span>
                 <span className="text-white/80 font-semibold">Send, Groups, Validation</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-white/40">Uptime</span>
+                <span className="text-emerald-400 font-semibold">Active Now</span>
               </div>
             </div>
             <button

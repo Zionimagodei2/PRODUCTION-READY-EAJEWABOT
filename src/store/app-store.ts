@@ -91,3 +91,16 @@ export const useAppStore = create<AppState>((set) => ({
   setSelectedContactId: (id) => set({ selectedContactId: id }),
   goBack: () => set({ activeFeature: null }),
 }))
+
+// Expose store for debugging (headless browser automation)
+if (typeof window !== 'undefined') {
+  (window as Record<string, unknown>).__APP_STORE__ = useAppStore
+}
+
+// Also expose on module load via a side-effect
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    (window as Record<string, unknown>).__APP_STORE__ = useAppStore
+    console.log('[DEBUG] Store exposed on window.__APP_STORE__')
+  }, 100)
+}

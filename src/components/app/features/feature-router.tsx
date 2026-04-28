@@ -1,8 +1,6 @@
 'use client'
 
 import { useAppStore, type FeaturePage } from '@/store/app-store'
-import { motion, AnimatePresence } from '@/lib/framer-shim'
-import { DashboardSkeleton } from '@/components/app/loading-skeleton'
 import { SendMessagePage } from './send-message-page'
 import { AutoReplyPage } from './auto-reply-page'
 import { ChatbotPage } from './chatbot-page'
@@ -83,17 +81,5 @@ export function FeatureRouter() {
   const Component = featureComponents[activeFeature]
   if (!Component) return null
 
-  return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={activeFeature}
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -20 }}
-        transition={{ duration: 0.2 }}
-      >
-        <Component />
-      </motion.div>
-    </AnimatePresence>
-  )
+  return <Component />
 }
