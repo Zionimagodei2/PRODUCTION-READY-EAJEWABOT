@@ -4384,3 +4384,36 @@ Unresolved Issues / Next Steps:
 - Could add user authentication with NextAuth.js/Supabase
 - Could add payment/subscription modal
 - Could enhance existing feature pages with real API integration
+
+---
+Task ID: 13
+Agent: Main Agent
+Task: Fix site shaking, FAB visibility, header congestion, convert WA Connection to full page
+
+Work Log:
+- Diagnosed root cause of site shaking: mesh-bg animation had scale(1.05)/scale(0.95) transforms on 150% width/height pseudo-elements causing layout shifts
+- Fixed mesh-bg animation: removed scale transforms, reduced translate movement (2% instead of 5%), increased element size to 200%/200% to prevent edge visibility, added will-change: transform, slowed animation to 30s
+- Removed animate-float from header logo (was causing continuous vertical motion)
+- Removed animate-ping from FAB glow ring (was causing continuous expansion/contraction)
+- Removed header-shimmer-line (was adding visual noise)
+- Fixed header congestion: removed WaConnectionModal, NotificationCenter, and ProfileModal from header
+- Header now has only: Logo + Title, WA Connection status pill, Search button
+- Converted WA Connection from modal to full independent page (wa-connection-page.tsx)
+  - Clicking "Offline"/"Live" pill navigates to full page with back button
+  - All same functionality: QR code, pairing code, connect/disconnect
+  - No more modal blocking or half-visible content
+- Fixed FAB navigation: removed motion.button wrapper (caused React event issues), simplified to plain button
+  - Removed AnimatePresence/motion animations that were unreliable
+  - Fan-out items render directly (no animation delay issues)
+  - Proper z-index layering (overlay z-40, items z-50, FAB z-50)
+- Added 'wa-connection' to FeaturePage type in app-store.ts
+- Added WaConnectionPage to feature-router.tsx
+- Verified: HTTP 200, zero lint errors, clean compilation
+
+Stage Summary:
+- Site no longer shakes/vibrates (mesh-bg animation tamed, float/ping animations removed)
+- Header is clean and decongested (only logo, status pill, search)
+- WA Connection is now a full independent page (not a modal in the header)
+- FAB is properly positioned and visible
+- All features accessible through clean navigation
+- Zero lint errors, zero runtime errors

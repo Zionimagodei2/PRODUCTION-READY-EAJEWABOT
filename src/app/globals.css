@@ -148,10 +148,10 @@
 
 /* Animated gradient background mesh */
 @keyframes meshMove {
-  0%, 100% { transform: translate(0%, 0%) scale(1); }
-  25% { transform: translate(5%, -5%) scale(1.05); }
-  50% { transform: translate(-3%, 5%) scale(0.95); }
-  75% { transform: translate(-5%, -3%) scale(1.02); }
+  0%, 100% { transform: translate(0%, 0%); }
+  25% { transform: translate(2%, -2%); }
+  50% { transform: translate(-1%, 2%); }
+  75% { transform: translate(-2%, -1%); }
 }
 
 .mesh-bg {
@@ -165,11 +165,12 @@
 .mesh-bg::after {
   content: '';
   position: absolute;
-  width: 150%;
-  height: 150%;
-  top: -25%;
-  left: -25%;
-  animation: meshMove 20s ease-in-out infinite;
+  width: 200%;
+  height: 200%;
+  top: -50%;
+  left: -50%;
+  animation: meshMove 30s ease-in-out infinite;
+  will-change: transform;
 }
 
 .mesh-bg::before {

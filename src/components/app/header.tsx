@@ -1,36 +1,20 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useAppStore } from '@/store/app-store'
-import { Search } from 'lucide-react'
+import { Search, Wifi, WifiOff } from 'lucide-react'
 import { motion, AnimatePresence } from '@/lib/framer-shim'
-import { WaConnectionModal } from './modals/wa-connection-modal'
-import { NotificationCenter } from './modals/notification-center'
-import { ProfileModal } from './modals/profile-modal'
 
 
 export function Header() {
-  const { activeFeature, goBack, waConnected, searchOpen, setSearchOpen } = useAppStore()
+  const { activeFeature, goBack, waConnected, searchOpen, setSearchOpen, setActiveFeature } = useAppStore()
 
   // Search button pulse on first render
   const [searchPulsed, setSearchPulsed] = useState(false)
-  const searchRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     const timer = setTimeout(() => setSearchPulsed(true), 100)
     return () => clearTimeout(timer)
   }, [])
-
-  // Connection celebration effect
-  const [celebrating, setCelebrating] = useState(false)
-  const prevConnected = useRef(waConnected)
-  useEffect(() => {
-    if (waConnected && !prevConnected.current) {
-      queueMicrotask(() => setCelebrating(true))
-      const timer = setTimeout(() => setCelebrating(false), 800)
-      return () => clearTimeout(timer)
-    }
-    prevConnected.current = waConnected
-  }, [waConnected])
 
   // Cmd+K / Ctrl+K keyboard shortcut
   useEffect(() => {
@@ -45,68 +29,70 @@ export function Header() {
   }, [searchOpen, setSearchOpen])
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/5" style={{ background: 'rgba(8, 8, 14, 0.95)', backdropFilter: 'blur(24px)' }}>
-      <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto relative">
-        {/* Back button - absolute positioned to not affect layout */}
-        <div className="absolute left-1 top-1/2 -translate-y-1/2 z-10">
-          <AnimatePresence>
-            {activeFeature && (
+    <header className="sticky top-0 z-40" style={{ background: 'rgba(8, 8, 14, 0.95)', backdropFilter: 'blur(24px)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+      <div className="flex items-center justify-between px-4 h-14 max-w-lg mx-auto">
+        {/* Left side: Back button OR Logo + Title */}
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <AnimatePresence mode="wait">
+            {activeFeature ? (
               <motion.button
-                initial={{ opacity: 0, x: -10 }}
+                key="back"
+                initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
+                exit={{ opacity: 0, x: -8 }}
                 onClick={goBack}
-                className="p-1.5 rounded-xl hover:bg-white/5 transition-colors"
+                className="p-2 -ml-1 rounded-xl hover:bg-white/5 transition-colors flex-shrink-0"
+                aria-label="Go back"
               >
                 <svg className="w-5 h-5 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </motion.button>
+            ) : (
+              <motion.div
+                key="logo"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-center gap-2.5"
+              >
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                  <span className="text-[10px] font-black text-white tracking-tight">EW</span>
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-sm font-extrabold text-white/95 tracking-tight leading-none">EAJE WHATSBOT</h1>
+                  <p className="text-[8px] text-white/35 font-semibold mt-0.5 tracking-wide">Enterprise Dashboard</p>
+                </div>
+              </motion.div>
             )}
           </AnimatePresence>
         </div>
-        <div className="flex items-center gap-2.5 min-w-0 flex-1 pl-8">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg animate-float flex-shrink-0" style={{ boxShadow: '0 0 20px rgba(59,130,246,0.3)' }}>
-            <span className="text-[11px] font-black text-white tracking-tight">EW</span>
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-[15px] font-extrabold gradient-text tracking-tight leading-none neon-text-glow truncate">EAJE WHATSBOT</h1>
-            <p className="text-[9px] text-white/40 font-semibold mt-0.5 tracking-wide">Enterprise Dashboard</p>
-          </div>
-        </div>
         
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+        {/* Right side: Connection status + Search + Actions */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* WA Connection status pill - navigates to full page */}
           <button
-            ref={searchRef}
+            onClick={() => setActiveFeature('wa-connection')}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-bold transition-all duration-200 hover:scale-[1.02] active:scale-[0.97] ${
+              waConnected
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                : 'bg-red-500/8 text-red-400 border border-red-500/15'
+            }`}
+            aria-label={waConnected ? 'WhatsApp Connected — Tap to manage' : 'WhatsApp Disconnected — Tap to connect'}
+          >
+            <div className={`w-1.5 h-1.5 rounded-full ${waConnected ? 'bg-emerald-400' : 'bg-red-400'}`} />
+            {waConnected ? 'Live' : 'Offline'}
+          </button>
+
+          {/* Search button */}
+          <button
             onClick={() => setSearchOpen(true)}
-            className={`w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center hover:bg-white/[0.08] hover:border-white/[0.12] hover:scale-[1.02] active:scale-[0.97] transition-all duration-200 ${searchPulsed ? 'animate-pulse-once' : ''}`}
-            title="Search (⌘K)"
+            className={`w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center hover:bg-white/[0.08] active:scale-95 transition-all duration-150 ${searchPulsed ? 'animate-pulse-once' : ''}`}
             aria-label="Search"
           >
-            <Search className="w-4 h-4 text-white/50" />
+            <Search className="w-3.5 h-3.5 text-white/50" />
           </button>
-          <WaConnectionModal />
-          <NotificationCenter />
-          <ProfileModal />
-          {/* Connection status indicator - visible on all screen sizes */}
-          <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-300 ${
-            waConnected
-              ? `bg-emerald-500/10 border border-emerald-500/20 ${celebrating ? 'animate-celebrate' : ''}`
-              : 'bg-amber-500/8 border border-amber-500/15'
-          }`}>
-            <div className={`w-2 h-2 rounded-full transition-colors duration-300 ${
-              waConnected ? 'bg-emerald-400 animate-pulse-dot' : 'bg-amber-400'
-            }`} />
-            <span className={`text-[10px] font-semibold transition-colors duration-300 ${
-              waConnected ? 'text-emerald-400' : 'text-amber-400/80'
-            }`}>
-              {waConnected ? 'Live' : 'Offline'}
-            </span>
-          </div>
         </div>
       </div>
-      {/* Animated shimmer line below header */}
-      <div className="header-shimmer-line" />
     </header>
   )
 }

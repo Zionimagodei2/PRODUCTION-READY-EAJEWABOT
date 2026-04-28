@@ -35,6 +35,7 @@ export type FeaturePage =
   | 'ai-smart-reply'
   | 'campaign-analytics'
   | 'bulk-scheduler'
+  | 'wa-connection'
   | null
 
 interface AppState {

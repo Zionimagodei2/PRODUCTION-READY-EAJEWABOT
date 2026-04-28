@@ -36,6 +36,7 @@ import { NumberGeneratorPage } from './number-generator-page'
 import { AiSmartReplyPage } from './ai-smart-reply-page'
 import { CampaignAnalyticsPage } from './campaign-analytics-page'
 import { BulkSchedulerPage } from './bulk-scheduler-page'
+import { WaConnectionPage } from './wa-connection-page'
 
 const featureComponents: Record<FeaturePage, React.ComponentType> = {
   'send-message': SendMessagePage,
@@ -71,6 +72,7 @@ const featureComponents: Record<FeaturePage, React.ComponentType> = {
   'ai-smart-reply': AiSmartReplyPage,
   'campaign-analytics': CampaignAnalyticsPage,
   'bulk-scheduler': BulkSchedulerPage,
+  'wa-connection': WaConnectionPage,
 }
 
 export function FeatureRouter() {
