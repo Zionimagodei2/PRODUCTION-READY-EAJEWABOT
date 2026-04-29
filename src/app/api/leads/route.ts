@@ -17,6 +17,31 @@ interface ExtractedLead {
   hasWhatsApp?: boolean
 }
 
+async function fallbackWebSearch(query: string): Promise<Array<{
+  url: string
+  name: string
+  snippet: string
+  host_name: string
+  rank: number
+  date: string
+  favicon: string
+}>> {
+  const endpoint = `https://duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&pretty=1`
+  const res = await fetch(endpoint, { headers: { Accept: 'application/json' } })
+  if (!res.ok) return []
+  const data = await res.json().catch(() => ({}))
+  const topics = Array.isArray(data?.RelatedTopics) ? data.RelatedTopics : []
+  const flattened = topics.flatMap((t: any) => t?.Topics || t).filter(Boolean).slice(0, 10)
+  return flattened.map((item: any, i: number) => {
+    const url = typeof item?.FirstURL === 'string' ? item.FirstURL : ''
+    const name = typeof item?.Text === 'string' ? item.Text.split(' - ')[0] : 'Result'
+    const snippet = typeof item?.Text === 'string' ? item.Text : ''
+    let host = 'duckduckgo.com'
+    try { host = new URL(url).hostname } catch {}
+    return { url, name, snippet, host_name: host, rank: i + 1, date: '', favicon: '' }
+  })
+}
+
 interface WhatsAppGroupLink {
   url: string
   source: string
@@ -350,7 +375,12 @@ export async function POST(request: Request) {
     const shouldAutoSave = autoSave === true
     const shouldDeepScan = deepScan === true
 
-    const zai = await ZAI.create()
+    let zai: Awaited<ReturnType<typeof ZAI.create>> | null = null
+    try {
+      zai = await ZAI.create()
+    } catch (e) {
+      console.warn('ZAI unavailable, using fallback web search:', e)
+    }
 
     // Step 1: Multi-source parallel search
     const searchQueries = buildSearchQueries(keyword, location || '')
@@ -372,18 +402,20 @@ export async function POST(request: Request) {
         if (isStealth) {
           await stealthDelay(100, 300)
         }
-        const results = await zai.functions.invoke('web_search', {
-          query: sq.query,
-          num: 10,
-        }) as Array<{
-          url: string
-          name: string
-          snippet: string
-          host_name: string
-          rank: number
-          date: string
-          favicon: string
-        }>
+        const results = zai
+          ? await zai.functions.invoke('web_search', {
+            query: sq.query,
+            num: 10,
+          }) as Array<{
+            url: string
+            name: string
+            snippet: string
+            host_name: string
+            rank: number
+            date: string
+            favicon: string
+          }>
+          : await fallbackWebSearch(sq.query)
 
         if (results && Array.isArray(results)) {
           for (const r of results) {
@@ -446,9 +478,9 @@ export async function POST(request: Request) {
           if (isStealth) {
             await stealthDelay(100, 300)
           }
-          const pageData = await zai.functions.invoke('page_reader', {
-            url: result.url,
-          })
+          const pageData = zai
+            ? await zai.functions.invoke('page_reader', { url: result.url })
+            : { data: { html: result.snippet || '' } }
 
           const plainText = pageData?.data?.html
             ?.replace(/<[^>]*>/g, ' ')
