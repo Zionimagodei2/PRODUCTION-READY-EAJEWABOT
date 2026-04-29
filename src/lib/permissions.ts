@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react'
 // Permission types for the app
 export type AppPermission = 'notifications' | 'camera' | 'microphone' | 'contacts' | 'geolocation'
 
-interface PermissionState {
+export interface PermissionState {
   granted: boolean
   denied: boolean
   prompt: boolean
@@ -104,6 +104,9 @@ export async function requestPermission(permission: AppPermission): Promise<bool
             { timeout: 5000 }
           )
         })
+
+      case 'contacts':
+        return false
 
       default:
         return false
