@@ -14,7 +14,6 @@ interface Notification {
   read: boolean
 }
 
-const mockNotifications: Notification[] = []
 
 const typeConfig = {
   success: { icon: <CheckCircle2 className="w-4 h-4" />, color: '#22c55e', bg: 'rgba(34,197,94,0.1)', border: 'rgba(34,197,94,0.15)' },
@@ -25,11 +24,37 @@ const typeConfig = {
 
 export function NotificationCenter() {
   const [isOpen, setIsOpen] = useState(false)
-  const [notifications, setNotifications] = useState(mockNotifications)
+  const [notifications, setNotifications] = useState<Notification[]>([])
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     queueMicrotask(() => setMounted(true))
+  }, [])
+
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadNotifications() {
+      try {
+        const res = await fetch('/api/audit-logs?limit=20')
+        if (!res.ok) return
+        const data = await res.json()
+        const logs = Array.isArray(data) ? data : data.logs || []
+        const mapped: Notification[] = logs.map((log: any) => ({
+          id: log.id,
+          type: log.action === 'delete' ? 'warning' : log.action === 'create' ? 'success' : 'info',
+          title: `${String(log.entity || 'system').toUpperCase()} ${String(log.action || 'update')}`,
+          description: String(log.actor || 'System action'),
+          time: new Date(log.createdAt || Date.now()).toLocaleString(),
+          read: false,
+        }))
+        if (!cancelled) setNotifications(mapped)
+      } catch {
+        // keep empty state
+      }
+    }
+    loadNotifications()
+    return () => { cancelled = true }
   }, [])
 
   const unreadCount = notifications.filter(n => !n.read).length
