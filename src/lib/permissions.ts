@@ -139,8 +139,16 @@ export function usePWAInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [isInstallable, setIsInstallable] = useState(false)
   const [isInstalled, setIsInstalled] = useState(false)
+  const [isIosManualInstall, setIsIosManualInstall] = useState(false)
 
   useEffect(() => {
+    const userAgent = window.navigator.userAgent.toLowerCase()
+    const isIos = /iphone|ipad|ipod/.test(userAgent)
+    const isSafari = /safari/.test(userAgent) && !/crios|fxios|edgios/.test(userAgent)
+    if (isIos && isSafari) {
+      queueMicrotask(() => setIsIosManualInstall(true))
+    }
+
     // Check if already installed
     if (window.matchMedia('(display-mode: standalone)').matches) {
       queueMicrotask(() => setIsInstalled(true))
@@ -183,7 +191,7 @@ export function usePWAInstall() {
     return false
   }, [deferredPrompt])
 
-  return { isInstallable, isInstalled, install }
+  return { isInstallable, isInstalled, isIosManualInstall, install }
 }
 
 // Type for BeforeInstallPromptEvent

@@ -69,7 +69,9 @@ export function BroadcastListsPage() {
   }, [])
 
   useEffect(() => {
-    fetchContacts()
+    queueMicrotask(() => {
+      fetchContacts()
+    })
   }, [fetchContacts])
 
   // Derive available tags from real contacts

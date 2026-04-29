@@ -45,7 +45,9 @@ export function SchedulerPage() {
   }
 
   useEffect(() => {
-    fetchMessages()
+    queueMicrotask(() => {
+      fetchMessages()
+    })
   }, [])
 
   const createSchedule = async () => {

@@ -233,7 +233,9 @@ export function CampaignsPage() {
   }
 
   useEffect(() => {
-    fetchCampaigns()
+    queueMicrotask(() => {
+      fetchCampaigns()
+    })
   }, [])
 
   const handleCampaignClick = (id: string) => {

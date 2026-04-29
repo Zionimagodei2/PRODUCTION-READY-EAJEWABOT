@@ -116,7 +116,9 @@ export function ContactGroupsPage() {
   }, [])
 
   useEffect(() => {
-    fetchContacts()
+    queueMicrotask(() => {
+      fetchContacts()
+    })
   }, [fetchContacts])
 
   // Derive groups from real contact tags

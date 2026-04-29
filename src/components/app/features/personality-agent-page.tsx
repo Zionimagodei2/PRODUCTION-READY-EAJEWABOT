@@ -141,8 +141,10 @@ export function PersonalityAgentPage() {
   }, [])
 
   useEffect(() => {
-    fetchProfile()
-    fetchConversationCount()
+    queueMicrotask(() => {
+      fetchProfile()
+      fetchConversationCount()
+    })
   }, [fetchProfile, fetchConversationCount])
 
   const handleTrain = async () => {

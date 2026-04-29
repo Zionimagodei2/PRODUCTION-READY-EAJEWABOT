@@ -257,7 +257,9 @@ export function MessageStatusPage() {
   }, [])
 
   useEffect(() => {
-    fetchCampaigns()
+    queueMicrotask(() => {
+      fetchCampaigns()
+    })
   }, [fetchCampaigns])
 
   // Auto-refresh

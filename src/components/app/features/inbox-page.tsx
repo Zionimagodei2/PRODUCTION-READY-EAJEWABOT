@@ -197,7 +197,9 @@ export function InboxPage() {
 
   // Fetch conversations on mount and when filters change
   useEffect(() => {
-    fetchConversations()
+    queueMicrotask(() => {
+      fetchConversations()
+    })
   }, [fetchConversations])
 
   // Auto-scroll to bottom when messages change

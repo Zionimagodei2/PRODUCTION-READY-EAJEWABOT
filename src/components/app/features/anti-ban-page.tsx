@@ -24,12 +24,25 @@ interface ActivityLogEntry {
   type: 'safe' | 'warning' | 'danger'
 }
 
+interface BehaviorMetrics {
+  humanBehaviorScore: number
+  medianIntervalSeconds: number
+  p95IntervalSeconds: number
+  burstRatioPercent: number
+  offHoursRatioPercent: number
+  duplicateRatioPercent: number
+  activeHourSpread: number
+  recommendations: string[]
+}
+
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 
 export function AntiBanPage() {
   const { goBack } = useAppStore()
   const { addToast } = useToastStore()
+  const [loadingConfig, setLoadingConfig] = useState(true)
+  const [savingConfig, setSavingConfig] = useState(false)
 
   // ── Protection Dashboard State ──
   const [lastActivity, setLastActivity] = useState('2 min ago')
@@ -75,9 +88,94 @@ export function AntiBanPage() {
   ])
 
   // ── Statistics State ──
-  const [messagesSentToday] = useState(156)
+  const [messagesSentToday, setMessagesSentToday] = useState(0)
+  const [behavior, setBehavior] = useState<BehaviorMetrics>({
+    humanBehaviorScore: 100,
+    medianIntervalSeconds: 0,
+    p95IntervalSeconds: 0,
+    burstRatioPercent: 0,
+    offHoursRatioPercent: 0,
+    duplicateRatioPercent: 0,
+    activeHourSpread: 0,
+    recommendations: [],
+  })
   const [streakDays] = useState(14)
   const [nextSafeWindow, setNextSafeWindow] = useState('In 12 min')
+
+  useEffect(() => {
+    async function loadAntiBanConfig() {
+      try {
+        const res = await fetch('/api/anti-ban')
+        if (!res.ok) throw new Error('Failed to load anti-ban settings')
+        const data = await res.json()
+        const cfg = data.config || {}
+
+        setDailyLimit(cfg.dailyLimit ?? 200)
+        setHourlyLimit(cfg.hourlyLimit ?? 25)
+        setDelayBetween(cfg.delayBetween ?? 15)
+        setRandomDelay(cfg.randomDelay ?? true)
+        setMaxPerContact(cfg.maxPerContact ?? 5)
+        setMessageVariation(cfg.messageVariation ?? true)
+        setTypingSimulation(cfg.typingSimulation ?? true)
+        setOnlinePattern(cfg.onlinePattern ?? false)
+        setProfileSimulation(cfg.profileSimulation ?? false)
+        setGroupThrottle(cfg.groupThrottle ?? true)
+        setActiveDays(Array.isArray(cfg.activeDays) ? cfg.activeDays : [0, 1, 2, 3, 4])
+        setMorningWindow(Array.isArray(cfg.morningWindow) ? cfg.morningWindow : [8, 12])
+        setAfternoonWindow(Array.isArray(cfg.afternoonWindow) ? cfg.afternoonWindow : [13, 17])
+        setEveningWindow(Array.isArray(cfg.eveningWindow) ? cfg.eveningWindow : [18, 21])
+        setTimezone(cfg.timezone ?? 'UTC-5 (EST)')
+        setMessagesSentToday(data.metrics?.messagesSentToday ?? 0)
+        if (data.metrics?.behavior) {
+          setBehavior(data.metrics.behavior)
+        }
+      } catch {
+        addToast({ type: 'error', title: 'Load failed', message: 'Could not load anti-ban profile' })
+      } finally {
+        setLoadingConfig(false)
+      }
+    }
+    loadAntiBanConfig()
+  }, [addToast])
+
+  const handleSaveConfig = useCallback(async () => {
+    setSavingConfig(true)
+    try {
+      const config = {
+        dailyLimit,
+        hourlyLimit,
+        delayBetween,
+        randomDelay,
+        maxPerContact,
+        messageVariation,
+        typingSimulation,
+        onlinePattern,
+        profileSimulation,
+        groupThrottle,
+        activeDays,
+        morningWindow,
+        afternoonWindow,
+        eveningWindow,
+        timezone,
+      }
+      const res = await fetch('/api/anti-ban', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config }),
+      })
+      if (!res.ok) throw new Error('Failed to save anti-ban profile')
+      addToast({ type: 'success', title: 'Protection profile saved', message: 'Anti-ban settings updated' })
+    } catch {
+      addToast({ type: 'error', title: 'Save failed', message: 'Could not save anti-ban settings' })
+    } finally {
+      setSavingConfig(false)
+    }
+  }, [
+    dailyLimit, hourlyLimit, delayBetween, randomDelay, maxPerContact,
+    messageVariation, typingSimulation, onlinePattern, profileSimulation,
+    groupThrottle, activeDays, morningWindow, afternoonWindow, eveningWindow,
+    timezone, addToast
+  ])
 
   // ── Derived ban probability from settings ──
   const banProbability = useMemo(() => {
@@ -140,12 +238,6 @@ export function AntiBanPage() {
     setEmergencyActive(true)
     addToast({ type: 'warning', title: '🛑 Emergency Stop Activated', message: 'All sending has been halted immediately', duration: 5000 })
     setTimeout(() => setEmergencyActive(false), 10000)
-  }, [addToast])
-
-  const handleSimulateBan = useCallback(() => {
-    setIsBanned(true)
-    setCooldownSeconds(900) // 15 min cooldown
-    addToast({ type: 'error', title: '⚠️ Account Restricted', message: 'WhatsApp has temporarily restricted your account. Cooldown: 15 min', duration: 6000 })
   }, [addToast])
 
   const toggleDay = useCallback((dayIndex: number) => {
@@ -232,14 +324,19 @@ export function AntiBanPage() {
           <p className="text-[10px] text-white/40 mt-0.5">Protect your account from WhatsApp bans</p>
         </div>
         <motion.button
-          onClick={handleSimulateBan}
+          onClick={handleSaveConfig}
           whileTap={{ scale: 0.95 }}
           className="px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[9px] text-white/40 hover:bg-white/10 transition-colors"
-          title="Simulate ban for testing"
+          disabled={savingConfig || loadingConfig}
+          title="Save anti-ban profile"
         >
-          Test Ban
+          {savingConfig ? 'Saving...' : 'Save'}
         </motion.button>
       </div>
+
+      {loadingConfig && (
+        <div className="text-center text-xs text-white/50 py-2">Loading anti-ban profile...</div>
+      )}
 
       {/* ── 1. Protection Dashboard ── */}
       <motion.div
@@ -393,6 +490,46 @@ export function AntiBanPage() {
           <Flame className="w-3.5 h-3.5 mx-auto text-orange-400 mb-1" />
           <p className="text-base font-extrabold text-orange-400">{streakDays}</p>
           <p className="text-[8px] text-white/40 font-semibold">Day Streak</p>
+        </div>
+      </motion.div>
+
+      {/* ── 2b. Human Behavior Intelligence ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.12 }}
+        className="glass-card rounded-2xl p-4 border border-cyan-500/15 space-y-3"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <HeartPulse className="w-4 h-4 text-cyan-400" />
+            <h3 className="text-sm font-bold text-white/90">Human Behavior Pattern</h3>
+          </div>
+          <span className="text-xs font-extrabold text-cyan-300">{behavior.humanBehaviorScore}/100</span>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-lg bg-white/[0.03] p-2">
+            <p className="text-[11px] font-bold text-white/90">{behavior.medianIntervalSeconds}s</p>
+            <p className="text-[9px] text-white/40">Median Gap</p>
+          </div>
+          <div className="rounded-lg bg-white/[0.03] p-2">
+            <p className="text-[11px] font-bold text-white/90">{behavior.burstRatioPercent}%</p>
+            <p className="text-[9px] text-white/40">Burst Ratio</p>
+          </div>
+          <div className="rounded-lg bg-white/[0.03] p-2">
+            <p className="text-[11px] font-bold text-white/90">{behavior.offHoursRatioPercent}%</p>
+            <p className="text-[9px] text-white/40">Off-hours</p>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          {behavior.recommendations.slice(0, 2).map((tip) => (
+            <p key={tip} className="text-[10px] text-white/60 flex gap-1.5">
+              <Info className="w-3 h-3 text-cyan-400 mt-0.5 shrink-0" />
+              <span>{tip}</span>
+            </p>
+          ))}
         </div>
       </motion.div>
 

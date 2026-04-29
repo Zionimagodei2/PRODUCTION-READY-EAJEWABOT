@@ -50,7 +50,9 @@ export function ChatbotPage() {
   }
 
   useEffect(() => {
-    fetchFlows()
+    queueMicrotask(() => {
+      fetchFlows()
+    })
   }, [])
 
   const toggleFlow = async (id: string) => {

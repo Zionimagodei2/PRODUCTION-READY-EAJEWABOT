@@ -309,7 +309,7 @@ export function AnalyticsPage() {
   const maxHeatmapVal = Math.max(...heatmapData.flat(), 1)
 
   // Export functions
-  const exportCSV = useCallback(() => {
+  const exportCSV = () => {
     const headers = ['Metric', 'Value']
     const rows = [
       ['Messages Sent', messagesSent],
@@ -343,7 +343,7 @@ export function AnalyticsPage() {
     link.click()
     URL.revokeObjectURL(url)
     setExportMenuOpen(false)
-  }, [messagesSent, delivered, replied, deliveryRate, replyRate, activeContacts, avgResponseTime, revenueImpact, dailyStats, topCampaigns])
+  }
 
   const exportPNG = useCallback(() => {
     if (!analyticsRef.current) return
@@ -453,20 +453,27 @@ Avg Response Time: ${avgResponseTime} min`
                   exit={{ opacity: 0, y: -5, scale: 0.95 }}
                   className="absolute right-0 top-10 z-50 glass-card rounded-xl border border-white/[0.1] overflow-hidden min-w-[180px]"
                 >
-                  {[
-                    { icon: <FileText className="w-3.5 h-3.5" />, label: 'Export CSV', action: exportCSV },
-                    { icon: <Camera className="w-3.5 h-3.5" />, label: 'Export Data', action: exportPNG },
-                    { icon: <Share2 className="w-3.5 h-3.5" />, label: 'Share Report', action: shareReport },
-                  ].map((item) => (
-                    <button
-                      key={item.label}
-                      onClick={item.action}
-                      className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[11px] text-white/60 hover:bg-white/[0.06] hover:text-white/90 transition-colors"
-                    >
-                      <span className="text-white/40">{item.icon}</span>
-                      {item.label}
-                    </button>
-                  ))}
+                  <button
+                    onClick={exportCSV}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[11px] text-white/60 hover:bg-white/[0.06] hover:text-white/90 transition-colors"
+                  >
+                    <span className="text-white/40"><FileText className="w-3.5 h-3.5" /></span>
+                    Export CSV
+                  </button>
+                  <button
+                    onClick={exportPNG}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[11px] text-white/60 hover:bg-white/[0.06] hover:text-white/90 transition-colors"
+                  >
+                    <span className="text-white/40"><Camera className="w-3.5 h-3.5" /></span>
+                    Export Data
+                  </button>
+                  <button
+                    onClick={shareReport}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[11px] text-white/60 hover:bg-white/[0.06] hover:text-white/90 transition-colors"
+                  >
+                    <span className="text-white/40"><Share2 className="w-3.5 h-3.5" /></span>
+                    Share Report
+                  </button>
                 </motion.div>
               )}
             </AnimatePresence>

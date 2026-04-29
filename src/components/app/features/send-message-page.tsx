@@ -4,10 +4,11 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { useToastStore } from '@/store/toast-store'
 import { motion, AnimatePresence } from '@/lib/framer-shim'
+import { finishProcess, startProcess } from '@/lib/process-runtime'
 import {
   Send, Clock, Users, FileText, Upload, CheckCircle2, AlertCircle, ArrowLeft,
   Hash, ImageIcon, Zap, X, Mic, Smartphone, Calendar, Repeat,
-  ChevronDown, Check, CheckCheck, UserPlus, Phone
+  ChevronDown, Check, CheckCheck, UserPlus, Phone, Link as LinkIcon, MapPin, Video
 } from 'lucide-react'
 
 interface Contact {
@@ -57,6 +58,8 @@ export function SendMessagePage() {
   const { addToast } = useToastStore()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const mediaChunksRef = useRef<Blob[]>([])
 
   // Message state
   const [message, setMessage] = useState('')
@@ -71,9 +74,12 @@ export function SendMessagePage() {
   const [sent, setSent] = useState(false)
 
   // Media attachments
-  const [mediaType, setMediaType] = useState<'none' | 'image' | 'document' | 'audio'>('none')
+  const [mediaType, setMediaType] = useState<'none' | 'image' | 'video' | 'document' | 'audio'>('none')
   const [mediaName, setMediaName] = useState('')
   const [mediaPreview, setMediaPreview] = useState<string | null>(null)
+  const [shareLocation, setShareLocation] = useState(false)
+  const [locationLabel, setLocationLabel] = useState('')
+  const [recording, setRecording] = useState(false)
 
   // Recipients
   const [selectedContacts, setSelectedContacts] = useState<SelectedRecipient[]>([])
@@ -180,6 +186,9 @@ export function SendMessagePage() {
     return preview
   }, [message])
 
+
+  const audioBars = useMemo(() => [4,7,9,6,10,8,5,11,7,6,9,5,10,8,6,7], [])
+  const previewAudioBars = useMemo(() => [3,5,7,4,8,6,5,7,4,6], [])
   // Filtered contacts for picker
   const filteredContacts = useMemo(() => {
     if (!contactSearch) return contactsList
@@ -221,6 +230,20 @@ export function SendMessagePage() {
     }, 0)
   }
 
+  const wrapSelection = (prefix: string, suffix = prefix) => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const selected = message.slice(start, end) || 'text'
+    const next = `${message.slice(0, start)}${prefix}${selected}${suffix}${message.slice(end)}`
+    setMessage(next)
+  }
+
+  const insertLink = () => {
+    wrapSelection('[', '](https://example.com)')
+  }
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -231,6 +254,10 @@ export function SendMessagePage() {
       const reader = new FileReader()
       reader.onload = (ev) => setMediaPreview(ev.target?.result as string)
       reader.readAsDataURL(file)
+    } else if (file.type.startsWith('video/')) {
+      setMediaType('video')
+      setMediaName(file.name)
+      setMediaPreview(null)
     } else if (file.type.startsWith('audio/')) {
       setMediaType('audio')
       setMediaName(file.name)
@@ -239,6 +266,32 @@ export function SendMessagePage() {
       setMediaType('document')
       setMediaName(file.name)
       setMediaPreview(null)
+    }
+  }
+
+  const handleVoiceRecording = async () => {
+    if (recording) {
+      mediaRecorderRef.current?.stop()
+      setRecording(false)
+      return
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      mediaChunksRef.current = []
+      recorder.ondataavailable = (event) => mediaChunksRef.current.push(event.data)
+      recorder.onstop = () => {
+        const voiceBlob = new Blob(mediaChunksRef.current, { type: 'audio/webm' })
+        setMediaType('audio')
+        setMediaName(`voice-note-${Date.now()}.webm`)
+        setMediaPreview(URL.createObjectURL(voiceBlob))
+        stream.getTracks().forEach(track => track.stop())
+      }
+      recorder.start()
+      mediaRecorderRef.current = recorder
+      setRecording(true)
+    } catch {
+      addToast({ type: 'error', title: 'Microphone unavailable', message: 'Please grant microphone permission to record a voice note.' })
     }
   }
 
@@ -266,6 +319,16 @@ export function SendMessagePage() {
     }
 
     setSending(true)
+    const processStart = startProcess('send')
+    if (!processStart.ok) {
+      setSending(false)
+      addToast({
+        type: 'warning',
+        title: 'Concurrency limit reached',
+        message: `Maximum ${processStart.limit} concurrent operations allowed. Please wait for one to finish.`,
+      })
+      return
+    }
 
     try {
       let recipientCount = getSelectedCount()
@@ -278,6 +341,8 @@ export function SendMessagePage() {
           status: scheduleMode === 'now' ? 'active' : 'scheduled',
           total: recipientCount,
           message: message,
+          attachment: mediaName ? { type: mediaType, name: mediaName } : null,
+          location: shareLocation ? locationLabel : null,
         }),
       })
 
@@ -295,6 +360,8 @@ export function SendMessagePage() {
     } catch {
       setSending(false)
       addToast({ type: 'error', title: 'Send Failed', message: 'Could not create campaign. Please try again.' })
+    } finally {
+      finishProcess(processStart.process.id)
     }
   }
 
@@ -554,6 +621,12 @@ export function SendMessagePage() {
         </div>
 
         {/* Template Variables */}
+        <div className="grid grid-cols-4 gap-1.5">
+          <button onClick={() => wrapSelection('*')} className="px-2 py-1 rounded bg-white/5 text-xs text-white/70">B</button>
+          <button onClick={() => wrapSelection('_')} className="px-2 py-1 rounded bg-white/5 text-xs text-white/70 italic">I</button>
+          <button onClick={insertLink} className="px-2 py-1 rounded bg-white/5 text-xs text-white/70 flex items-center justify-center"><LinkIcon className="w-3 h-3" /></button>
+          <button onClick={() => insertVariable('😊')} className="px-2 py-1 rounded bg-white/5 text-xs text-white/70">😊</button>
+        </div>
         <div className="flex flex-wrap gap-1.5">
           {TEMPLATE_VARIABLES.map((v) => (
             <motion.button
@@ -610,9 +683,10 @@ export function SendMessagePage() {
         </div>
 
         {/* Media type buttons */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           {[
             { type: 'image' as const, label: 'Image', icon: <ImageIcon className="w-3.5 h-3.5" />, color: 'green' },
+            { type: 'video' as const, label: 'Video', icon: <Video className="w-3.5 h-3.5" />, color: 'pink' },
             { type: 'document' as const, label: 'Document', icon: <FileText className="w-3.5 h-3.5" />, color: 'blue' },
             { type: 'audio' as const, label: 'Audio', icon: <Mic className="w-3.5 h-3.5" />, color: 'purple' },
           ].map((item) => (
@@ -623,7 +697,7 @@ export function SendMessagePage() {
                 // Create a hidden file input trigger
                 const input = document.createElement('input')
                 input.type = 'file'
-                input.accept = item.type === 'image' ? 'image/*' : item.type === 'audio' ? 'audio/*' : '*'
+                input.accept = item.type === 'image' ? 'image/*' : item.type === 'video' ? 'video/*' : item.type === 'audio' ? 'audio/*' : '*'
                 input.onchange = (e) => {
                   const target = e.target as HTMLInputElement
                   const file = target.files?.[0]
@@ -643,7 +717,7 @@ export function SendMessagePage() {
               whileTap={{ scale: 0.95 }}
               className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl text-[10px] font-semibold transition-all duration-200 border ${
                 mediaType === item.type
-                  ? `bg-${item.color}-500/15 border-${item.color}-500/30 text-${item.color}-400`
+                  ? 'border-white/20'
                   : 'bg-white/[0.03] text-white/40 border-white/[0.06] hover:bg-white/[0.06] hover:text-white/60'
               }`}
               style={mediaType === item.type ? {
@@ -681,6 +755,10 @@ export function SendMessagePage() {
                   <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
                     <FileText className="w-5 h-5 text-blue-400/40" />
                   </div>
+                ) : mediaType === 'video' ? (
+                  <div className="w-12 h-12 rounded-lg bg-pink-500/10 flex items-center justify-center flex-shrink-0">
+                    <Video className="w-5 h-5 text-pink-400/40" />
+                  </div>
                 ) : (
                   <div className="w-12 h-12 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
                     <Mic className="w-5 h-5 text-purple-400/40" />
@@ -689,12 +767,12 @@ export function SendMessagePage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-white/60 truncate">{mediaName || `Attach ${mediaType}`}</p>
                   <p className="text-[9px] text-white/25 mt-0.5">
-                    {mediaType === 'image' ? 'Image' : mediaType === 'audio' ? 'Audio' : 'Document'} attached
+                    {mediaType === 'image' ? 'Image' : mediaType === 'audio' ? 'Audio' : mediaType === 'video' ? 'Video' : 'Document'} attached
                   </p>
                   {mediaType === 'audio' && (
                     <div className="flex items-center gap-0.5 mt-1">
-                      {[...Array(16)].map((_, i) => (
-                        <div key={i} className="w-0.5 rounded-full bg-purple-400/30" style={{ height: `${4 + Math.random() * 10}px` }} />
+                      {audioBars.map((height, i) => (
+                        <div key={i} className="w-0.5 rounded-full bg-purple-400/30" style={{ height: `${height}px` }} />
                       ))}
                     </div>
                   )}
@@ -721,12 +799,32 @@ export function SendMessagePage() {
               <Upload className="w-5 h-5 text-green-400/40" />
             </div>
             <div className="flex-1">
-              <p className="text-xs text-white/50">Add image, audio, or document</p>
+              <p className="text-xs text-white/50">Add image, video, audio, or document</p>
               <p className="text-[10px] text-white/20">Max 16MB</p>
             </div>
           </div>
         )}
-        <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} accept="image/*,audio/*,.pdf,.doc,.docx,.txt" />
+        <div className="flex items-center gap-2">
+          <button onClick={handleVoiceRecording} className={`px-3 py-1.5 rounded-lg text-xs border ${recording ? 'bg-red-500/20 border-red-500/30 text-red-300' : 'bg-purple-500/10 border-purple-500/20 text-purple-300'}`}>
+            {recording ? 'Stop recording' : 'Record voice note'}
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                const position = await new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 }))
+                setShareLocation(true)
+                setLocationLabel(`${position.coords.latitude.toFixed(5)}, ${position.coords.longitude.toFixed(5)}`)
+              } catch {
+                addToast({ type: 'warning', title: 'Location unavailable', message: 'Unable to fetch your location right now.' })
+              }
+            }}
+            className="px-3 py-1.5 rounded-lg text-xs border bg-blue-500/10 border-blue-500/20 text-blue-300 flex items-center gap-1"
+          >
+            <MapPin className="w-3 h-3" /> Share location
+          </button>
+        </div>
+        {shareLocation && <p className="text-[10px] text-blue-300/80">Location attached for bulk delivery: {locationLabel}</p>}
+        <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.csv,.xlsx,.xls" />
       </motion.div>
 
       {/* Message Preview - WhatsApp Phone Mockup */}
@@ -791,8 +889,8 @@ export function SendMessagePage() {
                     <div className="mb-1 flex items-center gap-1 p-1">
                       <Mic className="w-3 h-3 text-white/40" />
                       <div className="flex items-center gap-px">
-                        {[...Array(10)].map((_, i) => (
-                          <div key={i} className="w-px bg-white/20 rounded-full" style={{ height: `${3 + Math.random() * 6}px` }} />
+                        {previewAudioBars.map((height, i) => (
+                          <div key={i} className="w-px bg-white/20 rounded-full" style={{ height: `${height}px` }} />
                         ))}
                       </div>
                     </div>

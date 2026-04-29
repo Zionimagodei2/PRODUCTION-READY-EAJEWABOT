@@ -60,6 +60,11 @@ interface GeneratedNumber {
   country: string
 }
 
+interface NumberHistoryPayload {
+  numbers: string[]
+  updatedAt: string
+}
+
 interface GenSession {
   id: string
   timestamp: Date
@@ -130,6 +135,7 @@ export function NumberGeneratorPage() {
   const [copiedAll, setCopiedAll] = useState(false)
   const [showStats, setShowStats] = useState(true)
   const [showHistory, setShowHistory] = useState(false)
+  const [historicalNumbers, setHistoricalNumbers] = useState<Set<string>>(new Set())
 
   // History
   const [sessions, setSessions] = useState<GenSession[]>([])
@@ -147,6 +153,25 @@ export function NumberGeneratorPage() {
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    const loadHistory = async () => {
+      try {
+        const res = await fetch('/api/settings')
+        if (!res.ok) return
+        const settings = await res.json()
+        const raw = settings?.number_generation_history
+        if (!raw) return
+        const parsed: NumberHistoryPayload = JSON.parse(raw)
+        if (Array.isArray(parsed?.numbers)) {
+          queueMicrotask(() => setHistoricalNumbers(new Set(parsed.numbers)))
+        }
+      } catch {
+        // ignore malformed history
+      }
+    }
+    void loadHistory()
   }, [])
 
   // Filtered countries for search
@@ -195,6 +220,7 @@ export function NumberGeneratorPage() {
     const country = selectedCountry
     const generated: GeneratedNumber[] = []
     const seenNumbers = new Set<string>()
+    const historicalSet = new Set(historicalNumbers)
     const prefixStartVal = parseInt(prefixStart) || 0
     const prefixEndVal = parseInt(prefixEnd) || 9
 
@@ -236,10 +262,11 @@ export function NumberGeneratorPage() {
           country: country.name,
         }
 
-        generated.push(entry)
-        if (!seenNumbers.has(fullNumber)) {
-          seenNumbers.add(fullNumber)
+        if (seenNumbers.has(fullNumber) || historicalSet.has(fullNumber)) {
+          continue
         }
+        generated.push(entry)
+        seenNumbers.add(fullNumber)
       }
 
       generatedCount = endIdx
@@ -251,6 +278,20 @@ export function NumberGeneratorPage() {
       } else {
         setNumbers(generated)
         setIsGenerating(false)
+        const updatedHistory = new Set([...historicalSet, ...generated.map((item) => item.number)])
+        setHistoricalNumbers(updatedHistory)
+
+        void fetch('/api/settings', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            key: 'number_generation_history',
+            value: JSON.stringify({
+              numbers: Array.from(updatedHistory).slice(-50000),
+              updatedAt: new Date().toISOString(),
+            } satisfies NumberHistoryPayload),
+          }),
+        })
 
         // Save session
         const validCount = generated.filter(n => n.valid).length
@@ -270,14 +311,14 @@ export function NumberGeneratorPage() {
         addToast({
           type: 'success',
           title: 'Generation Complete',
-          message: `${generated.length} numbers generated for ${country.name}`,
+          message: `${generated.length} unique numbers generated for ${country.name}`,
         })
       }
     }
 
     // Start with a small delay for UX
     setTimeout(processBatch, 100)
-  }, [selectedCountry, quantity, genMode, prefixStart, prefixEnd, customDigits, addToast])
+  }, [selectedCountry, quantity, genMode, prefixStart, prefixEnd, customDigits, addToast, historicalNumbers])
 
   // Copy individual number
   const copyNumber = useCallback((num: GeneratedNumber) => {

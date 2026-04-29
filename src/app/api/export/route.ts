@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { getRequestId } from '@/lib/request-id'
+import { actorFromRequest, recordAuditLog } from '@/lib/audit-log'
 
 type ExportType = 'contacts' | 'campaigns' | 'messages' | 'analytics'
 type ExportFormat = 'csv' | 'json' | 'vcard' | 'pdf'
@@ -66,6 +68,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const requestId = getRequestId(request)
   try {
     const body = await request.json()
     const { type, format, dateRange } = body as {
@@ -75,11 +78,19 @@ export async function POST(request: Request) {
     }
 
     if (!type || !format) {
-      return NextResponse.json({ error: 'Type and format are required' }, { status: 400 })
+      return NextResponse.json({ error: 'Type and format are required', requestId }, { status: 400 })
     }
 
     const range: DateRange = dateRange || 'all'
     const since = getDateFilter(range)
+
+    await recordAuditLog({
+      actor: actorFromRequest(request),
+      action: 'export_requested',
+      entity: 'export',
+      requestId,
+      metadata: { type, format, dateRange: range },
+    })
 
     switch (format) {
       case 'json':
@@ -95,7 +106,7 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     console.error('Export API error:', error)
-    return NextResponse.json({ error: 'Failed to export data' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to export data', requestId }, { status: 500 })
   }
 }
 

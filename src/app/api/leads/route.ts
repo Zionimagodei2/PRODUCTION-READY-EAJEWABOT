@@ -2,6 +2,7 @@ import ZAI from 'z-ai-web-dev-sdk'
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
 import { geminiChat } from '@/lib/gemini'
+import { clearCached, getCached, setCached } from '@/lib/simple-cache'
 
 interface ExtractedLead {
   business: string
@@ -290,12 +291,31 @@ async function saveWhatsAppGroups(
 // GET: Retrieve recent searches
 export async function GET() {
   try {
+    const cacheKey = 'leads:recent_searches'
+    const cached = getCached<{
+      searches: Array<{
+        id: string
+        keyword: string
+        location: string
+        resultCount: number
+        phoneCount: number
+        whatsappCount: number
+        mode: string
+        deepScan: boolean
+        sourceBreakdown: Record<string, number>
+        createdAt: string
+      }>
+    }>(cacheKey)
+    if (cached) {
+      return NextResponse.json(cached)
+    }
+
     const searches = await db.leadSearch.findMany({
       orderBy: { createdAt: 'desc' },
       take: 10,
     })
 
-    return NextResponse.json({
+    const payload = {
       searches: searches.map(s => ({
         id: s.id,
         keyword: s.keyword,
@@ -308,7 +328,9 @@ export async function GET() {
         sourceBreakdown: s.sourceBreakdown ? JSON.parse(s.sourceBreakdown) : {},
         createdAt: s.createdAt.toISOString(),
       }))
-    })
+    }
+    setCached(cacheKey, payload, 30_000)
+    return NextResponse.json(payload)
   } catch (error) {
     console.error('Leads GET error:', error)
     return NextResponse.json({ error: 'Failed to fetch searches' }, { status: 500 })
@@ -585,6 +607,7 @@ export async function POST(request: Request) {
         deepScan: shouldDeepScan,
       },
     })
+    clearCached('leads:recent_searches')
 
     return NextResponse.json({
       id: leadSearch.id,

@@ -105,7 +105,9 @@ export function AutoReplyPage() {
   }
 
   useEffect(() => {
-    fetchRules()
+    queueMicrotask(() => {
+      fetchRules()
+    })
   }, [])
 
   const addRule = async () => {

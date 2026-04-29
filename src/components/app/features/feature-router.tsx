@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useAppStore, type FeaturePage } from '@/store/app-store'
 import { SendMessagePage } from './send-message-page'
 import { AutoReplyPage } from './auto-reply-page'
@@ -35,6 +36,15 @@ import { AiSmartReplyPage } from './ai-smart-reply-page'
 import { CampaignAnalyticsPage } from './campaign-analytics-page'
 import { BulkSchedulerPage } from './bulk-scheduler-page'
 import { WaConnectionPage } from './wa-connection-page'
+import { PremiumPlansPage } from './premium-plans-page'
+import { defaultFeatureFlags, type FeatureFlags } from '@/lib/feature-flags'
+
+const featureFlagMap: Partial<Record<Exclude<FeaturePage, null>, keyof FeatureFlags>> = {
+  'premium-plans': 'premiumPlans',
+  'ai-smart-reply': 'aiSmartReply',
+  'bulk-scheduler': 'bulkScheduler',
+  'campaign-analytics': 'campaignAnalytics',
+}
 
 const featureComponents: Record<FeaturePage, React.ComponentType> = {
   'send-message': SendMessagePage,
@@ -71,12 +81,42 @@ const featureComponents: Record<FeaturePage, React.ComponentType> = {
   'campaign-analytics': CampaignAnalyticsPage,
   'bulk-scheduler': BulkSchedulerPage,
   'wa-connection': WaConnectionPage,
+  'premium-plans': PremiumPlansPage,
 }
 
 export function FeatureRouter() {
   const { activeFeature } = useAppStore()
+  const [flags, setFlags] = useState<FeatureFlags>(defaultFeatureFlags)
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadFlags() {
+      try {
+        const res = await fetch('/api/feature-flags')
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled && data.flags) setFlags(data.flags)
+      } catch {
+        // keep defaults on error
+      }
+    }
+    loadFlags()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   if (!activeFeature) return null
+
+  const flagName = featureFlagMap[activeFeature]
+  if (flagName && !flags[flagName]) {
+    return (
+      <div className="px-4 py-10 text-center text-white/70">
+        <h3 className="text-lg font-bold text-white mb-2">Feature Disabled</h3>
+        <p className="text-sm">This feature is currently disabled by your deployment configuration.</p>
+      </div>
+    )
+  }
 
   const Component = featureComponents[activeFeature]
   if (!Component) return null

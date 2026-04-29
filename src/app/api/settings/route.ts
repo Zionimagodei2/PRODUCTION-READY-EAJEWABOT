@@ -1,29 +1,32 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { ApiError, handleApiError, ok } from '@/lib/api-response'
+import { getRequestId } from '@/lib/request-id'
+import { actorFromRequest, recordAuditLog } from '@/lib/audit-log'
 
-export async function GET() {
+export async function GET(request: Request) {
+  const requestId = getRequestId(request)
   try {
     const settings = await db.setting.findMany()
     const settingsMap: Record<string, string> = {}
     settings.forEach(s => { settingsMap[s.key] = s.value })
-    return NextResponse.json(settingsMap)
+    return ok(settingsMap, 200, requestId)
   } catch (error) {
-    console.error('Settings GET error:', error)
-    return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 })
+    return handleApiError(error, 'Failed to fetch settings', requestId)
   }
 }
 
 export async function PATCH(request: Request) {
+  const requestId = getRequestId(request)
   try {
     const body = await request.json()
     const { key, value } = body
 
     if (!key) {
-      return NextResponse.json({ error: 'Setting key is required' }, { status: 400 })
+      throw new ApiError('Setting key is required', 400)
     }
 
     if (value === undefined) {
-      return NextResponse.json({ error: 'Setting value is required' }, { status: 400 })
+      throw new ApiError('Setting value is required', 400)
     }
 
     const setting = await db.setting.upsert({
@@ -32,50 +35,59 @@ export async function PATCH(request: Request) {
       create: { key, value },
     })
 
-    return NextResponse.json({ key: setting.key, value: setting.value })
+    await recordAuditLog({
+      actor: actorFromRequest(request),
+      action: 'update',
+      entity: 'setting',
+      entityId: setting.key,
+      requestId,
+      metadata: { valuePreview: String(setting.value).slice(0, 100) },
+    })
+
+    return ok({ key: setting.key, value: setting.value }, 200, requestId)
   } catch (error) {
-    console.error('Settings PATCH error:', error)
-    return NextResponse.json({ error: 'Failed to update setting' }, { status: 500 })
+    return handleApiError(error, 'Failed to update setting', requestId)
   }
 }
 
 // Test API connection
 export async function POST(request: Request) {
+  const requestId = getRequestId(request)
   try {
     const body = await request.json()
     const { type, key } = body
 
     if (!type || !key) {
-      return NextResponse.json({ error: 'Type and key are required' }, { status: 400 })
+      throw new ApiError('Type and key are required', 400)
     }
 
     // In demo mode, simulate connection test
     if (type === 'gemini') {
       // Simulate a Gemini API connection test
       if (key.length < 10) {
-        return NextResponse.json({ success: false, error: 'Invalid API key format' })
+        return ok({ success: false, error: 'Invalid API key format' }, 200, requestId)
       }
       // In a real app, we'd call the Gemini API to verify
-      return NextResponse.json({ success: true, message: 'Gemini API connection verified' })
+      return ok({ success: true, message: 'Gemini API connection verified' }, 200, requestId)
     }
 
     if (type === 'whatsapp') {
       // Simulate a WhatsApp Business API connection test
       if (key.length < 10) {
-        return NextResponse.json({ success: false, error: 'Invalid API key format' })
+        return ok({ success: false, error: 'Invalid API key format' }, 200, requestId)
       }
-      return NextResponse.json({ success: true, message: 'WhatsApp API connection verified' })
+      return ok({ success: true, message: 'WhatsApp API connection verified' }, 200, requestId)
     }
 
-    return NextResponse.json({ error: 'Unknown API type' }, { status: 400 })
+    throw new ApiError('Unknown API type', 400)
   } catch (error) {
-    console.error('Settings POST error:', error)
-    return NextResponse.json({ error: 'Failed to test connection' }, { status: 500 })
+    return handleApiError(error, 'Failed to test connection', requestId)
   }
 }
 
 // Clear all data
-export async function DELETE() {
+export async function DELETE(request: Request) {
+  const requestId = getRequestId(request)
   try {
     // Delete all data from all tables except settings
     await db.conversation.deleteMany()
@@ -91,9 +103,15 @@ export async function DELETE() {
     await db.teamMember.deleteMany()
     await db.personalityProfile.deleteMany()
 
-    return NextResponse.json({ success: true, message: 'All data cleared' })
+    await recordAuditLog({
+      actor: actorFromRequest(request),
+      action: 'clear_all_data',
+      entity: 'system',
+      requestId,
+    })
+
+    return ok({ success: true, message: 'All data cleared' }, 200, requestId)
   } catch (error) {
-    console.error('Settings DELETE error:', error)
-    return NextResponse.json({ error: 'Failed to clear data' }, { status: 500 })
+    return handleApiError(error, 'Failed to clear data', requestId)
   }
 }

@@ -7,7 +7,7 @@ import { usePWAInstall, usePermission } from '@/lib/permissions'
 import { useToastStore } from '@/store/toast-store'
 
 export function PWAInstallBanner() {
-  const { isInstallable, install } = usePWAInstall()
+  const { isInstallable, isIosManualInstall, install } = usePWAInstall()
   const [dismissed, setDismissed] = useState(false)
   const { addToast } = useToastStore()
 
@@ -17,9 +17,17 @@ export function PWAInstallBanner() {
     if (wasDismissed) queueMicrotask(() => setDismissed(true))
   }, [])
 
-  if (!isInstallable || dismissed) return null
+  if ((!isInstallable && !isIosManualInstall) || dismissed) return null
 
   const handleInstall = async () => {
+    if (isIosManualInstall) {
+      addToast({
+        type: 'info',
+        title: 'Install on iOS',
+        message: 'Tap Share in Safari, then choose "Add to Home Screen".',
+      })
+      return
+    }
     const success = await install()
     if (success) {
       addToast({ message: 'App installed successfully!', type: 'success' })
@@ -46,14 +54,16 @@ export function PWAInstallBanner() {
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="text-sm font-bold text-white/95">Install EAJE WhatsBot</h3>
-              <p className="text-[11px] text-white/50 mt-0.5">Get faster access & work offline</p>
+              <p className="text-[11px] text-white/50 mt-0.5">
+                {isIosManualInstall ? 'iOS: install via Safari Share → Add to Home Screen' : 'Get faster access & work offline'}
+              </p>
               <div className="flex items-center gap-2 mt-2">
                 <button
                   onClick={handleInstall}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs font-semibold hover:opacity-90 transition-opacity"
                 >
                   <Download className="w-3 h-3" />
-                  Install
+                  {isIosManualInstall ? 'Show iOS Steps' : 'Install'}
                 </button>
                 <button
                   onClick={handleDismiss}

@@ -59,13 +59,17 @@ const segmentColors: Record<string, string> = {
 }
 
 // Mock groups for the Add to Group modal
-const mockGroups: Group[] = [
-  { id: 'g1', name: 'VIP Customers', memberCount: 24, color: '#f59e0b' },
-  { id: 'g2', name: 'New Leads', memberCount: 56, color: '#22c55e' },
-  { id: 'g3', name: 'Newsletter Subscribers', memberCount: 142, color: '#3b82f6' },
-  { id: 'g4', name: 'Hot Prospects', memberCount: 18, color: '#ef4444' },
-  { id: 'g5', name: 'Wholesale Buyers', memberCount: 31, color: '#06b6d4' },
+const defaultGroups: Group[] = [
+  { id: 'g1', name: 'VIP Customers', memberCount: 0, color: '#f59e0b' },
+  { id: 'g2', name: 'New Leads', memberCount: 0, color: '#22c55e' },
+  { id: 'g3', name: 'Newsletter Subscribers', memberCount: 0, color: '#3b82f6' },
 ]
+
+function groupColorFor(name: string): string {
+  const palette = ['#3b82f6', '#8b5cf6', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4']
+  const hash = Array.from(name).reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  return palette[hash % palette.length]
+}
 
 function RingProgress({ value, maxValue, color, size = 36 }: { value: number; maxValue: number; color: string; size?: number }) {
   const radius = (size - 6) / 2
@@ -178,6 +182,7 @@ export function ContactsPage() {
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
   const [newGroupName, setNewGroupName] = useState('')
   const [showNewGroupInput, setShowNewGroupInput] = useState(false)
+  const [groups, setGroups] = useState<Group[]>(defaultGroups)
 
   // Advanced filtering
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -206,8 +211,26 @@ export function ContactsPage() {
     }
   }
 
+  const fetchGroups = async () => {
+    try {
+      const res = await fetch('/api/settings')
+      if (!res.ok) return
+      const data = await res.json()
+      if (!data?.contact_groups) return
+      const parsed = JSON.parse(data.contact_groups)
+      if (Array.isArray(parsed)) {
+        setGroups(parsed)
+      }
+    } catch {
+      // ignore malformed payloads
+    }
+  }
+
   useEffect(() => {
-    fetchContacts()
+    queueMicrotask(() => {
+      fetchContacts()
+      fetchGroups()
+    })
   }, [])
 
   // Derived stats
@@ -359,16 +382,60 @@ export function ContactsPage() {
 
   // Confirm add to group
   const handleConfirmAddToGroup = () => {
-    const count = selectedIds.size
-    if (selectedGroup || newGroupName) {
-      addToast({ type: 'success', title: `Added ${count} contacts to ${newGroupName || mockGroups.find(g => g.id === selectedGroup)?.name || 'group'}` })
+    const run = async () => {
+      const selected = contacts.filter((contact) => selectedIds.has(contact.id))
+      const existingGroup = groups.find((group) => group.id === selectedGroup)
+      const groupName = (newGroupName.trim() || existingGroup?.name || '').trim()
+      if (!groupName) return
+
+      for (const contact of selected) {
+        const tags = parseTags(contact.tags)
+        const hasTag = tags.some((tag) => tag.toLowerCase() === groupName.toLowerCase())
+        if (hasTag) continue
+        const nextTags = [...tags, groupName].join(', ')
+        await fetch('/api/contacts', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: contact.id, tags: nextTags }),
+        })
+      }
+
+      await fetchContacts()
+
+      const baseGroups = [...groups]
+      if (!existingGroup) {
+        baseGroups.push({
+          id: `g-${Date.now()}`,
+          name: groupName,
+          memberCount: 0,
+          color: groupColorFor(groupName),
+        })
+      }
+
+      const refreshedContacts = await fetch('/api/contacts').then((res) => res.json()).catch(() => contacts)
+      const recalculated = baseGroups.map((group) => ({
+        ...group,
+        memberCount: refreshedContacts.filter((contact: Contact) =>
+          parseTags(contact.tags).some((tag) => tag.toLowerCase() === group.name.toLowerCase())
+        ).length,
+      }))
+
+      setGroups(recalculated)
+      await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'contact_groups', value: JSON.stringify(recalculated) }),
+      })
+
+      addToast({ type: 'success', title: `Added ${selected.length} contacts to ${groupName}` })
+      setShowGroupModal(false)
+      setSelectedGroup(null)
+      setNewGroupName('')
+      setShowNewGroupInput(false)
+      setSelectedIds(new Set())
+      setSelectionMode(false)
     }
-    setShowGroupModal(false)
-    setSelectedGroup(null)
-    setNewGroupName('')
-    setShowNewGroupInput(false)
-    setSelectedIds(new Set())
-    setSelectionMode(false)
+    void run()
   }
 
   // Toggle selection
@@ -980,7 +1047,7 @@ export function ContactsPage() {
 
               {/* Existing groups */}
               <div className="space-y-2 max-h-48 overflow-y-auto">
-                {mockGroups.map((group) => (
+                {groups.map((group) => (
                   <button
                     key={group.id}
                     onClick={() => { setSelectedGroup(group.id); setShowNewGroupInput(false) }}

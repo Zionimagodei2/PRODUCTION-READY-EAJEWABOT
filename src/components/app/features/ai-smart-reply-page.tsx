@@ -94,7 +94,7 @@ const modeConfig: Record<ReplyMode, {
 
 const defaultRules: SmartRule[] = [
   { id: 'r1', trigger: 'hello, hi, hey, good morning, good afternoon', responseTemplate: 'Hello {{name}}! 👋 Thank you for reaching out. How can I assist you today?', priority: 'medium', active: true, isPrebuilt: true },
-  { id: 'r2', trigger: 'price, pricing, cost, how much, rate', responseTemplate: 'Great question about pricing! Our plans start at $29/mo. Would you like me to send you our full pricing catalog?', priority: 'high', active: true, isPrebuilt: true },
+  { id: 'r2', trigger: 'price, pricing, cost, how much, rate', responseTemplate: 'Great question about pricing! Our plans start at $19.99/mo. Would you like me to send you our full pricing catalog?', priority: 'high', active: true, isPrebuilt: true },
   { id: 'r3', trigger: 'hours, open, close, available, schedule', responseTemplate: 'We\'re available Mon–Fri, 9 AM – 6 PM EST. Weekend support is available via email at support@example.com.', priority: 'medium', active: true, isPrebuilt: true },
   { id: 'r4', trigger: 'thank, thanks, appreciated', responseTemplate: 'You\'re welcome, {{name}}! Don\'t hesitate to reach out if you need anything else. 😊', priority: 'low', active: true, isPrebuilt: true },
   { id: 'r5', trigger: 'appointment, book, schedule, meeting, call', responseTemplate: 'I\'d love to help you schedule that! Our next available slot is {{time}}. Would that work for you?', priority: 'high', active: true, isPrebuilt: true },
@@ -144,7 +144,7 @@ const sampleResponses: Record<ReplyMode, { input: string; output: string }[]> = 
 const cannedAIResponses: Record<string, { text: string; confidence: number }> = {
   hello: { text: 'Hello! 👋 Welcome to our support. How can I assist you today?', confidence: 96 },
   hi: { text: 'Hi there! Great to hear from you. What can I help you with?', confidence: 97 },
-  pricing: { text: 'Our pricing starts at $29/month for the Starter plan. Would you like me to walk you through our options?', confidence: 94 },
+  pricing: { text: 'Our pricing starts at $19.99/month for the Starter plan. Would you like me to walk you through our options?', confidence: 94 },
   hours: { text: 'We\'re available Mon–Fri, 9 AM – 6 PM EST. Weekend support is available via email.', confidence: 95 },
   help: { text: 'I\'m here to help! Could you tell me more about what you need assistance with?', confidence: 92 },
   thanks: { text: 'You\'re welcome! Don\'t hesitate to reach out anytime. 😊', confidence: 98 },
