@@ -113,7 +113,7 @@ export async function analyzePersonality(conversations: string): Promise<Persona
   } catch {
     // fall through
   }
-  return { tone: 'professional', style: 'concise', language: 'english', greetingStyle: 'hello', closingStyle: 'thanks', emojiUsage: 'minimal', formalityLevel: 5, responsePatterns: 'Professional and direct', samplePhrases: 'Thanks for reaching out, Let me check, I will get back to you' }
+  throw new Error('AI response could not be parsed into a personality profile')
 }
 
 export async function generatePersonalityReply(incomingMessage: string, personalityProfile: PersonalityProfile, conversationContext?: string): Promise<string> {
