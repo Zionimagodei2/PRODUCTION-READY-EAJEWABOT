@@ -80,6 +80,7 @@ export function FloatingNav() {
         />
       )}
 
+      <div ref={fabRef}>
       {/* Fan-out navigation items */}
       {isOpen && (
         <div
@@ -139,7 +140,6 @@ export function FloatingNav() {
 
       {/* FAB Button — fully visible, high z-index */}
       <div
-        ref={fabRef}
         className="fixed z-[70]"
         style={{
           bottom: '1.25rem',
@@ -178,6 +178,7 @@ export function FloatingNav() {
             />
           )}
         </button>
+      </div>
       </div>
     </>
   )

@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server'
-
-const GEMINI_API_KEY = 'AIzaSyCtuD2C13DezjQJ-SSNiSynyYuui2igOhs'
-const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
+import { geminiChat } from '@/lib/gemini'
 
 const PERSONALITY_PROMPTS: Record<string, string> = {
   professional: 'You are formal, concise, and business-focused. Use professional language and maintain a respectful tone.',
@@ -17,10 +15,7 @@ export async function POST(request: Request) {
     const { message, context, businessName, personality, previousMessages } = body
 
     if (!message || typeof message !== 'string') {
-      return NextResponse.json(
-        { error: 'Message is required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
     const business = businessName || 'EAJE WhatsBot'
@@ -29,68 +24,14 @@ export async function POST(request: Request) {
 
     const systemPrompt = `You are a helpful WhatsApp business assistant for ${business}. ${personalityPrompt} Respond professionally and concisely to customer messages. Keep responses under 160 characters when possible. Be friendly and helpful.${context ? ` Business context: ${context}` : ''}`
 
-    // Build conversation messages for Gemini
-    const geminiMessages: { role: 'user' | 'model'; parts: { text: string }[] }[] = []
+    const history = Array.isArray(previousMessages)
+      ? previousMessages
+          .slice(-6)
+          .filter((msg: { role?: string; content?: string }) => msg?.role && msg?.content)
+          .map((msg: { role: string; content: string }) => ({ role: msg.role === 'assistant' ? 'assistant' : 'user', content: msg.content }))
+      : []
 
-    // Add previous messages for context
-    if (Array.isArray(previousMessages) && previousMessages.length > 0) {
-      for (const msg of previousMessages.slice(-6)) {
-        if (msg.role && msg.content) {
-          geminiMessages.push({
-            role: msg.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: msg.content }],
-          })
-        }
-      }
-    }
-
-    // Add the current user message
-    geminiMessages.push({
-      role: 'user',
-      parts: [{ text: message }],
-    })
-
-    const requestBody = {
-      contents: geminiMessages,
-      systemInstruction: { parts: [{ text: systemPrompt }] },
-      generationConfig: {
-        temperature: 0.7,
-        topP: 0.95,
-        topK: 40,
-        maxOutputTokens: 256,
-      },
-    }
-
-    const response = await fetch(
-      `${GEMINI_BASE_URL}/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      }
-    )
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Gemini API error:', response.status, errorText)
-      // Fallback response
-      return NextResponse.json({
-        reply: "Thanks for your message! We'll get back to you shortly.",
-        source: 'ai',
-        fallback: true,
-      })
-    }
-
-    const data = await response.json()
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text
-
-    if (!text) {
-      return NextResponse.json({
-        reply: "Thanks for reaching out! A team member will respond soon.",
-        source: 'ai',
-        fallback: true,
-      })
-    }
+    const text = await geminiChat([...history, { role: 'user', content: message }], systemPrompt, { temperature: 0.7, maxOutputTokens: 256 })
 
     return NextResponse.json({ reply: text.trim(), source: 'ai' })
   } catch (error) {

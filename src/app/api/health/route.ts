@@ -4,6 +4,12 @@ import { getRequestId } from '@/lib/request-id'
 import { queueStats } from '@/lib/job-queue'
 
 const startTime = Date.now()
+const WA_SERVICE_URL = process.env.WA_SERVICE_URL || 'http://127.0.0.1:3003'
+
+async function resolveWaServiceUrl() {
+  const fromDb = await db.setting.findUnique({ where: { key: 'wa_service_url' } })
+  return fromDb?.value?.trim() || WA_SERVICE_URL
+}
 
 export async function GET(request: Request) {
   const requestId = getRequestId(request)
@@ -21,7 +27,8 @@ export async function GET(request: Request) {
   // Check WhatsApp service port reachability
   let waServiceStatus = 'unknown'
   try {
-    const waRes = await fetch('http://localhost:3003/health', {
+    const baseUrl = await resolveWaServiceUrl()
+    const waRes = await fetch(`${baseUrl}/health`, {
       signal: AbortSignal.timeout(3000),
     })
     if (waRes.ok) {

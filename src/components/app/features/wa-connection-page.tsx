@@ -282,8 +282,8 @@ export function WaConnectionPage() {
             <button
               onClick={startSession}
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
-              style={{ boxShadow: '0 0 20px rgba(34,197,94,0.2)' }}
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500 text-white font-extrabold text-base hover:scale-[1.01] hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50 border border-green-300/30"
+              style={{ boxShadow: '0 0 30px rgba(16,185,129,0.45), inset 0 1px 0 rgba(255,255,255,0.2)' }}
             >
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" />}
               {isLoading ? 'Starting...' : 'Connect WhatsApp'}
@@ -355,7 +355,7 @@ export function WaConnectionPage() {
             <button
               onClick={retry}
               className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-sm hover:opacity-90 transition-opacity"
-              style={{ boxShadow: '0 0 20px rgba(34,197,94,0.2)' }}
+              style={{ boxShadow: '0 0 30px rgba(16,185,129,0.45), inset 0 1px 0 rgba(255,255,255,0.2)' }}
             >
               <RefreshCw className="w-4 h-4" />
               Retry
