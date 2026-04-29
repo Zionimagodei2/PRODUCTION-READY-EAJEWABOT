@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from '@/lib/framer-shim'
 import { Download, X, Smartphone, Bell, Camera, MapPin, Check, ChevronRight } from 'lucide-react'
-import { usePWAInstall, usePermission } from '@/lib/permissions'
+import { requestPermission, usePWAInstall, usePermission } from '@/lib/permissions'
 import { useToastStore } from '@/store/toast-store'
 
 export function PWAInstallBanner() {
@@ -101,11 +101,12 @@ export function PermissionPrompt() {
   }, [notificationPerm.granted, notificationPerm.denied])
 
   const handleGrant = async () => {
-    const granted = await notificationPerm.request()
+    const currentPermission = step === 0 ? 'notifications' : step === 1 ? 'camera' : 'microphone'
+    const granted = step === 0 ? await notificationPerm.request() : await requestPermission(currentPermission)
     if (granted) {
       addToast({ message: 'Notifications enabled!', type: 'success' })
     }
-    if (step < 1) {
+    if (step < permissions.length - 1) {
       setStep(step + 1)
     } else {
       setShowPrompt(false)
@@ -114,7 +115,7 @@ export function PermissionPrompt() {
   }
 
   const handleSkip = () => {
-    if (step < 1) {
+    if (step < permissions.length - 1) {
       setStep(step + 1)
     } else {
       setShowPrompt(false)
@@ -125,6 +126,7 @@ export function PermissionPrompt() {
   const permissions = [
     { icon: <Bell className="w-5 h-5 text-blue-400" />, title: 'Notifications', desc: 'Get real-time alerts for messages and campaigns', color: 'blue' },
     { icon: <Camera className="w-5 h-5 text-green-400" />, title: 'Camera Access', desc: 'Scan QR codes and share media', color: 'green' },
+    { icon: <Bell className="w-5 h-5 text-purple-400" />, title: 'Microphone Access', desc: 'Enable voice notes and audio features', color: 'purple' },
   ]
 
   if (!showPrompt) return null
@@ -158,7 +160,7 @@ export function PermissionPrompt() {
             </div>
             
             <div className="flex items-center gap-4 mb-6">
-              <div className={`w-14 h-14 rounded-2xl bg-${current.color}-500/10 border border-${current.color}-500/20 flex items-center justify-center`}>
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${current.color === 'blue' ? 'bg-blue-500/10 border border-blue-500/20' : current.color === 'green' ? 'bg-green-500/10 border border-green-500/20' : 'bg-purple-500/10 border border-purple-500/20'}`}>
                 {current.icon}
               </div>
               <div>

@@ -198,7 +198,7 @@ export function BroadcastListsPage() {
   )
 
   return (
-    <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-5">
+    <div className="px-4 py-4 pb-12 max-w-lg mx-auto space-y-5">
       {/* Header */}
       <div className="flex items-center gap-3">
         <motion.button

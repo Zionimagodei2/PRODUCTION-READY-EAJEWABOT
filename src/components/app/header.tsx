@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { useAppStore } from '@/store/app-store'
-import { Search, Wifi, WifiOff } from 'lucide-react'
+import { Search, UserCircle2 } from 'lucide-react'
 
 
 export function Header() {
-  const { activeFeature, goBack, waConnected, searchOpen, setSearchOpen, setActiveFeature } = useAppStore()
+  const { activeFeature, goBack, waConnected, searchOpen, setSearchOpen, setActiveFeature, setActiveTab } = useAppStore()
 
   // Search button pulse on first render
   const [searchPulsed, setSearchPulsed] = useState(false)
@@ -60,7 +60,7 @@ export function Header() {
           {/* WA Connection status — compact pill that navigates to full page */}
           <button
             onClick={() => setActiveFeature('wa-connection')}
-            className={`flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-bold transition-colors duration-150 ${
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-extrabold transition-all duration-150 shadow-sm ${
               waConnected
                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                 : 'bg-red-500/8 text-red-400 border border-red-500/15'
@@ -68,7 +68,16 @@ export function Header() {
             aria-label={waConnected ? 'WhatsApp Connected — Tap to manage' : 'WhatsApp Disconnected — Tap to connect'}
           >
             <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${waConnected ? 'bg-emerald-400' : 'bg-red-400'}`} />
-            <span className="hidden sm:inline">{waConnected ? 'Live' : 'Offline'}</span>
+            <span>{waConnected ? 'WA Live' : 'Connect WA'}</span>
+          </button>
+
+          <button
+            onClick={() => { setActiveFeature(null); setActiveTab('settings') }}
+            className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center hover:bg-white/[0.08] active:scale-95 transition-all duration-150"
+            aria-label="Open profile and settings"
+            title="Profile & Settings"
+          >
+            <UserCircle2 className="w-3.5 h-3.5 text-white/70" />
           </button>
 
           {/* Search button */}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { Header } from '@/components/app/header'
 import { FloatingNav } from '@/components/app/floating-nav'
@@ -28,11 +28,16 @@ const tabComponents: Record<string, React.ComponentType> = {
 export default function Home() {
   const store = useAppStore()
   const { activeTab, activeFeature } = store
+  const mainRef = useRef<HTMLElement | null>(null)
 
   // Expose store for headless browser automation testing
   useEffect(() => {
     (window as Record<string, unknown>).__APP_STORE__ = store
   }, [store])
+
+  useEffect(() => {
+    if (mainRef.current) mainRef.current.scrollTo({ top: 0, behavior: 'auto' })
+  }, [activeTab, activeFeature])
 
   const TabComponent = tabComponents[activeTab]
 
@@ -42,7 +47,7 @@ export default function Home() {
       <div className="mesh-bg" />
       
       <Header />
-      <main className="flex-1 overflow-y-auto overflow-x-hidden pb-24">
+      <main ref={mainRef} className="flex-1 overflow-y-auto overflow-x-hidden pb-14">
         {activeFeature ? (
           <FeatureRouter />
         ) : (

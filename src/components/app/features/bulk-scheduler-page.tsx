@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { motion, AnimatePresence } from '@/lib/framer-shim'
 import { useToastStore } from '@/store/toast-store'
@@ -37,21 +37,8 @@ interface ContactList {
   tag?: string
 }
 
-// ─── Mock Data ────────────────────────────────────────────
-const MOCK_CONTACT_LISTS: ContactList[] = [
-  { id: '1', name: 'All Customers', count: 2847 },
-  { id: '2', name: 'VIP Clients', count: 156, tag: 'vip' },
-  { id: '3', name: 'New Leads (30d)', count: 432, tag: 'leads' },
-  { id: '4', name: 'Event Attendees', count: 89, tag: 'event' },
-  { id: '5', name: 'Newsletter Subscribers', count: 1203, tag: 'newsletter' },
-]
-
-const MOCK_CAMPAIGNS: Campaign[] = [
-  { id: '1', name: 'Welcome Series Q1', scheduledTime: '2025-03-15 09:00', contactsCount: 432, status: 'sending', progress: 67, messagePreview: 'Welcome {{name}}! Thanks for joining...' },
-  { id: '2', name: 'Product Launch Promo', scheduledTime: '2025-03-16 14:00', contactsCount: 1203, status: 'pending', progress: 0, messagePreview: 'Hey {{name}}, exciting news from {{company}}!' },
-  { id: '3', name: 'Follow-up Campaign', scheduledTime: '2025-03-14 10:30', contactsCount: 156, status: 'completed', progress: 100, messagePreview: 'Hi {{name}}, just checking in...' },
-  { id: '4', name: 'Weekend Flash Sale', scheduledTime: '2025-03-17 08:00', contactsCount: 2847, status: 'paused', progress: 23, messagePreview: 'Flash Sale! {{name}}, exclusive deal...' },
-]
+// ─── Live Data Sources (No mocks) ──────────────────────────
+interface ApiContact { id: string; tags: string; status: string; createdAt: string }
 
 const TIMEZONES = [
   'UTC', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
@@ -161,7 +148,9 @@ export function BulkSchedulerPage() {
   const [maxRetries, setMaxRetries] = useState(3)
 
   // Queue State
-  const [campaigns, setCampaigns] = useState<Campaign[]>(MOCK_CAMPAIGNS)
+  const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  const [contactLists, setContactLists] = useState<ContactList[]>([])
+  const [loadingData, setLoadingData] = useState(false)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
 
   // Preview State
@@ -179,13 +168,57 @@ export function BulkSchedulerPage() {
     summary: true,
   })
 
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadData() {
+      setLoadingData(true)
+      try {
+        const [contactsRes, campaignsRes] = await Promise.all([fetch('/api/contacts'), fetch('/api/campaigns')])
+        if (!cancelled && contactsRes.ok) {
+          const contacts: ApiContact[] = await contactsRes.json()
+          const byTag = new Map<string, number>()
+          contacts.forEach((c) => {
+            ;(c.tags || '').split(',').map((t) => t.trim()).filter(Boolean).forEach((tag) => {
+              byTag.set(tag, (byTag.get(tag) || 0) + 1)
+            })
+          })
+          const dynamicLists: ContactList[] = [
+            { id: 'all', name: 'All Contacts', count: contacts.length },
+            ...Array.from(byTag.entries()).map(([tag, count]) => ({ id: `tag-${tag}`, name: `${tag.toUpperCase()} Contacts`, count, tag })),
+          ]
+          setContactLists(dynamicLists)
+        }
+        if (!cancelled && campaignsRes.ok) {
+          const rows = await campaignsRes.json()
+          const mapped: Campaign[] = Array.isArray(rows) ? rows.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            scheduledTime: c.date || c.createdAt || new Date().toISOString(),
+            contactsCount: Number(c.total || 0),
+            status: c.status || 'pending',
+            progress: c.total ? Math.round((Number(c.sent || 0) / Number(c.total || 1)) * 100) : 0,
+            messagePreview: c.message || '',
+          })) : []
+          setCampaigns(mapped)
+        }
+      } catch {
+        // keep empty-state UI
+      } finally {
+        if (!cancelled) setLoadingData(false)
+      }
+    }
+    loadData()
+    return () => { cancelled = true }
+  }, [])
+
   // ─── Computed Values ────────────────────────────────────
   const totalContacts = useMemo(() => {
     return selectedLists.reduce((sum, id) => {
-      const list = MOCK_CONTACT_LISTS.find(l => l.id === id)
+      const list = contactLists.find(l => l.id === id)
       return sum + (list?.count ?? 0)
     }, 0)
-  }, [selectedLists])
+  }, [selectedLists, contactLists])
 
   const charCount = message.length
   const charLimit = 4096
@@ -407,7 +440,7 @@ export function BulkSchedulerPage() {
             Contact Lists
           </label>
           <div className="space-y-1.5 max-h-40 overflow-y-auto no-scrollbar">
-            {MOCK_CONTACT_LISTS.map(list => (
+            {contactLists.map(list => (
               <motion.button
                 key={list.id}
                 onClick={() => toggleList(list.id)}

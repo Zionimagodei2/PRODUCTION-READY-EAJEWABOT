@@ -1,4 +1,5 @@
 import { ApiError, handleApiError, ok } from '@/lib/api-response'
+import { randomBytes } from 'crypto'
 import { hashPassword } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { getRequestId } from '@/lib/request-id'
@@ -35,6 +36,7 @@ export async function POST(request: Request) {
       { key: 'profile_email', value: email },
       { key: 'business_phone', value: phone },
       { key: 'plan', value: 'Starter' },
+      { key: 'owner_api_token', value: randomBytes(24).toString('hex') },
     ]
 
     await Promise.all(

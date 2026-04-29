@@ -1,14 +1,21 @@
 import { NextResponse } from 'next/server'
+import { db } from '@/lib/db'
 
-const WA_SERVICE_PORT = 3003
+const WA_SERVICE_URL = process.env.WA_SERVICE_URL || 'http://127.0.0.1:3003'
 const WA_FETCH_TIMEOUT_MS = 5_000 // 5 second timeout
+
+async function resolveWaServiceUrl() {
+  const fromDb = await db.setting.findUnique({ where: { key: 'wa_service_url' } })
+  return fromDb?.value?.trim() || WA_SERVICE_URL
+}
 
 async function waFetch(path: string, options?: RequestInit): Promise<{ success?: boolean; error?: string; [key: string]: unknown }> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), WA_FETCH_TIMEOUT_MS)
 
   try {
-    const res = await fetch(`http://localhost:${WA_SERVICE_PORT}${path}`, {
+    const baseUrl = await resolveWaServiceUrl()
+    const res = await fetch(`${baseUrl}${path}`, {
       ...options,
       signal: controller.signal
     })
@@ -43,10 +50,10 @@ async function waFetch(path: string, options?: RequestInit): Promise<{ success?:
     }
 
     if (err instanceof TypeError && err.message.includes('fetch')) {
-      return { success: false, error: 'WhatsApp service is not running. Please start the service on port 3003.' }
+      return { success: false, error: 'WhatsApp service is not running. Please start the service on configured WA service URL.' }
     }
 
-    return { success: false, error: 'WhatsApp service is unreachable. Please check that the service is running on port 3003.' }
+    return { success: false, error: 'WhatsApp service is unreachable. Please check that the service is running at WA_SERVICE_URL (default: http://127.0.0.1:3003).' }
   }
 }
 
@@ -98,7 +105,7 @@ export async function GET(request: Request) {
       status: 'offline',
       authenticated: false,
       connected: false,
-      error: 'WhatsApp service is unreachable. Please check that the service is running on port 3003.'
+      error: 'WhatsApp service is unreachable. Please check that the service is running at WA_SERVICE_URL (default: http://127.0.0.1:3003).'
     }, { status: 503 })
   }
 }
