@@ -705,7 +705,17 @@ export function SettingsPage() {
         </div>
         <div className="glass-card rounded-2xl overflow-hidden divide-y divide-white/[0.04]">
           {accountSettings.map((item, i) => (
-            <SettingRow key={i} item={item} onToggle={item.label === 'API Status' ? () => setActiveFeature('api-health') : undefined} />
+            <SettingRow
+              key={i}
+              item={item}
+              onToggle={
+                item.label === 'API Status'
+                  ? () => setActiveFeature('api-health')
+                  : item.label === 'Subscription'
+                    ? () => setActiveFeature('premium-plans')
+                    : undefined
+              }
+            />
           ))}
         </div>
       </div>

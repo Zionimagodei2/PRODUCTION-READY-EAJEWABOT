@@ -1,9 +1,12 @@
 import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { ok } from '@/lib/api-response'
+import { getRequestId } from '@/lib/request-id'
+import { queueStats } from '@/lib/job-queue'
 
 const startTime = Date.now()
 
-export async function GET() {
+export async function GET(request: Request) {
+  const requestId = getRequestId(request)
   const timestamp = new Date().toISOString()
   const uptime = Math.floor((Date.now() - startTime) / 1000)
 
@@ -31,8 +34,9 @@ export async function GET() {
   }
 
   const overallStatus = dbStatus === 'ok' && waServiceStatus !== 'error' ? 'ok' : 'degraded'
+  const queue = await queueStats()
 
-  return NextResponse.json({
+  return ok({
     status: overallStatus,
     uptime,
     timestamp,
@@ -41,5 +45,6 @@ export async function GET() {
       whatsapp: waServiceStatus,
       api: 'ok',
     },
-  })
+    queue,
+  }, 200, requestId)
 }

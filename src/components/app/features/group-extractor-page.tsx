@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 import { useToastStore } from '@/store/toast-store'
+import { finishProcess, startProcess } from '@/lib/process-runtime'
 
 // --- Types ---
 interface DiscoveredGroup {
@@ -29,6 +30,8 @@ interface ManualGroup {
   name: string
   members: number
   addedAt: string
+  externalId?: string
+  source?: 'manual' | 'whatsapp'
 }
 
 interface ExtractedContact {
@@ -41,7 +44,7 @@ type SearchMode = 'search' | 'manual'
 
 // --- Component ---
 export function GroupExtractorPage() {
-  const { goBack } = useAppStore()
+  const { goBack, waConnected } = useAppStore()
   const { addToast } = useToastStore()
 
   // Mode state
@@ -72,6 +75,9 @@ export function GroupExtractorPage() {
   const [savedGroups, setSavedGroups] = useState<DiscoveredGroup[]>([])
   const [showSavedOnly, setShowSavedOnly] = useState(false)
   const [manualSectionOpen, setManualSectionOpen] = useState(false)
+  const [knownExtractedPhones, setKnownExtractedPhones] = useState<Set<string>>(new Set())
+
+  const normalizePhone = useCallback((value: string) => value.replace(/[^\d+]/g, ''), [])
 
   // Load saved groups on mount
   useEffect(() => {
@@ -88,6 +94,59 @@ export function GroupExtractorPage() {
     }
     loadSavedGroups()
   }, [])
+
+  useEffect(() => {
+    const loadPhoneIndex = async () => {
+      try {
+        const res = await fetch('/api/settings')
+        if (!res.ok) return
+        const settings = await res.json()
+        const raw = settings?.extracted_phone_index
+        if (!raw) return
+        const parsed = JSON.parse(raw)
+        const phones = Array.isArray(parsed?.phones) ? parsed.phones.map((phone: string) => normalizePhone(phone)).filter(Boolean) : []
+        queueMicrotask(() => setKnownExtractedPhones(new Set(phones)))
+      } catch {
+        // no-op
+      }
+    }
+    void loadPhoneIndex()
+  }, [normalizePhone])
+
+  useEffect(() => {
+    if (!waConnected) return
+
+    const loadWaGroups = async () => {
+      try {
+        const res = await fetch('/api/whatsapp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'get-groups' }),
+        })
+        if (!res.ok) return
+        const payload = await res.json()
+        const groupsFromApi = Array.isArray(payload?.groups) ? payload.groups : []
+        const normalizedGroups: ManualGroup[] = groupsFromApi.map((group: { id?: string; name?: string; subject?: string; members?: number; size?: number }, index: number) => ({
+          id: `wa-${group.id || index}`,
+          name: group.name || group.subject || 'WhatsApp Group',
+          members: group.members || group.size || 0,
+          addedAt: new Date().toISOString(),
+          externalId: group.id,
+          source: 'whatsapp',
+        }))
+        queueMicrotask(() => {
+          setGroups((prev) => {
+            const manualOnly = prev.filter((group) => group.source !== 'whatsapp')
+            return [...manualOnly, ...normalizedGroups]
+          })
+        })
+      } catch {
+        // no-op
+      }
+    }
+
+    void loadWaGroups()
+  }, [waConnected])
 
   // --- Search Mode Handlers ---
   const handleSearch = useCallback(async () => {
@@ -170,6 +229,7 @@ export function GroupExtractorPage() {
       name: newGroupName.trim(),
       members: parseInt(newGroupMembers) || 0,
       addedAt: new Date().toISOString(),
+      source: 'manual',
     }
     setGroups(prev => [...prev, newGroup])
     setNewGroupName('')
@@ -216,29 +276,101 @@ export function GroupExtractorPage() {
       addToast({ type: 'warning', title: 'No group selected', message: 'Please select a group to extract from' })
       return
     }
+    const processStart = startProcess('extract')
+    if (!processStart.ok) {
+      addToast({
+        type: 'warning',
+        title: 'Concurrency limit reached',
+        message: `Maximum ${processStart.limit} concurrent operations allowed. Please wait for one to finish.`,
+      })
+      return
+    }
     setExtracting(true)
     setProgress(0)
 
     let p = 0
-    const interval = setInterval(() => {
+    const runStep = async () => {
       p += Math.random() * 12
       if (p >= 100) {
         p = 100
-        clearInterval(interval)
         setExtracting(false)
+        finishProcess(processStart.process.id)
         const group = groups.find(g => g.id === selectedGroup)
         if (group) {
-          const groupContacts = extracted.filter(c => c.group === group.name)
-          if (groupContacts.length === 0) {
-            addToast({ type: 'info', title: 'No contacts found', message: 'No contacts to extract from this group. Add contacts manually.' })
+          if (group.externalId) {
+            try {
+              const response = await fetch('/api/whatsapp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'get-group-participants', groupId: group.externalId }),
+              })
+              const payload = response.ok ? await response.json() : {}
+              const participants = Array.isArray(payload?.participants) ? payload.participants : []
+
+              const mergedKnownPhones = new Set(knownExtractedPhones)
+              const extractedNow: ExtractedContact[] = []
+              let duplicatesFiltered = 0
+
+              participants.forEach((participant: { phone?: string; number?: string; id?: string; name?: string; pushname?: string }) => {
+                const rawPhone = participant.phone || participant.number || participant.id || ''
+                const normalized = normalizePhone(rawPhone)
+                if (!normalized || mergedKnownPhones.has(normalized)) {
+                  duplicatesFiltered++
+                  return
+                }
+                mergedKnownPhones.add(normalized)
+                extractedNow.push({
+                  name: participant.name || participant.pushname || 'WhatsApp Contact',
+                  phone: normalized,
+                  group: group.name,
+                })
+              })
+
+              setExtracted((prev) => [...prev, ...extractedNow])
+              setKnownExtractedPhones(mergedKnownPhones)
+
+              await fetch('/api/settings', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  key: 'extracted_phone_index',
+                  value: JSON.stringify({
+                    phones: Array.from(mergedKnownPhones).slice(-50000),
+                    updatedAt: new Date().toISOString(),
+                    source: 'group-extractor',
+                  }),
+                }),
+              })
+
+              addToast({
+                type: 'success',
+                title: 'Extraction complete',
+                message: `${extractedNow.length} new contacts extracted, ${duplicatesFiltered} duplicates filtered`,
+              })
+            } catch {
+              addToast({ type: 'error', title: 'Extraction failed', message: 'Could not fetch group participants from WhatsApp API' })
+            }
           } else {
-            addToast({ type: 'success', title: 'Extraction complete', message: `${groupContacts.length} contacts found in ${group.name}` })
+            const groupContacts = extracted.filter(c => c.group === group.name)
+            if (groupContacts.length === 0) {
+              addToast({ type: 'info', title: 'No contacts found', message: 'No contacts to extract from this group. Add contacts manually.' })
+            } else {
+              addToast({ type: 'success', title: 'Extraction complete', message: `${groupContacts.length} contacts found in ${group.name}` })
+            }
           }
         }
+        setProgress(p)
+        return
       }
       setProgress(p)
-    }, 350)
-  }, [selectedGroup, groups, extracted, addToast])
+      const nextDelay = 220 + Math.floor(Math.random() * 420)
+      setTimeout(() => {
+        void runStep()
+      }, nextDelay)
+    }
+
+    void runStep()
+  }, [selectedGroup, groups, extracted, addToast, knownExtractedPhones, normalizePhone])
 
   // Export functions
   const exportCSV = (data: ExtractedContact[]) => {

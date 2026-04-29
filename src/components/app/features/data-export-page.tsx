@@ -177,6 +177,26 @@ export function DataExportPage() {
     }
   }, [dateRange, loading])
 
+  const addToHistory = useCallback((title: string, format: string, byteSize: number, failed = false) => {
+    const sizeStr = failed
+      ? '—'
+      : byteSize > 1024 * 1024
+        ? `${(byteSize / (1024 * 1024)).toFixed(1)} MB`
+        : byteSize > 1024
+          ? `${(byteSize / 1024).toFixed(1)} KB`
+          : `${byteSize} B`
+
+    const newItem: ExportHistoryItem = {
+      id: Date.now().toString(),
+      title: `${title} Export`,
+      format,
+      date: new Date().toLocaleString(),
+      size: sizeStr,
+      status: failed ? 'failed' : 'completed',
+    }
+    setExportHistory(prev => [newItem, ...prev].slice(0, 10))
+  }, [])
+
   const handleExport = useCallback(
     async (option: ExportOption, format: ExportFormat) => {
       setExportingId(option.id)
@@ -259,28 +279,8 @@ export function DataExportPage() {
         }, 500)
       }
     },
-    [dateRange, addToast]
+    [dateRange, addToast, addToHistory]
   )
-
-  function addToHistory(title: string, format: string, byteSize: number, failed = false) {
-    const sizeStr = failed
-      ? '—'
-      : byteSize > 1024 * 1024
-        ? `${(byteSize / (1024 * 1024)).toFixed(1)} MB`
-        : byteSize > 1024
-          ? `${(byteSize / 1024).toFixed(1)} KB`
-          : `${byteSize} B`
-
-    const newItem: ExportHistoryItem = {
-      id: Date.now().toString(),
-      title: `${title} Export`,
-      format,
-      date: new Date().toLocaleString(),
-      size: sizeStr,
-      status: failed ? 'failed' : 'completed',
-    }
-    setExportHistory(prev => [newItem, ...prev].slice(0, 10))
-  }
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto space-y-5">

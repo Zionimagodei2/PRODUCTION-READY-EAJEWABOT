@@ -50,6 +50,7 @@ interface WAGroup {
   memberCount: number
   avatar: string
   selected: boolean
+  externalId?: string
 }
 
 // ─── Constants ───────────────────────────────────────────────────────
@@ -73,13 +74,7 @@ const sourceTabs: { id: ImportSource; label: string; icon: React.ReactNode }[] =
   { id: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle className="w-3.5 h-3.5" /> },
 ]
 
-const mockWAGroups: WAGroup[] = [
-  { id: 'g1', name: 'VIP Customers', memberCount: 24, avatar: '👑', selected: false },
-  { id: 'g2', name: 'Business Partners', memberCount: 56, avatar: '🤝', selected: false },
-  { id: 'g3', name: 'Product Launch Team', memberCount: 142, avatar: '🚀', selected: false },
-  { id: 'g4', name: 'Sales Network', memberCount: 18, avatar: '💰', selected: false },
-  { id: 'g5', name: 'Community Hub', memberCount: 231, avatar: '🏠', selected: false },
-]
+const emptyGroups: WAGroup[] = []
 
 // ─── Utility functions ───────────────────────────────────────────────
 
@@ -176,7 +171,7 @@ export function ContactImportPage() {
   const [pasteHasHeader, setPasteHasHeader] = useState(true)
 
   // WhatsApp state
-  const [waGroups, setWaGroups] = useState<WAGroup[]>(mockWAGroups)
+  const [waGroups, setWaGroups] = useState<WAGroup[]>(emptyGroups)
 
   // Import progress state
   const [importProgress, setImportProgress] = useState(0)
@@ -201,6 +196,53 @@ export function ContactImportPage() {
       }
     }
     fetchExisting()
+  }, [])
+
+  useEffect(() => {
+    if (!waConnected) {
+      queueMicrotask(() => setWaGroups([]))
+      return
+    }
+
+    const fetchGroups = async () => {
+      try {
+        const response = await fetch('/api/whatsapp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'get-groups' }),
+        })
+        if (!response.ok) return
+        const payload = await response.json()
+        if (!Array.isArray(payload?.groups)) return
+
+        const groups = payload.groups.map((group: { id?: string; name?: string; subject?: string; members?: number; size?: number }, index: number) => ({
+          id: `wa-${index}-${group.id || group.name || group.subject || 'group'}`,
+          name: group.name || group.subject || 'WhatsApp Group',
+          memberCount: group.members || group.size || 0,
+          avatar: '💬',
+          selected: false,
+          externalId: group.id,
+        }))
+        queueMicrotask(() => setWaGroups(groups))
+      } catch {
+        queueMicrotask(() => setWaGroups([]))
+      }
+    }
+
+    void fetchGroups()
+  }, [waConnected])
+
+  const importContacts = useCallback(async (contacts: Record<string, string>[]) => {
+    const response = await fetch('/api/contacts/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contacts }),
+    })
+    const payload = await response.json()
+    if (!response.ok) {
+      throw new Error(payload?.error || 'Import failed')
+    }
+    return payload as { success: number; duplicates: number; skipped: number; errors: number; total: number }
   }, [])
 
   // ─── CSV Handlers ───────────────────────────────────────────────
@@ -394,74 +436,37 @@ export function ContactImportPage() {
     if (!csvData) return
 
     setIsImporting(true)
-    setImportProgress(0)
+    setImportProgress(30)
     setImportErrors([])
     setCurrentImportRow(0)
-
-    let success = 0
-    let errors = 0
-    let skipped = 0
-    let duplicates = 0
-    const total = csvData.rows.length
-    const errorList: ImportError[] = []
-
-    for (let i = 0; i < total; i++) {
-      const row = csvData.rows[i]
-      setCurrentImportRow(i + 1)
+    const transformedContacts = csvData.rows.map((row) => {
       const contactData: Record<string, string> = {}
       columnMappings.forEach((mapping) => {
         if (mapping.contactField) {
           contactData[mapping.contactField] = row[mapping.csvColumn] || ''
         }
       })
-
-      // Skip if no phone number
-      if (!contactData.phone || contactData.phone.trim().length < 5) {
-        skipped++
-        setImportProgress(Math.round(((i + 1) / total) * 100))
-        continue
-      }
-
-      // Check for duplicates
-      const cleanedPhone = contactData.phone.replace(/[\s\-\(\)\.]/g, '')
-      if (existingPhones.has(cleanedPhone)) {
-        duplicates++
-        setImportProgress(Math.round(((i + 1) / total) * 100))
-        continue
-      }
-
-      try {
-        const res = await fetch('/api/contacts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(contactData),
-        })
-        if (res.ok) {
-          success++
-          existingPhones.add(cleanedPhone)
-        } else {
-          errors++
-          errorList.push({ row: i + 1, message: 'Server error', data: contactData.phone })
-        }
-      } catch {
-        errors++
-        errorList.push({ row: i + 1, message: 'Network error', data: contactData.phone })
-      }
-
-      setImportProgress(Math.round(((i + 1) / total) * 100))
-    }
-
-    setIsImporting(false)
-    setImportComplete(true)
-    setImportResults({ success, errors, skipped, duplicates })
-    setImportErrors(errorList)
-    addToast({
-      type: 'success',
-      title: 'Import Complete!',
-      message: `${success} imported, ${duplicates} duplicates, ${errors} errors`,
-      duration: 5000,
+      return contactData
     })
-  }, [columnMappings, csvData, addToast, existingPhones])
+
+    try {
+      const result = await importContacts(transformedContacts)
+      setImportProgress(100)
+      setImportComplete(true)
+      setImportResults(result)
+      setImportErrors([])
+      addToast({
+        type: 'success',
+        title: 'Import Complete!',
+        message: `${result.success} imported, ${result.duplicates} duplicates, ${result.skipped} skipped`,
+        duration: 5000,
+      })
+    } catch (error: unknown) {
+      addToast({ type: 'error', title: 'Import Failed', message: error instanceof Error ? error.message : 'Could not import contacts' })
+    } finally {
+      setIsImporting(false)
+    }
+  }, [columnMappings, csvData, addToast, importContacts])
 
   const handleManualImport = useCallback(async () => {
     const validEntries = manualEntries.filter(e => e.phone.trim().length >= 5)
@@ -475,63 +480,33 @@ export function ContactImportPage() {
     setImportErrors([])
     setCurrentImportRow(0)
 
-    let success = 0
-    let errors = 0
-    let skipped = 0
-    let duplicates = 0
-    const total = validEntries.length
-    const errorList: ImportError[] = []
-
-    for (let i = 0; i < total; i++) {
-      const entry = validEntries[i]
-      setCurrentImportRow(i + 1)
-
-      const cleanedPhone = entry.phone.replace(/[\s\-\(\)\.]/g, '')
-      if (existingPhones.has(cleanedPhone)) {
-        duplicates++
-        setImportProgress(Math.round(((i + 1) / total) * 100))
-        continue
-      }
-
-      try {
-        const res = await fetch('/api/contacts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: entry.name || 'Unknown',
-            phone: entry.phone,
-            email: entry.email || '',
-            company: entry.company || '',
-            tags: entry.tags || '',
-            status: 'active',
-          }),
-        })
-        if (res.ok) {
-          success++
-          existingPhones.add(cleanedPhone)
-        } else {
-          errors++
-          errorList.push({ row: i + 1, message: 'Server error', data: entry.phone })
-        }
-      } catch {
-        errors++
-        errorList.push({ row: i + 1, message: 'Network error', data: entry.phone })
-      }
-
-      setImportProgress(Math.round(((i + 1) / total) * 100))
+    setImportProgress(40)
+    try {
+      const result = await importContacts(
+        validEntries.map((entry) => ({
+          name: entry.name || 'Unknown',
+          phone: entry.phone,
+          email: entry.email || '',
+          company: entry.company || '',
+          tags: entry.tags || '',
+        }))
+      )
+      setImportProgress(100)
+      setImportComplete(true)
+      setImportResults(result)
+      setImportErrors([])
+      addToast({
+        type: 'success',
+        title: 'Import Complete!',
+        message: `${result.success} added, ${result.duplicates} duplicates, ${result.skipped} skipped`,
+        duration: 5000,
+      })
+    } catch (error: unknown) {
+      addToast({ type: 'error', title: 'Import Failed', message: error instanceof Error ? error.message : 'Could not import contacts' })
+    } finally {
+      setIsImporting(false)
     }
-
-    setIsImporting(false)
-    setImportComplete(true)
-    setImportResults({ success, errors, skipped, duplicates })
-    setImportErrors(errorList)
-    addToast({
-      type: 'success',
-      title: 'Import Complete!',
-      message: `${success} added, ${duplicates} duplicates, ${errors} errors`,
-      duration: 5000,
-    })
-  }, [manualEntries, addToast, existingPhones])
+  }, [manualEntries, addToast, importContacts])
 
   const handlePasteImport = useCallback(async () => {
     const hasPhone = pasteMappings.some((m) => m.contactField === 'phone')
@@ -546,68 +521,35 @@ export function ContactImportPage() {
     setImportErrors([])
     setCurrentImportRow(0)
 
-    let success = 0
-    let errors = 0
-    let skipped = 0
-    let duplicates = 0
-    const total = pasteRows.length
-    const errorList: ImportError[] = []
-
-    for (let i = 0; i < total; i++) {
-      const row = pasteRows[i]
-      setCurrentImportRow(i + 1)
+    const transformedContacts = pasteRows.map((row) => {
       const contactData: Record<string, string> = {}
       pasteMappings.forEach((mapping) => {
         if (mapping.contactField) {
           contactData[mapping.contactField] = row[mapping.csvColumn] || ''
         }
       })
-
-      if (!contactData.phone || contactData.phone.trim().length < 5) {
-        skipped++
-        setImportProgress(Math.round(((i + 1) / total) * 100))
-        continue
-      }
-
-      const cleanedPhone = contactData.phone.replace(/[\s\-\(\)\.]/g, '')
-      if (existingPhones.has(cleanedPhone)) {
-        duplicates++
-        setImportProgress(Math.round(((i + 1) / total) * 100))
-        continue
-      }
-
-      try {
-        const res = await fetch('/api/contacts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(contactData),
-        })
-        if (res.ok) {
-          success++
-          existingPhones.add(cleanedPhone)
-        } else {
-          errors++
-          errorList.push({ row: i + 1, message: 'Server error', data: contactData.phone })
-        }
-      } catch {
-        errors++
-        errorList.push({ row: i + 1, message: 'Network error', data: contactData.phone })
-      }
-
-      setImportProgress(Math.round(((i + 1) / total) * 100))
-    }
-
-    setIsImporting(false)
-    setImportComplete(true)
-    setImportResults({ success, errors, skipped, duplicates })
-    setImportErrors(errorList)
-    addToast({
-      type: 'success',
-      title: 'Import Complete!',
-      message: `${success} imported, ${duplicates} duplicates, ${errors} errors`,
-      duration: 5000,
+      return contactData
     })
-  }, [pasteMappings, pasteRows, addToast, existingPhones])
+
+    setImportProgress(40)
+    try {
+      const result = await importContacts(transformedContacts)
+      setImportProgress(100)
+      setImportComplete(true)
+      setImportResults(result)
+      setImportErrors([])
+      addToast({
+        type: 'success',
+        title: 'Import Complete!',
+        message: `${result.success} imported, ${result.duplicates} duplicates, ${result.skipped} skipped`,
+        duration: 5000,
+      })
+    } catch (error: unknown) {
+      addToast({ type: 'error', title: 'Import Failed', message: error instanceof Error ? error.message : 'Could not import contacts' })
+    } finally {
+      setIsImporting(false)
+    }
+  }, [pasteMappings, pasteRows, addToast, importContacts])
 
   const handleWAImport = useCallback(async () => {
     const selectedGroups = waGroups.filter(g => g.selected)
@@ -616,73 +558,51 @@ export function ContactImportPage() {
       return
     }
 
-    // Simulate importing from WA groups
-    const totalMembers = selectedGroups.reduce((sum, g) => sum + g.memberCount, 0)
-
     setIsImporting(true)
-    setImportProgress(0)
+    setImportProgress(20)
     setImportErrors([])
     setCurrentImportRow(0)
-
-    let success = 0
-    let skipped = 0
-    let duplicates = 0
-    const errorList: ImportError[] = []
-
-    // Simulate batch import from groups
-    const batchSize = 10
-    const batches = Math.ceil(totalMembers / batchSize)
-
-    for (let i = 0; i < batches; i++) {
-      setCurrentImportRow(i * batchSize)
-
-      // Simulate some contacts per batch
-      const contactsInBatch = Math.min(batchSize, totalMembers - i * batchSize)
-      for (let j = 0; j < contactsInBatch; j++) {
-        const isDuplicate = Math.random() < 0.15
-        const isError = Math.random() < 0.05
-
-        if (isDuplicate) {
-          duplicates++
-        } else if (isError) {
-          errorList.push({ row: i * batchSize + j + 1, message: 'Failed to fetch contact', data: `Group member ${i * batchSize + j + 1}` })
-        } else {
-          try {
-            const res = await fetch('/api/contacts', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                name: `Contact ${success + 1}`,
-                phone: `+1${Math.floor(2000000000 + Math.random() * 8000000000)}`,
-                tags: selectedGroups.map(g => g.name).join(','),
-                status: 'active',
-              }),
-            })
-            if (res.ok) {
-              success++
-            } else {
-              errorList.push({ row: i * batchSize + j + 1, message: 'Server error', data: `Contact ${success + 1}` })
-            }
-          } catch {
-            errorList.push({ row: i * batchSize + j + 1, message: 'Network error', data: `Contact ${success + 1}` })
-          }
-        }
+    try {
+      const tagValue = selectedGroups.map((group) => group.name).join(',')
+      const contactsFromGroups: Record<string, string>[] = []
+      for (const group of selectedGroups) {
+        if (!group.externalId) continue
+        const response = await fetch('/api/whatsapp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'get-group-participants', groupId: group.externalId }),
+        })
+        if (!response.ok) continue
+        const payload = await response.json()
+        const participants = Array.isArray(payload?.participants) ? payload.participants : []
+        participants.forEach((participant: { id?: string; phone?: string; name?: string; pushname?: string; number?: string }) => {
+          const phone = participant.phone || participant.number || participant.id || ''
+          contactsFromGroups.push({
+            name: participant.name || participant.pushname || 'WhatsApp Contact',
+            phone,
+            tags: tagValue,
+          })
+        })
       }
 
-      setImportProgress(Math.round(((i + 1) / batches) * 100))
+      setImportProgress(70)
+      const result = await importContacts(contactsFromGroups)
+      setImportProgress(100)
+      setImportComplete(true)
+      setImportResults(result)
+      setImportErrors([])
+      addToast({
+        type: 'success',
+        title: 'Import Complete!',
+        message: `${result.success} imported from ${selectedGroups.length} groups`,
+        duration: 5000,
+      })
+    } catch (error: unknown) {
+      addToast({ type: 'error', title: 'Import Failed', message: error instanceof Error ? error.message : 'Could not import group participants' })
+    } finally {
+      setIsImporting(false)
     }
-
-    setIsImporting(false)
-    setImportComplete(true)
-    setImportResults({ success, errors: errorList.length, skipped, duplicates })
-    setImportErrors(errorList)
-    addToast({
-      type: 'success',
-      title: 'Import Complete!',
-      message: `${success} imported from ${selectedGroups.length} groups`,
-      duration: 5000,
-    })
-  }, [waGroups, addToast, existingPhones])
+  }, [waGroups, addToast, importContacts])
 
   // ─── Navigation & Reset ─────────────────────────────────────────
 
@@ -706,7 +626,7 @@ export function ContactImportPage() {
     setPasteColumns([])
     setPasteRows([])
     setPasteMappings([])
-    setWaGroups(mockWAGroups.map(g => ({ ...g, selected: false })))
+    setWaGroups((prev) => prev.map((group) => ({ ...group, selected: false })))
     if (fileInputRef.current) fileInputRef.current.value = ''
   }, [])
 

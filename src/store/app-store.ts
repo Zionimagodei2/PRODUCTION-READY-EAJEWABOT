@@ -36,6 +36,7 @@ export type FeaturePage =
   | 'campaign-analytics'
   | 'bulk-scheduler'
   | 'wa-connection'
+  | 'premium-plans'
   | null
 
 interface AppState {

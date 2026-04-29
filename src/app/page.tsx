@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { Header } from '@/components/app/header'
 import { FloatingNav } from '@/components/app/floating-nav'
@@ -29,9 +30,9 @@ export default function Home() {
   const { activeTab, activeFeature } = store
 
   // Expose store for headless browser automation testing
-  if (typeof window !== 'undefined') {
+  useEffect(() => {
     (window as Record<string, unknown>).__APP_STORE__ = store
-  }
+  }, [store])
 
   const TabComponent = tabComponents[activeTab]
 

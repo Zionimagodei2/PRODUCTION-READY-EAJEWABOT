@@ -345,8 +345,10 @@ export function DashboardPage() {
   }, [])
 
   useEffect(() => {
-    fetchStats()
-    fetchHealth()
+    queueMicrotask(() => {
+      fetchStats()
+      fetchHealth()
+    })
   }, [fetchStats, fetchHealth])
 
   // Auto-refresh stats every 30 seconds

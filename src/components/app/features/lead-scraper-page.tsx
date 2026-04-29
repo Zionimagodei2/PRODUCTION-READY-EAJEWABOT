@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 import { useToastStore } from '@/store/toast-store'
+import { finishProcess, startProcess } from '@/lib/process-runtime'
 
 interface LeadResult {
   business: string
@@ -119,6 +120,15 @@ export function LeadScraperPage() {
 
   const startScrape = useCallback(async () => {
     if (!keyword.trim()) return
+    const processStart = startProcess('lead-gen')
+    if (!processStart.ok) {
+      addToast({
+        type: 'warning',
+        title: 'Concurrency limit reached',
+        message: `Maximum ${processStart.limit} concurrent operations allowed. Please wait for one to finish.`,
+      })
+      return
+    }
     setScraping(true)
     setResults([])
     setError(null)
@@ -201,6 +211,7 @@ export function LeadScraperPage() {
       addToast({ type: 'error', title: 'Network error' })
     } finally {
       setScraping(false)
+      finishProcess(processStart.process.id)
     }
   }, [keyword, location, deepScan, stealthMode, autoSave, addToast])
 

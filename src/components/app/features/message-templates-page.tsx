@@ -55,7 +55,9 @@ export function MessageTemplatesPage() {
   }
 
   useEffect(() => {
-    fetchTemplates()
+    queueMicrotask(() => {
+      fetchTemplates()
+    })
   }, [])
 
   const filtered = templates.filter(t => {

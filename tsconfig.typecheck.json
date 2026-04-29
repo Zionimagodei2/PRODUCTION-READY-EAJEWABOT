@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "src/lib/api-response.ts",
+    "src/lib/auth.ts",
+    "src/lib/feature-flags.ts",
+    "src/lib/job-queue.ts",
+    "src/lib/request-id.ts",
+    "src/lib/simple-cache.ts",
+    "src/app/api/auth/**/*.ts",
+    "src/app/api/feature-flags/route.ts",
+    "src/app/api/plans/route.ts",
+    "src/app/api/campaigns/route.ts",
+    "src/app/api/contacts/route.ts",
+    "src/app/api/contacts/import/route.ts",
+    "src/app/api/queue/process/route.ts",
+    "src/app/api/health/route.ts",
+    "src/app/api/leads/route.ts",
+    "src/app/api/settings/route.ts",
+    "src/proxy.ts"
+  ]
+}
