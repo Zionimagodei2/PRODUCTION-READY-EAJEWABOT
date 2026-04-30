@@ -121,37 +121,7 @@ const categoryConfig: Record<ResponseTemplate['category'], { label: string; colo
   support: { label: 'Support', color: '#ef4444', icon: <AlertTriangle className="w-3 h-3" /> },
 }
 
-const sampleResponses: Record<ReplyMode, { input: string; output: string }[]> = {
-  professional: [
-    { input: 'Can I get a refund?', output: 'Certainly. I can assist you with the refund process. Could you please provide your order number so I can review your request?' },
-    { input: 'When will my order arrive?', output: 'Your order is currently in transit. Based on the tracking information, estimated delivery is within 2-3 business days.' },
-  ],
-  casual: [
-    { input: 'Can I get a refund?', output: 'Hey! Absolutely, no worries 😊 Just share your order number and I\'ll sort that out for you right away!' },
-    { input: 'When will my order arrive?', output: 'It\'s on the way! Should be there in about 2-3 days. Want me to send you the tracking link? 📦' },
-  ],
-  custom: [
-    { input: 'Can I get a refund?', output: 'Based on your custom instructions, a personalized refund response would appear here.' },
-    { input: 'When will my order arrive?', output: 'Your custom personality would craft a tailored response for delivery inquiries.' },
-  ],
-  'context-aware': [
-    { input: 'Can I get a refund?', output: 'I understand this is important to you. Let me help process your refund request promptly — could you share your order details?', },
-    { input: 'When will my order arrive?', output: 'Your order should arrive in 2-3 days! I can send tracking info if you\'d like 😊', },
-  ],
-}
-
-// Simulated AI canned responses for the Live Preview
-const cannedAIResponses: Record<string, { text: string; confidence: number }> = {
-  hello: { text: 'Hello! 👋 Welcome to our support. How can I assist you today?', confidence: 96 },
-  hi: { text: 'Hi there! Great to hear from you. What can I help you with?', confidence: 97 },
-  pricing: { text: 'Our pricing starts at $19.99/month for the Starter plan. Would you like me to walk you through our options?', confidence: 94 },
-  hours: { text: 'We\'re available Mon–Fri, 9 AM – 6 PM EST. Weekend support is available via email.', confidence: 95 },
-  help: { text: 'I\'m here to help! Could you tell me more about what you need assistance with?', confidence: 92 },
-  thanks: { text: 'You\'re welcome! Don\'t hesitate to reach out anytime. 😊', confidence: 98 },
-  appointment: { text: 'I can help you schedule an appointment! Our next available slot is tomorrow at 10 AM. Would that work?', confidence: 91 },
-  refund: { text: 'I\'d be happy to help with your refund request. Could you provide your order number so I can look into it?', confidence: 93 },
-  default: { text: 'Thank you for your message. I\'m looking into this and will get back to you shortly!', confidence: 85 },
-}
+const livePreviewUnavailableMessage = 'AI preview is unavailable until a live inference endpoint is connected.'
 
 // ─── Circular Progress Component ─────────────────────────────────
 
@@ -276,10 +246,7 @@ export function AiSmartReplyPage() {
   }, [accuracy, addToast])
 
   const handleFileUpload = useCallback(() => {
-    const fakeNames = ['chat_export_jan.txt', 'whatsapp_backup.csv', 'conversation_history.json']
-    const name = fakeNames[Math.floor(Math.random() * fakeNames.length)]
-    setUploadedFiles(prev => [...prev, name])
-    addToast({ type: 'success', message: `Uploaded ${name}` })
+    addToast({ type: 'warning', message: 'Connect a real upload endpoint to import conversation files.' })
   }, [addToast])
 
   const handleRemoveFile = useCallback((name: string) => {
@@ -354,20 +321,11 @@ export function AiSmartReplyPage() {
 
     // Simulate AI thinking delay
     setTimeout(() => {
-      const input = previewInput.trim().toLowerCase()
-      let matched = cannedAIResponses.default
-      for (const [keyword, response] of Object.entries(cannedAIResponses)) {
-        if (keyword !== 'default' && input.includes(keyword)) {
-          matched = response
-          break
-        }
-      }
       const aiMsg: ChatMessage = {
         id: `a${Date.now()}`,
         role: 'ai',
-        text: matched.text,
+        text: livePreviewUnavailableMessage,
         timestamp: new Date(),
-        confidence: matched.confidence,
       }
       setPreviewMessages(prev => [...prev, aiMsg])
       setIsTyping(false)
@@ -650,20 +608,11 @@ export function AiSmartReplyPage() {
               >
                 <div className="px-3.5 pb-3.5 space-y-2.5">
                   <div className="gradient-divider" />
-                  {sampleResponses[selectedMode].map((sample, i) => (
-                    <div key={i} className="space-y-1.5">
-                      <div className="chat-bubble-received rounded-xl p-2.5 rounded-tl-sm">
-                        <p className="text-[9px] text-white/25 uppercase tracking-wider font-semibold mb-0.5">Customer</p>
-                        <p className="text-[11px] text-white/65">{sample.input}</p>
-                      </div>
-                      <div className="chat-bubble-sent rounded-xl p-2.5 rounded-tr-sm">
-                        <p className="text-[9px] text-green-400/50 uppercase tracking-wider font-semibold mb-0.5 flex items-center gap-1">
-                          <Bot className="w-2.5 h-2.5" /> AI Reply
-                        </p>
-                        <p className="text-[11px] text-white/75">{sample.output}</p>
-                      </div>
-                    </div>
-                  ))}
+                  <div className="rounded-xl p-3 border border-white/[0.08] bg-white/[0.02]">
+                    <p className="text-[11px] text-white/55">
+                      No mock samples are shown. Train the model with real conversations to preview genuine outputs.
+                    </p>
+                  </div>
                 </div>
               </motion.div>
             )}

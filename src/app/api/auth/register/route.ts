@@ -1,8 +1,9 @@
 import { ApiError, handleApiError, ok } from '@/lib/api-response'
 import { randomBytes } from 'crypto'
-import { hashPassword } from '@/lib/auth'
+
 import { db } from '@/lib/db'
 import { getRequestId } from '@/lib/request-id'
+import { supabaseSignUp } from '@/lib/supabase-auth'
 
 export async function POST(request: Request) {
   const requestId = getRequestId(request)
@@ -26,12 +27,12 @@ export async function POST(request: Request) {
       throw new ApiError('Account already exists for this email', 409)
     }
 
-    const passwordHash = hashPassword(password)
+    await supabaseSignUp(email, password, { full_name: fullName, phone })
+
     const settingsToPersist = [
       { key: 'owner_name', value: fullName },
       { key: 'owner_email', value: email },
       { key: 'owner_phone', value: phone },
-      { key: 'owner_password_hash', value: passwordHash },
       { key: 'profile_name', value: fullName },
       { key: 'profile_email', value: email },
       { key: 'business_phone', value: phone },

@@ -1,9 +1,20 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
 
+const defaultTemplateSeed = [
+  { name: 'Welcome Message', category: 'greeting', content: 'Hi {name}, welcome to our WhatsApp support. How can we help you today?', starred: true, variables: 'name' },
+  { name: 'Order Update', category: 'transaction', content: 'Hi {name}, your order {order_id} is now {status}.', starred: true, variables: 'name,order_id,status' },
+  { name: 'Promo Offer', category: 'marketing', content: 'Hello {name}! Use code {code} to get {discount}% off today.', starred: false, variables: 'name,code,discount' },
+  { name: 'Follow-up Check', category: 'follow-up', content: 'Hi {name}, just checking in if you still need help with {topic}.', starred: false, variables: 'name,topic' },
+]
+
 export async function GET() {
   try {
-    const templates = await db.messageTemplate.findMany({ orderBy: { createdAt: 'desc' } })
+    let templates = await db.messageTemplate.findMany({ orderBy: { createdAt: 'desc' } })
+    if (templates.length === 0) {
+      await db.messageTemplate.createMany({ data: defaultTemplateSeed })
+      templates = await db.messageTemplate.findMany({ orderBy: { createdAt: 'desc' } })
+    }
     return NextResponse.json(templates.map(t => ({
       ...t,
       createdAt: t.createdAt.toISOString(),

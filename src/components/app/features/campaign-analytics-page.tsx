@@ -376,7 +376,8 @@ export function CampaignAnalyticsPage() {
     const totalSent = currentData.reduce((s, d) => s + d.sent, 0)
     const totalDelivered = currentData.reduce((s, d) => s + d.delivered, 0)
     const deliveryRate = totalSent > 0 ? (totalDelivered / totalSent) * 100 : 0
-    const replyRate = 24.6 // mock
+    const totalReplies = currentData.reduce((s, d) => s + (d.replies || 0), 0)
+    const replyRate = totalDelivered > 0 ? (totalReplies / totalDelivered) * 100 : 0
     const campaignCount = activePeriod === '7d' ? 8 : activePeriod === '30d' ? 23 : activePeriod === '90d' ? 47 : 156
     return { totalSent, totalDelivered, deliveryRate, replyRate, campaignCount }
   }, [currentData, activePeriod])
