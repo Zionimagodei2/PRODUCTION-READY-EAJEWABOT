@@ -1,0 +1,24 @@
+name: Merge Conflict Guard
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  conflict-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch main
+        run: git fetch origin main:origin-main
+
+      - name: Verify branch merges cleanly into main
+        run: |
+          git config user.name "merge-guard"
+          git config user.email "merge-guard@users.noreply.github.com"
+          git merge --no-commit --no-ff origin-main
