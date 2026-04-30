@@ -4,31 +4,20 @@ import { analyzePersonality, generatePersonalityReply } from '@/lib/gemini'
 
 export async function GET() {
   try {
-    // Get the current personality profile (there should only be one)
-    let profile = await db.personalityProfile.findFirst()
-
-    if (!profile) {
-      // Create a default profile if none exists
-      profile = await db.personalityProfile.create({
-        data: {
-          tone: 'professional',
-          style: 'concise',
-          language: 'english',
-          greetingStyle: 'hello',
-          closingStyle: 'thanks',
-          emojiUsage: 'minimal',
-          formalityLevel: 5,
-          responsePatterns: 'Professional and direct',
-          samplePhrases: 'Thanks for reaching out,Let me check,I will get back to you',
-        },
-      })
-    }
+    const profile = await db.personalityProfile.findFirst()
 
     // Get auto-reply enabled setting from the Setting table
     let autoReplyEnabled = false
     const setting = await db.setting.findUnique({ where: { key: 'autoReplyEnabled' } })
     if (setting) {
       autoReplyEnabled = setting.value === 'true'
+    }
+
+    if (!profile) {
+      return NextResponse.json({
+        profile: null,
+        autoReplyEnabled,
+      })
     }
 
     return NextResponse.json({
@@ -138,24 +127,12 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Incoming message is required' }, { status: 400 })
       }
 
-      // Get the personality profile
-      let profile = await db.personalityProfile.findFirst()
-
+      const profile = await db.personalityProfile.findFirst()
       if (!profile) {
-        // Create a default profile if none exists
-        profile = await db.personalityProfile.create({
-          data: {
-            tone: 'professional',
-            style: 'concise',
-            language: 'english',
-            greetingStyle: 'hello',
-            closingStyle: 'thanks',
-            emojiUsage: 'minimal',
-            formalityLevel: 5,
-            responsePatterns: 'Professional and direct',
-            samplePhrases: 'Thanks for reaching out,Let me check,I will get back to you',
-          },
-        })
+        return NextResponse.json({
+          error: 'No personality profile available',
+          message: 'Train your personality profile before generating AI replies.',
+        }, { status: 400 })
       }
 
       // Get conversation context if contactId is provided

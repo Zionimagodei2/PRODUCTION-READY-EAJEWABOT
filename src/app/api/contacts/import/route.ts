@@ -2,6 +2,7 @@ import { ApiError, handleApiError, ok } from '@/lib/api-response'
 import { actorFromRequest, recordAuditLog } from '@/lib/audit-log'
 import { db } from '@/lib/db'
 import { getRequestId } from '@/lib/request-id'
+import { requireOwnerToken } from '@/lib/api-auth'
 
 type ImportContactInput = {
   name?: string
@@ -30,6 +31,7 @@ function normalizeEntry(entry: ImportContactInput) {
 export async function POST(request: Request) {
   const requestId = getRequestId(request)
   try {
+    await requireOwnerToken(request)
     const body = await request.json()
     const entries: ImportContactInput[] = Array.isArray(body?.contacts) ? body.contacts : []
 

@@ -1,11 +1,13 @@
 import { db } from '@/lib/db'
 import { ApiError, handleApiError, ok } from '@/lib/api-response'
 import { getRequestId } from '@/lib/request-id'
+import { requireOwnerToken } from '@/lib/api-auth'
 import { actorFromRequest, recordAuditLog } from '@/lib/audit-log'
 
 export async function GET(request: Request) {
   const requestId = getRequestId(request)
   try {
+    await requireOwnerToken(request)
     const contacts = await db.contact.findMany({ orderBy: { createdAt: 'desc' } })
     return ok(contacts, 200, requestId)
   } catch (error: unknown) {
@@ -16,6 +18,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const requestId = getRequestId(request)
   try {
+    await requireOwnerToken(request)
     const body = await request.json()
     if (!body?.name || !body?.phone) {
       throw new ApiError('Name and phone are required', 400)
@@ -54,6 +57,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   const requestId = getRequestId(request)
   try {
+    await requireOwnerToken(request)
     const body = await request.json()
     const { id, ...data } = body
     if (!id) {
@@ -82,6 +86,7 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   const requestId = getRequestId(request)
   try {
+    await requireOwnerToken(request)
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     if (!id) {
