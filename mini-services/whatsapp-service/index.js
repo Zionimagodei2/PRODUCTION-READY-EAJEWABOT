@@ -12,18 +12,21 @@
 import express from 'express';
 import cors from 'cors';
 import pino from 'pino';
-import makeWASocket, { 
-    useMultiFileAuthState, 
-    DisconnectReason,
-    delay,
-    makeCacheableSignalKeyStore,
-    Browsers,
-    fetchLatestBaileysVersion
-} from '@whiskeysockets/baileys';
+import * as baileys from '@whiskeysockets/baileys';
 import QRCode from 'qrcode';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+
+const makeWASocket = baileys.default ?? baileys.makeWASocket ?? baileys;
+const {
+    useMultiFileAuthState,
+    DisconnectReason,
+    delay,
+    makeCacheableSignalKeyStore,
+    Browsers,
+    fetchLatestBaileysVersion,
+} = baileys;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -135,7 +138,7 @@ async function initializeWhatsApp() {
         logger.info({ version }, 'Using WA Web version');
 
         sock = makeWASocket({
-            auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, logger) },
+            auth: state,
             version,
             printQRInTerminal: false,
             qrTimeout: 180000,
