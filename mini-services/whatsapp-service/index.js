@@ -12,32 +12,42 @@
 import express from 'express';
 import cors from 'cors';
 import pino from 'pino';
-import makeWASocket, { 
-    useMultiFileAuthState, 
-    DisconnectReason,
-    delay,
-    makeCacheableSignalKeyStore,
-    Browsers,
-    fetchLatestBaileysVersion
-} from '@whiskeysockets/baileys';
+import * as baileys from '@whiskeysockets/baileys';
 import QRCode from 'qrcode';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 
+const makeWASocket = baileys.default ?? baileys.makeWASocket ?? baileys;
+const {
+    useMultiFileAuthState,
+    DisconnectReason,
+    delay,
+    makeCacheableSignalKeyStore,
+    Browsers,
+    fetchLatestBaileysVersion,
+} = baileys;
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = 3003;
-const AUTH_FOLDER = path.join(__dirname, 'auth_info');
+const PORT = Number(process.env.WA_SERVICE_PORT || 3003);
+const AUTH_FOLDER = process.env.WA_AUTH_FOLDER || path.join('/tmp', 'eaje-wa-auth');
 const logger = pino({ level: 'info' });
+
+process.on('unhandledRejection', (reason) => {
+    logger.error({ reason }, 'Unhandled promise rejection in WhatsApp service');
+});
+
+process.on('uncaughtException', (error) => {
+    logger.error({ error, stack: error?.stack }, 'Uncaught exception in WhatsApp service');
+});
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Session state
 let sock = null;
 let currentQRRaw = null;
 let currentPairingCode = null;
@@ -48,7 +58,6 @@ let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
 let isInitializing = false;
 
-// LRU Cache for contacts
 function createLRUCache(maxSize) {
     const cache = new Map();
     return {
@@ -63,11 +72,19 @@ function createLRUCache(maxSize) {
 const contactsCache = createLRUCache(2000);
 const lidToPhoneCache = createLRUCache(1000);
 
-// Format phone number for WhatsApp JID
 function formatJid(phoneNumber) {
-    let cleaned = phoneNumber.replace(/\D/g, '');
-    if (phoneNumber.includes('@')) return phoneNumber;
+    const cleaned = String(phoneNumber || '').replace(/\D/g, '');
+    if (String(phoneNumber || '').includes('@')) return phoneNumber;
     return `${cleaned}@s.whatsapp.net`;
+}
+
+function ensureAuthFolder() {
+    try {
+        fs.mkdirSync(AUTH_FOLDER, { recursive: true });
+    } catch (error) {
+        logger.error({ error, stack: error?.stack, AUTH_FOLDER }, 'Failed to create auth folder');
+        throw error;
+    }
 }
 
 function clearAuthFolder() {
@@ -77,47 +94,51 @@ function clearAuthFolder() {
             fs.mkdirSync(AUTH_FOLDER, { recursive: true });
         }
     } catch (error) {
-        logger.error('Failed to clear auth folder:', error);
+        logger.error({ error, stack: error?.stack, AUTH_FOLDER }, 'Failed to clear auth folder');
     }
 }
 
-// Load LID mappings from auth folder
 function loadLidMappingsFromAuthFolder() {
     try {
         const files = fs.readdirSync(AUTH_FOLDER);
         for (const file of files) {
             const match = file.match(/^lid-mapping-(\d+)_reverse\.json$/);
-            if (match) {
-                try {
-                    const phone = JSON.parse(fs.readFileSync(`${AUTH_FOLDER}/${file}`, 'utf8'));
-                    if (phone && typeof phone === 'string') lidToPhoneCache.set(`${match[1]}@lid`, `${phone}@s.whatsapp.net`);
-                } catch {}
+            if (!match) continue;
+            try {
+                const phone = JSON.parse(fs.readFileSync(path.join(AUTH_FOLDER, file), 'utf8'));
+                if (phone && typeof phone === 'string') lidToPhoneCache.set(`${match[1]}@lid`, `${phone}@s.whatsapp.net`);
+            } catch (error) {
+                logger.warn({ error, file }, 'Failed to read LID mapping file');
             }
         }
-    } catch {}
+    } catch (error) {
+        logger.warn({ error, stack: error?.stack, AUTH_FOLDER }, 'Failed to load LID mappings');
+    }
 }
 
+ensureAuthFolder();
 loadLidMappingsFromAuthFolder();
 
-// Initialize WhatsApp connection
 async function initializeWhatsApp() {
     if (isInitializing) return;
     isInitializing = true;
-    
+
     try {
         if (sock) {
-            try { sock.ev.removeAllListeners(); await sock.end(); } catch {}
+            try { sock.ev.removeAllListeners(); await sock.end(); } catch (error) {
+                logger.warn({ error, stack: error?.stack }, 'Failed to clean up previous socket');
+            }
             sock = null;
         }
-        
-        if (!fs.existsSync(AUTH_FOLDER)) fs.mkdirSync(AUTH_FOLDER, { recursive: true });
+
+        ensureAuthFolder();
 
         const { state, saveCreds } = await useMultiFileAuthState(AUTH_FOLDER);
         const { version } = await fetchLatestBaileysVersion();
-        logger.info(`Using WA Web version: ${version?.join('.')}`);
+        logger.info({ version }, 'Using WA Web version');
 
         sock = makeWASocket({
-            auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, logger) },
+            auth: state,
             version,
             printQRInTerminal: false,
             qrTimeout: 180000,
@@ -145,26 +166,29 @@ async function initializeWhatsApp() {
 
             if (connection === 'close') {
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
+                const disconnectError = lastDisconnect?.error;
                 isConnected = false;
                 isAuthenticated = false;
                 connectionStatus = 'disconnected';
                 currentPairingCode = null;
 
-                const shouldClearAuth = statusCode === DisconnectReason.loggedOut || statusCode === 401 || statusCode === 405;
+                logger.warn({ statusCode, disconnectError, stack: disconnectError?.stack }, 'WhatsApp connection closed');
 
+                const shouldClearAuth = statusCode === DisconnectReason.loggedOut || statusCode === 401 || statusCode === 405;
                 if (shouldClearAuth) {
                     clearAuthFolder();
                     currentQRRaw = null;
                     setTimeout(initializeWhatsApp, 2000);
-                } else if (statusCode !== DisconnectReason.loggedOut) {
-                    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-                        const delayMs = Math.min(3000 * Math.pow(2, reconnectAttempts), 60000);
-                        reconnectAttempts++;
-                        logger.info(`Reconnecting in ${delayMs}ms (attempt ${reconnectAttempts})`);
-                        setTimeout(initializeWhatsApp, delayMs);
-                    } else {
-                        connectionStatus = 'error';
-                    }
+                    return;
+                }
+
+                if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                    const delayMs = Math.min(3000 * Math.pow(2, reconnectAttempts), 60000);
+                    reconnectAttempts++;
+                    logger.info({ delayMs, reconnectAttempts }, 'Reconnecting WhatsApp');
+                    setTimeout(initializeWhatsApp, delayMs);
+                } else {
+                    connectionStatus = 'error';
                 }
             } else if (connection === 'open') {
                 isConnected = true;
@@ -187,19 +211,16 @@ async function initializeWhatsApp() {
                 contactsCache.set(contact.id, { name: contact.name || '', notify: contact.notify || '', verifiedName: contact.verifiedName || '' });
                 if (contact.lid && contact.phoneNumber) lidToPhoneCache.set(contact.lid, contact.phoneNumber);
             }
-            logger.info(`Synced ${contacts.length} contacts`);
+            logger.info({ count: contacts.length }, 'Synced contacts');
         });
 
         sock.ev.on('messages.upsert', async ({ messages }) => {
             for (const msg of messages) {
-                if (!msg.key.fromMe && msg.message) {
-                    logger.debug(`Received message from ${msg.key.remoteJid}`);
-                }
+                if (!msg.key.fromMe && msg.message) logger.debug({ remoteJid: msg.key.remoteJid }, 'Received message');
             }
         });
-
     } catch (error) {
-        logger.error('Failed to initialize WhatsApp:', error);
+        logger.error({ error, stack: error?.stack, AUTH_FOLDER }, 'Failed to initialize WhatsApp');
         connectionStatus = 'error';
         setTimeout(initializeWhatsApp, 5000);
     } finally {
@@ -207,23 +228,27 @@ async function initializeWhatsApp() {
     }
 }
 
-// Wait for connection ready for pairing code
 function waitForConnectionReady(timeoutMs = 15000) {
     return new Promise((resolve, reject) => {
         if (connectionStatus === 'qr' || connectionStatus === 'connecting') return resolve();
         if (connectionStatus === 'authenticated') return reject(new Error('Already authenticated'));
         if (!sock) return reject(new Error('Socket not initialized'));
-        
+
         const timeout = setTimeout(() => reject(new Error('Connection not ready - timeout')), timeoutMs);
         const handler = (update) => {
-            if (update.connection === 'connecting' || update.qr) { clearTimeout(timeout); sock.ev.off('connection.update', handler); resolve(); }
-            else if (update.connection === 'open') { clearTimeout(timeout); sock.ev.off('connection.update', handler); reject(new Error('Already authenticated')); }
+            if (update.connection === 'connecting' || update.qr) {
+                clearTimeout(timeout);
+                sock.ev.off('connection.update', handler);
+                resolve();
+            } else if (update.connection === 'open') {
+                clearTimeout(timeout);
+                sock.ev.off('connection.update', handler);
+                reject(new Error('Already authenticated'));
+            }
         };
         sock.ev.on('connection.update', handler);
     });
 }
-
-// ============= API Routes =============
 
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString(), connection: connectionStatus });
@@ -235,8 +260,8 @@ app.post('/session/start', async (req, res) => {
         if (!sock) await initializeWhatsApp();
         await delay(2000);
         if (isAuthenticated) return res.json({ status: 'authenticated' });
-        else if (currentQRRaw) return res.json({ status: 'qr', message: 'Scan QR code to authenticate' });
-        else return res.json({ status: 'connecting', message: 'Connecting...' });
+        if (currentQRRaw) return res.json({ status: 'qr', message: 'Scan QR code to authenticate' });
+        return res.json({ status: 'connecting', message: 'Connecting...' });
     } catch (error) {
         res.status(500).json({ status: 'error', error: error.message });
     }
@@ -254,7 +279,7 @@ app.get('/session/qr', (req, res) => {
 app.post('/session/pairing-code', async (req, res) => {
     try {
         const { phoneNumber } = req.body;
-        const sanitized = (phoneNumber || '').replace(/\D/g, '');
+        const sanitized = String(phoneNumber || '').replace(/\D/g, '');
         if (!sanitized || sanitized.length < 10 || sanitized.length > 15) return res.status(400).json({ success: false, error: 'Valid phone number required (10-15 digits)' });
         if (isAuthenticated) return res.json({ success: false, error: 'Already authenticated' });
         if (!sock) await initializeWhatsApp();
@@ -272,10 +297,21 @@ app.post('/session/pairing-code', async (req, res) => {
 
 app.post('/session/logout', async (req, res) => {
     try {
-        if (sock) { try { if (isConnected && isAuthenticated) await sock.logout(); else await sock.end(); } catch {} }
+        if (sock) {
+            try {
+                if (isConnected && isAuthenticated) await sock.logout();
+                else await sock.end();
+            } catch (error) {
+                logger.warn({ error, stack: error?.stack }, 'Failed to logout cleanly');
+            }
+        }
         clearAuthFolder();
-        isConnected = false; isAuthenticated = false; connectionStatus = 'disconnected';
-        currentQRRaw = null; currentPairingCode = null; sock = null;
+        isConnected = false;
+        isAuthenticated = false;
+        connectionStatus = 'disconnected';
+        currentQRRaw = null;
+        currentPairingCode = null;
+        sock = null;
         res.json({ success: true, message: 'Logged out' });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -287,17 +323,12 @@ app.post('/message/send', async (req, res) => {
         const { phone, message } = req.body;
         if (!phone || !message) return res.status(400).json({ success: false, error: 'Phone and message required' });
         if (!isAuthenticated || !sock) return res.status(401).json({ success: false, error: 'Not authenticated' });
-        
         const jid = formatJid(phone);
         const onWhatsAppResult = await sock.onWhatsApp(jid.split('@')[0]);
         if (!onWhatsAppResult?.[0]?.exists) return res.json({ success: false, phone, error: 'Number not on WhatsApp' });
-
-        // Anti-spam: simulate typing
         try { await sock.sendPresenceUpdate('composing', jid); await delay(1000 + Math.random() * 2000); } catch {}
-        
         const result = await sock.sendMessage(jid, { text: message });
         try { sock.sendPresenceUpdate('paused', jid).catch(() => {}); } catch {}
-        
         res.json({ success: true, phone, messageId: result.key.id });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -309,7 +340,6 @@ app.post('/message/send-media', async (req, res) => {
         const { phone, message, mediaUrl, mediaBase64, mediaType, mimeType, filename } = req.body;
         if (!phone) return res.status(400).json({ success: false, error: 'Phone required' });
         if (!isAuthenticated || !sock) return res.status(401).json({ success: false, error: 'Not authenticated' });
-        
         const jid = formatJid(phone);
         const onWhatsAppResult = await sock.onWhatsApp(jid.split('@')[0]);
         if (!onWhatsAppResult?.[0]?.exists) return res.json({ success: false, phone, error: 'Number not on WhatsApp' });
@@ -317,7 +347,7 @@ app.post('/message/send-media', async (req, res) => {
         let messageContent;
         const hasMedia = mediaUrl || mediaBase64;
         if (hasMedia && mediaType) {
-            let mediaSource = mediaBase64 ? Buffer.from(mediaBase64.includes(',') ? mediaBase64.split(',')[1] : mediaBase64, 'base64') : { url: mediaUrl };
+            const mediaSource = mediaBase64 ? Buffer.from(mediaBase64.includes(',') ? mediaBase64.split(',')[1] : mediaBase64, 'base64') : { url: mediaUrl };
             switch (mediaType) {
                 case 'image': messageContent = { image: mediaSource, caption: message || '', mimetype: mimeType || 'image/jpeg' }; break;
                 case 'video': messageContent = { video: mediaSource, caption: message || '', mimetype: mimeType || 'video/mp4' }; break;
@@ -328,11 +358,9 @@ app.post('/message/send-media', async (req, res) => {
         } else {
             messageContent = { text: message || '' };
         }
-
         try { await sock.sendPresenceUpdate('composing', jid); await delay(1000 + Math.random() * 2000); } catch {}
         const result = await sock.sendMessage(jid, messageContent);
         try { sock.sendPresenceUpdate('paused', jid).catch(() => {}); } catch {}
-        
         res.json({ success: true, phone, messageId: result.key.id });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -344,7 +372,6 @@ app.post('/check/number', async (req, res) => {
         const { phone } = req.body;
         if (!phone) return res.status(400).json({ success: false, error: 'Phone required' });
         if (!isAuthenticated || !sock) return res.status(401).json({ success: false, error: 'Not authenticated' });
-        
         const cleaned = phone.replace(/\D/g, '');
         const [result] = await sock.onWhatsApp(cleaned);
         res.json({ success: true, phone, exists: (result && result.exists) || false, jid: (result && result.jid) || null });
@@ -358,8 +385,11 @@ app.get('/groups', async (req, res) => {
         if (!isAuthenticated || !sock) return res.status(401).json({ success: false, error: 'Not authenticated' });
         const groups = await sock.groupFetchAllParticipating();
         const groupList = Object.values(groups).map(g => ({
-            id: g.id, subject: g.subject || 'Unknown Group', desc: g.desc || '',
-            size: g.participants ? g.participants.length : 0, creation: g.creation || 0,
+            id: g.id,
+            subject: g.subject || 'Unknown Group',
+            desc: g.desc || '',
+            size: g.participants ? g.participants.length : 0,
+            creation: g.creation || 0,
             isCommunity: g.isCommunity || false
         }));
         res.json({ success: true, groups: groupList, total: groupList.length });
@@ -372,7 +402,6 @@ app.get('/groups/:groupId/participants', async (req, res) => {
     try {
         const { groupId } = req.params;
         if (!isAuthenticated || !sock) return res.status(401).json({ success: false, error: 'Not authenticated' });
-        
         const metadata = await sock.groupMetadata(groupId);
         if (!metadata) return res.status(404).json({ success: false, error: 'Group not found' });
 
@@ -385,8 +414,11 @@ app.get('/groups/:groupId/participants', async (req, res) => {
             }
             const cached = contactsCache.get(p.id);
             return {
-                id: p.id, phone, name: p.name || cached?.name || p.notify || '', 
-                notify: p.notify || '', admin: p.admin || null
+                id: p.id,
+                phone,
+                name: p.name || cached?.name || p.notify || '',
+                notify: p.notify || '',
+                admin: p.admin || null
             };
         });
 
@@ -401,7 +433,6 @@ app.post('/groups/create', async (req, res) => {
         const { subject, participants } = req.body;
         if (!subject) return res.status(400).json({ success: false, error: 'Group subject required' });
         if (!isAuthenticated || !sock) return res.status(401).json({ success: false, error: 'Not authenticated' });
-        
         const jids = (participants || []).map(p => formatJid(p));
         const result = await sock.groupCreate(subject, jids);
         res.json({ success: true, group: result });
@@ -410,8 +441,7 @@ app.post('/groups/create', async (req, res) => {
     }
 });
 
-// Start server
 app.listen(PORT, () => {
-    logger.info(`EAJE WhatsApp Service running on port ${PORT}`);
+    logger.info({ PORT, AUTH_FOLDER }, 'EAJE WhatsApp Service running');
     initializeWhatsApp();
 });

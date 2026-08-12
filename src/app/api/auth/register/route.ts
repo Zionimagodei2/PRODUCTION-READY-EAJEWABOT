@@ -1,5 +1,6 @@
 import { ApiError, handleApiError, ok } from '@/lib/api-response'
 import { randomBytes } from 'crypto'
+
 import { db } from '@/lib/db'
 import { getRequestId } from '@/lib/request-id'
 import { supabaseSignUp } from '@/lib/supabase-auth'
