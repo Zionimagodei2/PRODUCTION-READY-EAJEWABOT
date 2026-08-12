@@ -1,6 +1,5 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
-import { generateLeads } from '@/lib/gemini'
 import { clearCached, getCached, setCached } from '@/lib/simple-cache'
 
 interface ExtractedLead {
@@ -16,22 +15,60 @@ interface ExtractedLead {
   hasWhatsApp?: boolean
 }
 
-function normalizeLead(raw: ExtractedLead, keyword: string, location: string): ExtractedLead {
-  const phone = String(raw.phone || '').trim()
-  const digitsOnly = phone.replace(/\D/g, '')
-  const hasWhatsApp = digitsOnly.length >= 7
-  return {
-    business: String(raw.business || 'Unknown').trim(),
-    phone,
-    category: String(raw.category || keyword).trim(),
-    rating: Number(raw.rating || 0),
-    address: String(raw.address || location).trim(),
-    description: String(raw.description || '').trim(),
-    source: raw.source || 'gemini',
-    sourceName: raw.sourceName || 'Gemini AI',
-    hasWhatsApp,
-    ...(hasWhatsApp ? { whatsappLink: `https://wa.me/${digitsOnly}` } : {}),
+const PHONE_RE = /(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?)\d{3,4}[\s.-]?\d{3,4}/g
+
+function extractPhone(text: string): string {
+  const match = text.match(PHONE_RE)?.find((m) => m.replace(/\D/g, '').length >= 7)
+  return match ? match.replace(/\s+/g, ' ').trim() : ''
+}
+
+function parseDuckDuckGoResults(html: string, keyword: string, location: string): ExtractedLead[] {
+  const results: ExtractedLead[] = []
+  const blocks = html.split('<article').slice(1)
+
+  for (const block of blocks) {
+    const titleMatch = block.match(/result__a[^>]*>(.*?)<\/a>/i)
+    const snippetMatch = block.match(/result__snippet[^>]*>(.*?)<\/div>/i)
+    const linkMatch = block.match(/href="(https?:\/\/[^"]+)"/i)
+    const title = (titleMatch?.[1] || '').replace(/<[^>]*>/g, '').trim()
+    const snippet = (snippetMatch?.[1] || '').replace(/<[^>]*>/g, '').trim()
+    const url = (linkMatch?.[1] || '').trim()
+
+    if (!title) continue
+
+    const phone = extractPhone(`${title} ${snippet}`)
+    const digitsOnly = phone.replace(/\D/g, '')
+    const hasWhatsApp = digitsOnly.length >= 7
+
+    results.push({
+      business: title,
+      phone,
+      category: keyword,
+      rating: 0,
+      address: location || '',
+      description: snippet,
+      source: url || 'duckduckgo',
+      sourceName: 'DuckDuckGo',
+      hasWhatsApp,
+      ...(hasWhatsApp ? { whatsappLink: `https://wa.me/${digitsOnly}` } : {}),
+    })
   }
+
+  return results
+}
+
+async function webSearchLeads(keyword: string, location: string): Promise<ExtractedLead[]> {
+  const query = `${keyword} ${location} phone address`.trim()
+  const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0',
+      Accept: 'text/html',
+    },
+  })
+  if (!res.ok) throw new Error(`Search failed with status ${res.status}`)
+  const html = await res.text()
+  return parseDuckDuckGoResults(html, keyword, location)
 }
 
 async function autoSaveToContacts(leads: ExtractedLead[], keyword: string, location: string): Promise<number> {
@@ -49,7 +86,7 @@ async function autoSaveToContacts(leads: ExtractedLead[], keyword: string, locat
             location: lead.address || location,
             tags: `${keyword},lead-scraper,auto-saved`,
             status: 'active',
-            score: lead.rating > 0 ? Math.round(lead.rating * 20) : 50,
+            score: 50,
           },
         })
         savedCount++
@@ -99,19 +136,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Keyword is required' }, { status: 400 })
     }
 
-    const aiLeads = await generateLeads(String(keyword), String(location || ''))
-    if (!Array.isArray(aiLeads) || aiLeads.length === 0) {
-      return NextResponse.json({
-        error: 'No leads returned by AI provider',
-        message: 'Lead generation is using live AI providers. Check GEMINI_API_KEY/OPENROUTER_API_KEYS and retry.',
-      }, { status: 502 })
-    }
-    const normalized = aiLeads
-      .map((lead) => normalizeLead(lead as ExtractedLead, keyword, String(location || '')))
-      .filter((lead) => lead.business && lead.business !== 'Unknown')
+    const rawLeads = await webSearchLeads(String(keyword), String(location || ''))
 
     const seen = new Set<string>()
-    const uniqueLeads = normalized.filter((lead) => {
+    const uniqueLeads = rawLeads.filter((lead) => {
       const key = `${lead.business.toLowerCase()}::${lead.phone.replace(/\D/g, '')}`
       if (seen.has(key)) return false
       seen.add(key)
@@ -120,7 +148,7 @@ export async function POST(request: Request) {
 
     const phoneCount = uniqueLeads.filter((l) => l.phone).length
     const whatsappCount = uniqueLeads.filter((l) => l.hasWhatsApp).length
-    const sourceBreakdown = { gemini: uniqueLeads.length }
+    const sourceBreakdown = { duckduckgo: uniqueLeads.length }
 
     let autoSavedCount = 0
     if (autoSave === true) {
@@ -136,7 +164,7 @@ export async function POST(request: Request) {
         phoneCount,
         whatsappCount,
         sourceBreakdown: JSON.stringify(sourceBreakdown),
-        mode: 'gemini',
+        mode: 'web-search',
         deepScan: false,
       },
     })

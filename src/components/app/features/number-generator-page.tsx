@@ -102,9 +102,11 @@ function formatNumber(dialCode: string, digits: string, format: string): string 
   return formatted
 }
 
-function simulateWhatsAppValidity(): boolean {
-  // Simulate ~70% valid rate
-  return Math.random() < 0.7
+function validateByCountryRule(country: Country, digits: string): boolean {
+  if (digits.length !== country.digitLength) return false
+  if (!/^\d+$/.test(digits)) return false
+  if (digits.startsWith('0')) return false
+  return true
 }
 
 // --- Component ---
@@ -252,7 +254,7 @@ export function NumberGeneratorPage() {
 
         const fullNumber = country.dialCode.replace('+', '') + digits
         const formatted = formatNumber(country.dialCode, digits, country.format)
-        const isValid = simulateWhatsAppValidity()
+        const isValid = validateByCountryRule(country, digits)
 
         const entry: GeneratedNumber = {
           id: `num-${i}-${Date.now()}`,
